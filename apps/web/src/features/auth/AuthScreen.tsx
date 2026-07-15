@@ -75,7 +75,7 @@ export function AuthScreen() {
               type="button"
               className={styles.secondary}
               onClick={async () => {
-                const randomPhone = `+79000000${Math.floor(100 + Math.random() * 900)}`;
+                const randomPhone = `+790000000${Math.floor(10 + Math.random() * 90)}`;
                 await useAppStore.getState().bypassOtp(randomPhone);
               }}
               style={{ marginTop: '8px', background: 'transparent', border: '1px solid #333', color: '#8E8E93' }}
