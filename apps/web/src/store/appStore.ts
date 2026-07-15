@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import {
   INITIAL_CHATS,
   INITIAL_MESSAGES,
@@ -19,16 +20,6 @@ import type {
   ShelfItem,
   User,
 } from '../shared/types';
-
-const AUTH_KEY = 'tolk_web_auth_v2';
-
-function loadAuth(): boolean {
-  try {
-    return localStorage.getItem(AUTH_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
 
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
@@ -159,92 +150,88 @@ interface AppState {
   navigateSettings: (route: NonNullable<SettingsRoute>) => void;
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
-  isAuthenticated: loadAuth(),
-  authStep: loadAuth() ? 'done' : 'phone',
-  draftPhone: '',
-  draftName: '',
-  me: { ...ME },
-  users: { ...USERS },
-
-  mainTab: 'chats',
-  isOffline: false,
-  searchQuery: '',
-
-  chats: INITIAL_CHATS,
-  messages: INITIAL_MESSAGES,
-  posts: INITIAL_POSTS,
-  shelfItems: [],
-  echoes: [],
-  navPins: ['c_1', 'c_2'],
-
-  activeChatId: null,
-  highlightMessageId: null,
-  viewingUserId: null,
-
-  echoMode: false,
-  echoSheetOpen: false,
-  attachSheetOpen: false,
-  circleSheetOpen: false,
-  voiceRecording: false,
-  showCircleEffects: false,
-  reactionPicker: null,
-  contextMenu: null,
-  commentPostId: null,
-  forwardPostId: null,
-  shelfOpen: false,
-  newChatOpen: false,
-  replyToId: null,
-  toast: null,
-  wallSeenAt: Date.now() - 1000 * 60 * 60,
-  typingChatId: null,
-
-  settingsRoute: null,
-  reactionEmojis: REACTION_SET,
-
-  setPhone: (v) => set({ draftPhone: v }),
-  setDraftName: (v) => set({ draftName: v }),
-  submitPhone: () => {
-    if (get().draftPhone.trim().length < 6) return;
-    set({ authStep: 'otp' });
-  },
-  submitOtp: () => set({ authStep: 'profile' }),
-  submitProfile: () => {
-    const name = get().draftName.trim() || 'Некач';
-    try {
-      localStorage.setItem(AUTH_KEY, '1');
-    } catch {
-      /* */
-    }
-    const me = { ...get().me, displayName: name };
-    set({
-      isAuthenticated: true,
-      authStep: 'done',
-      me,
-      users: { ...get().users, [me.id]: me },
-      mainTab: 'chats',
-    });
-  },
-  logout: () => {
-    try {
-      localStorage.removeItem(AUTH_KEY);
-    } catch {
-      /* */
-    }
-    set({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
       isAuthenticated: false,
       authStep: 'phone',
       draftPhone: '',
       draftName: '',
-      activeChatId: null,
+      me: { ...ME },
+      users: { ...USERS },
+
       mainTab: 'chats',
-      settingsRoute: null,
-      viewingUserId: null,
+      isOffline: false,
+      searchQuery: '',
+
+      chats: INITIAL_CHATS,
+      messages: INITIAL_MESSAGES,
+      posts: INITIAL_POSTS,
+      shelfItems: [],
       echoes: [],
-      contextMenu: null,
+      navPins: ['c_1', 'c_2'],
+
+      activeChatId: null,
+      highlightMessageId: null,
+      viewingUserId: null,
+
+      echoMode: false,
+      echoSheetOpen: false,
+      attachSheetOpen: false,
+      circleSheetOpen: false,
+      voiceRecording: false,
+      showCircleEffects: false,
       reactionPicker: null,
-    });
-  },
+      contextMenu: null,
+      commentPostId: null,
+      forwardPostId: null,
+      shelfOpen: false,
+      newChatOpen: false,
+      replyToId: null,
+      toast: null,
+      wallSeenAt: Date.now() - 1000 * 60 * 60,
+      typingChatId: null,
+
+      settingsRoute: null,
+      reactionEmojis: REACTION_SET,
+
+      setPhone: (v) => set({ draftPhone: v }),
+      setDraftName: (v) => set({ draftName: v }),
+      submitPhone: () => {
+        if (get().draftPhone.trim().length < 6) return;
+        set({ authStep: 'otp' });
+      },
+      submitOtp: () => set({ authStep: 'profile' }),
+      submitProfile: () => {
+        const name = get().draftName.trim() || 'Некач';
+        const me = { ...get().me, displayName: name };
+        set({
+          isAuthenticated: true,
+          authStep: 'done',
+          me,
+          users: { ...get().users, [me.id]: me },
+          mainTab: 'chats',
+        });
+      },
+      logout: () => {
+        set({
+          isAuthenticated: false,
+          authStep: 'phone',
+          draftPhone: '',
+          draftName: '',
+          activeChatId: null,
+          mainTab: 'chats',
+          settingsRoute: null,
+          viewingUserId: null,
+          contextMenu: null,
+          reactionPicker: null,
+          chats: INITIAL_CHATS,
+          messages: INITIAL_MESSAGES,
+          posts: INITIAL_POSTS,
+          shelfItems: [],
+          echoes: [],
+        });
+      },
   updateMe: (patch) => {
     const me = { ...get().me, ...patch };
     set({ me, users: { ...get().users, [me.id]: me } });
@@ -676,6 +663,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   openSettings: () => set({ settingsRoute: 'hub', viewingUserId: null }),
   closeSettings: () => set({ settingsRoute: null }),
   navigateSettings: (route) => set({ settingsRoute: route }),
-}));
+    }),
+    {
+      name: 'tolk-web-state',
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        authStep: state.authStep,
+        me: state.me,
+        users: state.users,
+        chats: state.chats,
+        messages: state.messages,
+        posts: state.posts,
+        shelfItems: state.shelfItems,
+        echoes: state.echoes,
+        navPins: state.navPins,
+        wallSeenAt: state.wallSeenAt,
+      }),
+    }
+  )
+);
 
 export { BANNER_PATTERNS, CHAT_THEMES, REACTION_SET };

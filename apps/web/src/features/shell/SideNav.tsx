@@ -55,10 +55,15 @@ export function SideNav() {
 
   return (
     <aside className={styles.root} aria-label="Навигация">
-      <div className={styles.brand} onClick={() => setMainTab('chats')}>
+      <button
+        type="button"
+        className={styles.brand}
+        onClick={() => setMainTab('chats')}
+        title="Перейти к чатам"
+      >
         <span className={styles.logo}>Т</span>
         <span className={styles.brandName}>Толк.</span>
-      </div>
+      </button>
 
       <nav className={styles.nav}>
         {TABS.map((tab) => {
