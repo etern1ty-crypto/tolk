@@ -16,6 +16,7 @@ audience: [developer]
 5. P0: [[User_Wall]] · [[Chat_Shelf]] · [[Living_Profiles]] · [[Echoes]]  
 6. UI: [[Spatial_UI]] · [[Gesture_Mapping]] · [[Visual_Language]] · [[Platform_Differences]]  
 7. Connection: [[Backend_and_Frontend_Connect]] — интеграция фронтенда и бэкенда  
+8. Deployment: [[Deploy_Tutorial]] — деплоймент туториал для продакшна  
 
 Не начинать с Live Thoughts / Whispers / pulse, пока нет auth + send + list.
 
