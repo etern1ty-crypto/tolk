@@ -228,6 +228,7 @@ interface AppState {
   setDraftName: (v: string) => void;
   submitPhone: () => Promise<void>;
   submitOtp: (code: string) => Promise<void>;
+  bypassOtp: (phone: string) => Promise<void>;
   submitProfile: () => Promise<void>;
   logout: () => Promise<void>;
   updateMe: (patch: Partial<User>) => Promise<void>;
@@ -345,20 +346,20 @@ export const useAppStore = create<AppState>()(
       setPhone: (v) => set({ draftPhone: v }),
       setDraftName: (v) => set({ draftName: v }),
       submitPhone: async () => {
-        const phone = get().draftPhone.trim().replace(/\s+/g, '');
+        const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
         if (phone.length < 6) return;
         try {
           await fetchApi('/auth/otp/request', {
             method: 'POST',
             body: JSON.stringify({ phone }),
           });
-          set({ authStep: 'otp' });
+          set({ authStep: 'otp', draftPhone: phone });
         } catch (err: any) {
           get().showToast(err.message || 'Ошибка отправки OTP');
         }
       },
       submitOtp: async (code) => {
-        const phone = get().draftPhone.trim().replace(/\s+/g, '');
+        const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
         try {
           const res = await fetchApi('/auth/otp/verify', {
             method: 'POST',
@@ -368,10 +369,32 @@ export const useAppStore = create<AppState>()(
             token: res.access_token,
             me: res.user,
             authStep: 'profile',
+            draftPhone: phone,
             draftName: res.user.displayName || '',
           });
         } catch (err: any) {
           get().showToast(err.message || 'Неверный код');
+        }
+      },
+      bypassOtp: async (phone) => {
+        try {
+          await fetchApi('/auth/otp/request', {
+            method: 'POST',
+            body: JSON.stringify({ phone }),
+          });
+          const res = await fetchApi('/auth/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ phone, code: '1234' }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'profile',
+            draftPhone: phone,
+            draftName: res.user.displayName || '',
+          });
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка обхода OTP');
         }
       },
       submitProfile: async () => {
