@@ -422,7 +422,10 @@ export function ChatPanel() {
         <input
           className={styles.input}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            useAppStore.getState().sendTypingPresence();
+          }}
           placeholder={replyMsg ? 'Ответ…' : 'Сообщение'}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {

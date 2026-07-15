@@ -17,10 +17,15 @@ import { Toast } from './features/shell/Toast';
 import { useAppStore } from './store/appStore';
 import { AMBIENT_PATTERN } from './shared/patterns';
 import { PatternBg } from './shared/ui/PatternBg';
+import { useEffect } from 'react';
 import styles from './App.module.css';
 
 export default function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    useAppStore.getState().initApi();
+  }, []);
 
   if (!isAuthenticated) {
     return (

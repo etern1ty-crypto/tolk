@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  INITIAL_CHATS,
-  INITIAL_MESSAGES,
   INITIAL_POSTS,
   MEDIA_PRESETS,
   ME,
@@ -21,6 +19,150 @@ import type {
   User,
 } from '../shared/types';
 
+const API_URL = 'http://localhost:3000';
+
+async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
+  const headers = new Headers(options.headers || {});
+  headers.set('Content-Type', 'application/json');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers,
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorObj;
+    try {
+      errorObj = JSON.parse(errorText);
+    } catch {
+      errorObj = { error: errorText };
+    }
+    throw new Error(errorObj.error || `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+let activeSocket: WebSocket | null = null;
+let lastTypingSent = 0;
+let typingTimeout: number | undefined;
+
+function connectWebSocket(token: string, store: any) {
+  if (activeSocket) {
+    activeSocket.close();
+  }
+  
+  const wsUrl = `ws://localhost:3000/ws?token=${token}`;
+  const ws = new WebSocket(wsUrl);
+  activeSocket = ws;
+  
+  ws.onopen = () => {
+    console.log('[WS] Connected');
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      const { event: wsEvent, data } = payload;
+      
+      if (wsEvent === 'message.created') {
+        const { messages, chats, activeChatId } = store.getState();
+        if (messages.some((m: any) => m.id === data.id || m.client_id === data.client_id)) {
+          store.setState({
+            messages: messages.map((m: any) => 
+              (m.id === data.id || m.client_id === data.client_id) 
+                ? { ...m, id: data.id, seq: data.seq, status: 'sent', createdAt: data.createdAt } 
+                : m
+            )
+          });
+          return;
+        }
+        
+        const newMsg: Message = {
+          id: data.id,
+          chatId: data.chatId,
+          senderId: data.senderId,
+          kind: data.kind,
+          text: data.text,
+          status: 'sent',
+          createdAt: data.createdAt,
+          isEcho: data.isEcho,
+          replyToId: data.replyToId,
+          reactions: {},
+        };
+        
+        const updatedChats = chats.map((c: any) => {
+          if (c.id === data.chatId) {
+            const preview = data.isEcho ? `Echo: ${data.text}` : (data.kind === 'text' ? data.text : `[${data.kind}]`);
+            const timeLabel = new Date(data.createdAt).toLocaleTimeString('ru-RU', {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+            return {
+              ...c,
+              preview,
+              timeLabel,
+              unread: activeChatId === data.chatId ? 0 : c.unread + 1
+            };
+          }
+          return c;
+        });
+        
+        store.setState({
+          messages: [...messages, newMsg],
+          chats: updatedChats
+        });
+        
+        if (data.senderId !== store.getState().me.id && !store.getState().users[data.senderId]) {
+          const newUser = {
+            id: data.senderId,
+            username: `user_${data.senderId.slice(-6)}`,
+            displayName: `Пользователь`,
+            bio: '',
+            bannerPatternId: 'mint_wave',
+          };
+          store.setState({
+            users: { ...store.getState().users, [data.senderId]: newUser }
+          });
+        }
+      } else if (wsEvent === 'presence.typing') {
+        const { activeChatId } = store.getState();
+        if (activeChatId === data.chat_id && data.user_id !== store.getState().me.id) {
+          store.setState({ typingChatId: data.chat_id });
+          if (typingTimeout) clearTimeout(typingTimeout);
+          typingTimeout = window.setTimeout(() => {
+            if (store.getState().typingChatId === data.chat_id) {
+              store.setState({ typingChatId: null });
+            }
+          }, 2200);
+        }
+      } else if (wsEvent === 'session.revoked') {
+        store.getState().logout();
+      }
+    } catch (err) {
+      console.error('[WS] Error processing message:', err);
+    }
+  };
+  
+  ws.onclose = (event) => {
+    console.log('[WS] Connection closed:', event.code, event.reason);
+    activeSocket = null;
+    if (store.getState().token) {
+      window.setTimeout(() => {
+        if (store.getState().token) {
+          connectWebSocket(store.getState().token, store);
+        }
+      }, 5000);
+    }
+  };
+  
+  ws.onerror = (err) => {
+    console.error('[WS] Connection error:', err);
+  };
+}
+
 function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -35,6 +177,7 @@ function formatTime(ts: number) {
 const REACTION_SET = ['👍', '❤️', '🔥', '😂', '😮', '👏'];
 
 interface AppState {
+  token: string | null;
   isAuthenticated: boolean;
   authStep: AuthStep;
   draftPhone: string;
@@ -83,24 +226,27 @@ interface AppState {
 
   setPhone: (v: string) => void;
   setDraftName: (v: string) => void;
-  submitPhone: () => void;
-  submitOtp: () => void;
-  submitProfile: () => void;
-  logout: () => void;
-  updateMe: (patch: Partial<User>) => void;
+  submitPhone: () => Promise<void>;
+  submitOtp: (code: string) => Promise<void>;
+  submitProfile: () => Promise<void>;
+  logout: () => Promise<void>;
+  updateMe: (patch: Partial<User>) => Promise<void>;
   setBannerPattern: (id: string) => void;
   setChatTheme: (chatId: string, themeId: string) => void;
 
+  initApi: () => Promise<void>;
+  sendTypingPresence: () => void;
+
   setMainTab: (tab: MainTab) => void;
-  setActiveChat: (id: string | null) => void;
+  setActiveChat: (id: string | null) => Promise<void>;
   openUserProfile: (userId: string) => void;
   closeUserProfile: () => void;
-  startChatWithUser: (userId: string) => void;
+  startChatWithUser: (userId: string) => Promise<void>;
   setNewChatOpen: (v: boolean) => void;
   toggleNavPin: (chatId: string) => void;
 
   setSearchQuery: (q: string) => void;
-  sendMessage: (text: string) => void;
+  sendMessage: (text: string) => Promise<void>;
   sendVoiceMock: () => void;
   sendCircleMock: () => void;
   retryMessage: (id: string) => void;
@@ -153,6 +299,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
+      token: null,
       isAuthenticated: false,
       authStep: 'phone',
       draftPhone: '',
@@ -164,12 +311,12 @@ export const useAppStore = create<AppState>()(
       isOffline: false,
       searchQuery: '',
 
-      chats: INITIAL_CHATS,
-      messages: INITIAL_MESSAGES,
+      chats: [],
+      messages: [],
       posts: INITIAL_POSTS,
       shelfItems: [],
       echoes: [],
-      navPins: ['c_1', 'c_2'],
+      navPins: [],
 
       activeChatId: null,
       highlightMessageId: null,
@@ -197,24 +344,72 @@ export const useAppStore = create<AppState>()(
 
       setPhone: (v) => set({ draftPhone: v }),
       setDraftName: (v) => set({ draftName: v }),
-      submitPhone: () => {
-        if (get().draftPhone.trim().length < 6) return;
-        set({ authStep: 'otp' });
+      submitPhone: async () => {
+        const phone = get().draftPhone.trim().replace(/\s+/g, '');
+        if (phone.length < 6) return;
+        try {
+          await fetchApi('/auth/otp/request', {
+            method: 'POST',
+            body: JSON.stringify({ phone }),
+          });
+          set({ authStep: 'otp' });
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка отправки OTP');
+        }
       },
-      submitOtp: () => set({ authStep: 'profile' }),
-      submitProfile: () => {
-        const name = get().draftName.trim() || 'Некач';
-        const me = { ...get().me, displayName: name };
-        set({
-          isAuthenticated: true,
-          authStep: 'done',
-          me,
-          users: { ...get().users, [me.id]: me },
-          mainTab: 'chats',
-        });
+      submitOtp: async (code) => {
+        const phone = get().draftPhone.trim().replace(/\s+/g, '');
+        try {
+          const res = await fetchApi('/auth/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ phone, code }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'profile',
+            draftName: res.user.displayName || '',
+          });
+        } catch (err: any) {
+          get().showToast(err.message || 'Неверный код');
+        }
       },
-      logout: () => {
+      submitProfile: async () => {
+        const name = get().draftName.trim() || 'Пользователь';
+        try {
+          const res = await fetchApi('/me', {
+            method: 'PATCH',
+            body: JSON.stringify({ displayName: name }),
+          }, get().token);
+          
+          set({
+            isAuthenticated: true,
+            authStep: 'done',
+            me: res,
+            users: { ...get().users, [res.id]: res },
+            mainTab: 'chats',
+          });
+          
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка обновления профиля');
+        }
+      },
+      logout: async () => {
+        const token = get().token;
+        if (token) {
+          try {
+            await fetchApi('/auth/logout', { method: 'POST' }, token);
+          } catch (e) {
+            console.error('Logout request failed:', e);
+          }
+        }
+        if (activeSocket) {
+          activeSocket.close();
+          activeSocket = null;
+        }
         set({
+          token: null,
           isAuthenticated: false,
           authStep: 'phone',
           draftPhone: '',
@@ -225,17 +420,28 @@ export const useAppStore = create<AppState>()(
           viewingUserId: null,
           contextMenu: null,
           reactionPicker: null,
-          chats: INITIAL_CHATS,
-          messages: INITIAL_MESSAGES,
+          chats: [],
+          messages: [],
           posts: INITIAL_POSTS,
           shelfItems: [],
           echoes: [],
         });
       },
-  updateMe: (patch) => {
-    const me = { ...get().me, ...patch };
-    set({ me, users: { ...get().users, [me.id]: me } });
-  },
+      updateMe: async (patch) => {
+        const token = get().token;
+        try {
+          const res = await fetchApi('/me', {
+            method: 'PATCH',
+            body: JSON.stringify(patch),
+          }, token);
+          set({
+            me: res,
+            users: { ...get().users, [res.id]: res }
+          });
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка сохранения профиля');
+        }
+      },
   setBannerPattern: (id) => get().updateMe({ bannerPatternId: id }),
 
   setChatTheme: (chatId, themeId) =>
@@ -255,7 +461,7 @@ export const useAppStore = create<AppState>()(
     if (tab === 'wall') get().markWallSeen();
   },
 
-  setActiveChat: (id) =>
+  setActiveChat: async (id) => {
     set({
       activeChatId: id,
       mainTab: 'chats',
@@ -263,43 +469,54 @@ export const useAppStore = create<AppState>()(
       reactionPicker: null,
       replyToId: null,
       chats: get().chats.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
-    }),
+    });
+    if (id) {
+      try {
+        const msgs = await fetchApi(`/chats/${id}/messages`, {}, get().token);
+        set({ messages: msgs });
+      } catch (err) {
+        console.error('Failed to fetch messages:', err);
+        get().showToast('Не удалось загрузить сообщения');
+      }
+    }
+  },
 
   openUserProfile: (userId) => set({ viewingUserId: userId, settingsRoute: null }),
   closeUserProfile: () => set({ viewingUserId: null }),
 
-  startChatWithUser: (userId) => {
+  startChatWithUser: async (userId) => {
     if (userId === get().me.id) {
       set({ viewingUserId: null, mainTab: 'profile' });
       return;
     }
-    const existing = get().chats.find((c) => c.type === 'dm' && c.peerId === userId);
-    if (existing) {
-      set({
-        viewingUserId: null,
+    try {
+      const res = await fetchApi('/chats/dm', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: userId }),
+      }, get().token);
+      
+      const existing = get().chats.find((c) => c.id === res.id);
+      if (existing) {
+        set({
+          viewingUserId: null,
+          mainTab: 'chats',
+          activeChatId: res.id,
+        });
+        const msgs = await fetchApi(`/chats/${res.id}/messages`, {}, get().token);
+        set({ messages: msgs });
+        return;
+      }
+      
+      set((s) => ({
+        chats: [res, ...s.chats],
+        activeChatId: res.id,
         mainTab: 'chats',
-        activeChatId: existing.id,
-      });
-      return;
+        viewingUserId: null,
+        messages: [],
+      }));
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка создания чата');
     }
-    const user = get().users[userId];
-    if (!user) return;
-    const chat: Chat = {
-      id: uid('c'),
-      type: 'dm',
-      title: user.displayName,
-      preview: '',
-      unread: 0,
-      timeLabel: 'сейчас',
-      online: user.online,
-      peerId: userId,
-    };
-    set((s) => ({
-      chats: [chat, ...s.chats],
-      activeChatId: chat.id,
-      mainTab: 'chats',
-      viewingUserId: null,
-    }));
   },
 
   setSearchQuery: (q) => set({ searchQuery: q }),
@@ -337,7 +554,7 @@ export const useAppStore = create<AppState>()(
     }, 2200);
   },
 
-  sendMessage: (text) => {
+  sendMessage: async (text) => {
     const t = text.trim();
     const chatId = get().activeChatId;
     if (!t || !chatId) return;
@@ -391,19 +608,89 @@ export const useAppStore = create<AppState>()(
         ],
       }));
     }
-    if (!offline) {
-      window.setTimeout(() => {
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === id ? { ...m, status: 'sent' } : m
-          ),
-        }));
-      }, 350);
-      // light peer typing mock on send
-      if (Math.random() > 0.55) {
-        window.setTimeout(() => get().simulatePeerTyping(chatId), 600);
+    if (offline) {
+      return;
+    }
+    try {
+      const res = await fetchApi(`/chats/${chatId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({
+          client_id: id,
+          kind: 'text',
+          text: t,
+          reply_to: replyToId || undefined,
+          is_echo: isEcho,
+        }),
+      }, get().token);
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                id: res.id,
+                seq: res.seq,
+                status: 'sent',
+                createdAt: res.createdAt,
+              }
+            : m
+        ),
+      }));
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === id ? { ...m, status: 'failed' } : m
+        ),
+      }));
+      get().showToast('Не удалось отправить сообщение');
+    }
+  },
+
+  initApi: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      connectWebSocket(token, useAppStore);
+      const mePayload = await fetchApi('/me', {}, token);
+      set({ me: mePayload });
+      
+      const usersList = await fetchApi('/users', {}, token);
+      const usersMap = usersList.reduce((acc: Record<string, User>, u: User) => {
+        acc[u.id] = u;
+        return acc;
+      }, {});
+      usersMap[mePayload.id] = mePayload;
+      
+      const chatsList = await fetchApi('/chats', {}, token);
+      set({
+        users: usersMap,
+        chats: chatsList,
+      });
+      
+      const activeId = get().activeChatId;
+      if (activeId) {
+        const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
+        set({ messages: msgs });
+      }
+    } catch (err: any) {
+      console.error('API initialization failed:', err);
+      get().showToast('Ошибка подключения к серверу');
+      if (err.message.includes('401') || err.message.includes('419') || err.message.includes('expired')) {
+        get().logout();
       }
     }
+  },
+
+  sendTypingPresence: () => {
+    const chatId = get().activeChatId;
+    if (!chatId || !activeSocket || activeSocket.readyState !== 1) return;
+    const now = Date.now();
+    if (now - lastTypingSent < 1500) return;
+    lastTypingSent = now;
+    activeSocket.send(JSON.stringify({
+      event: 'presence.typing',
+      data: { chat_id: chatId }
+    }));
   },
 
   sendVoiceMock: () => {
@@ -667,6 +954,7 @@ export const useAppStore = create<AppState>()(
     {
       name: 'tolk-web-state',
       partialize: (state) => ({
+        token: state.token,
         isAuthenticated: state.isAuthenticated,
         authStep: state.authStep,
         me: state.me,

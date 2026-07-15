@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../store/appStore';
 import styles from './AuthScreen.module.css';
@@ -11,6 +12,8 @@ export function AuthScreen() {
   const submitPhone = useAppStore((s) => s.submitPhone);
   const submitOtp = useAppStore((s) => s.submitOtp);
   const submitProfile = useAppStore((s) => s.submitProfile);
+
+  const [otp, setOtp] = useState('1234');
 
   return (
     <div className={styles.root}>
@@ -76,7 +79,7 @@ export function AuthScreen() {
             className={styles.form}
             onSubmit={(e) => {
               e.preventDefault();
-              submitOtp();
+              submitOtp(otp);
             }}
           >
             <label className={styles.label} htmlFor="otp">
@@ -88,7 +91,8 @@ export function AuthScreen() {
               type="text"
               inputMode="numeric"
               placeholder="••••"
-              defaultValue="1234"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
               autoFocus
             />
             <button type="submit" className={styles.primary}>
