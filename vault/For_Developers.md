@@ -47,13 +47,15 @@ audience: [developer]
 ## Предлагаемая структура монорепо
 ```
 /apps
-  /mobile          # RN client
-  /api             # public API + ws gateway
+  /web             # Vite React (есть)
+  /mobile          # Expo RN (iOS+Android) — см. docs/MOBILE_PREP.md
+  /api             # public API + ws gateway — см. docs/BACKEND_AGENT_PROMPT.md
   /worker          # media, push, outbox drain helpers
 /packages
-  /protocol        # OpenAPI / protobuf + event types
-  /shared          # ids, validators
-/docs              # = этот vault или экспорт
+  /protocol        # OpenAPI + event types (есть skeleton)
+  /ui-tokens       # optional shared tokens
+/vault             # product SoT
+/docs              # eng notes + agent prompts
 ```
 
 ## Контракты (минимум событий)

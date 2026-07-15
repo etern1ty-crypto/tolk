@@ -2,8 +2,11 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
+import { PatternBg } from '../../shared/ui/PatternBg';
+import { iconProps } from '../../shared/ui/icons';
 import styles from './PeerProfile.module.css';
 
 function rel(ts: number) {
@@ -26,6 +29,9 @@ export function PeerProfile() {
 
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
+  const banner = user
+    ? patternById(BANNER_PATTERNS, user.bannerPatternId)
+    : BANNER_PATTERNS[0]!;
 
   const list = useMemo(
     () =>
@@ -44,7 +50,6 @@ export function PeerProfile() {
       role="presentation"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
     >
       <motion.div
         className={styles.panel}
@@ -54,14 +59,15 @@ export function PeerProfile() {
         animate={{ x: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 380, damping: 34 }}
       >
-        <div className={styles.banner} style={{ background: user.banner }}>
-          <div className={styles.bannerOverlay} />
-          <IconBtn
-            className={styles.close}
-            onClick={closeUserProfile}
-            aria-label="Назад"
-          >
-            <ArrowLeft size={18} />
+        <div className={styles.banner}>
+          <PatternBg
+            pattern={banner}
+            seed={user.id}
+            density="high"
+            className={styles.bannerFill}
+          />
+          <IconBtn className={styles.close} onClick={closeUserProfile} aria-label="Назад">
+            <ArrowLeft size={18} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
         </div>
         <div className={styles.avatarWrap}>
@@ -88,7 +94,7 @@ export function PeerProfile() {
               className={styles.cta}
               onClick={() => startChatWithUser(user.id)}
             >
-              <MessageCircle size={17} />
+              <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
               Написать
             </button>
           )}
@@ -96,18 +102,28 @@ export function PeerProfile() {
           {list.length === 0 ? (
             <p className={styles.empty}>Пока тихо.</p>
           ) : (
-            list.map((p) => (
-              <article key={p.id} className={styles.post}>
-                <time>{rel(p.createdAt)}</time>
-                {p.media && (
-                  <div
-                    className={styles.media}
-                    style={{ background: p.media.src }}
-                  />
-                )}
-                {p.text ? <p>{p.text}</p> : null}
-              </article>
-            ))
+            list.map((p) => {
+              const mediaPat =
+                p.media?.kind === 'pattern'
+                  ? patternById(MEDIA_PATTERNS, p.media.patternId, MEDIA_PATTERNS[0]!)
+                  : null;
+              return (
+                <article key={p.id} className={styles.post}>
+                  <time>{rel(p.createdAt)}</time>
+                  {mediaPat && (
+                    <div className={styles.media}>
+                      <PatternBg
+                        pattern={mediaPat}
+                        seed={p.id}
+                        density="mid"
+                        className={styles.mediaFill}
+                      />
+                    </div>
+                  )}
+                  {p.text ? <p>{p.text}</p> : null}
+                </article>
+              );
+            })
           )}
         </div>
       </motion.div>

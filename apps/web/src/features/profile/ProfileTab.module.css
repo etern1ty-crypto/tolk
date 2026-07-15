@@ -1,38 +1,110 @@
-/* Profile + posts: timeline hairlines, no boxed cards */
-
 .root {
   height: 100%;
   overflow-y: auto;
-  background: var(--bg-primary);
+  background: var(--bg-surface);
   padding-bottom: 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1023px) {
+  .root {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .banner {
   position: relative;
-  height: 160px;
+  height: 168px;
 }
 
-.bannerOverlay {
-  position: absolute;
+.bannerFill {
+  position: absolute !important;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.05) 0%,
-    rgba(11, 11, 12, 0.45) 100%
-  );
+  width: 100%;
+  height: 100%;
 }
 
 .bannerActions {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 1;
+  z-index: 3;
+}
+
+.menuWrap {
+  position: relative;
 }
 
 .bannerActions button {
-  background: rgba(0, 0, 0, 0.35) !important;
+  background: rgba(0, 0, 0, 0.4) !important;
   color: #fff !important;
   backdrop-filter: blur(8px);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 168px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg-elevated, var(--bg-surface));
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 10;
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  background: transparent !important;
+  backdrop-filter: none;
+}
+
+.menu button:hover {
+  background: var(--bg-hover) !important;
+}
+
+.panel {
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 0;
+}
+
+.panelHead h2 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.panelClose {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.panelClose:hover {
+  background: var(--bg-hover);
 }
 
 .avatarWrap {
@@ -40,12 +112,12 @@
   justify-content: center;
   margin-top: -48px;
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .avatarWrap > span {
   border: 3px solid var(--bg-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
 }
 
 .info {
@@ -77,10 +149,9 @@
 
 .link {
   margin-left: 8px;
-  color: var(--text-secondary);
+  color: var(--accent-ice);
   font-size: 12px;
   font-weight: 700;
-  text-decoration: underline;
 }
 
 .bioEdit {
@@ -99,13 +170,12 @@
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
   padding: 8px 0;
   font-size: 15px;
 }
 
 .bioEdit textarea:focus {
-  border-bottom-color: rgba(255, 255, 255, 0.35);
+  border-bottom-color: rgba(255, 255, 255, 0.3);
 }
 
 .saveBio,
@@ -113,8 +183,8 @@
   align-self: flex-end;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  background: #f5f5f5;
-  color: #0a0a0a;
+  background: #f4f4f5;
+  color: #0a0a0b;
   font-weight: 750;
   font-size: 13px;
   box-shadow: none;
@@ -126,12 +196,11 @@
 
 .section h2 {
   margin: 0;
-  padding: 12px 16px 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  padding: 14px 16px 10px;
+  font-size: 15px;
+  color: var(--text-primary);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: -0.02em;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -139,33 +208,53 @@
   display: flex;
   gap: 10px;
   padding: 12px 16px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
 }
 
 .swatch,
 .swatchActive {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  position: relative;
+  width: 72px;
+  height: 56px;
+  border-radius: 12px;
   border: 2px solid transparent;
-  box-shadow: none;
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.swatchFill {
+  position: absolute !important;
+  inset: 0;
+}
+
+.swatchLabel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px 2px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  color: #fff;
 }
 
 .swatch:hover {
-  transform: scale(1.05);
+  transform: scale(1.04);
 }
 
 .swatchActive {
-  border-color: #f5f5f5;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: none;
 }
 
-/* Compose — open field, hairline bottom only */
 .composeCard {
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
   padding: 12px 16px 14px;
   display: flex;
   flex-direction: column;
@@ -178,15 +267,9 @@
   min-height: 56px;
   background: transparent;
   border: none;
-  border-radius: 0;
   padding: 4px 0;
   font-size: 17px;
   line-height: 1.4;
-}
-
-.composeCard textarea:focus {
-  outline: none;
-  box-shadow: none;
 }
 
 .composeCard textarea::placeholder {
@@ -203,9 +286,7 @@
 }
 
 .check input {
-  width: 15px;
-  height: 15px;
-  accent-color: #f5f5f5;
+  accent-color: #f4f4f5;
 }
 
 .mediaBtn,
@@ -230,7 +311,7 @@
 
 .mediaOn {
   color: var(--text-primary);
-  background: var(--bg-hover);
+  background: var(--bg-active);
 }
 
 .publish {
@@ -241,16 +322,14 @@
 
 .publish:disabled {
   opacity: 0.35;
+  box-shadow: none;
 }
 
-/* Posts — timeline rows */
 .post {
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
   padding: 14px 16px;
-  margin-bottom: 0;
   transition: background var(--dur-fast);
 }
 
@@ -274,9 +353,6 @@
 
 .tag {
   flex: 1;
-  padding: 0;
-  border-radius: 0;
-  border: none;
   color: var(--text-tertiary);
   font-weight: 500;
 }
@@ -294,15 +370,24 @@
 }
 
 .postTop button:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--accent-danger-dim);
+  color: var(--accent-danger);
 }
 
 .media {
   margin-top: 10px;
   height: 160px;
   border-radius: 16px;
+  overflow: hidden;
   border: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+.mediaFill {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .empty {

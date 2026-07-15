@@ -15,6 +15,8 @@ export function ChatList() {
   const setActiveChat = useAppStore((s) => s.setActiveChat);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
   const setNewChatOpen = useAppStore((s) => s.setNewChatOpen);
+  const navPins = useAppStore((s) => s.navPins);
+  const toggleNavPin = useAppStore((s) => s.toggleNavPin);
   const isOffline = useAppStore((s) => s.isOffline);
   const toggleOffline = useAppStore((s) => s.toggleOffline);
 
@@ -74,6 +76,11 @@ export function ChatList() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(i * 0.03, 0.2), duration: 0.28 }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              toggleNavPin(chat.id);
+            }}
+            title="ПКМ — закрепить в боковой панели"
           >
             <button
               type="button"
@@ -91,7 +98,9 @@ export function ChatList() {
               <div className={styles.meta}>
                 <div className={styles.rowTop}>
                   <span className={styles.name}>
-                    {chat.pinned && <span className={styles.pin}>Pinned</span>}
+                    {(chat.pinned || navPins.includes(chat.id)) && (
+                      <span className={styles.pin}>📌</span>
+                    )}
                     {chat.title}
                     {chat.muted && <span className={styles.muted}>muted</span>}
                   </span>

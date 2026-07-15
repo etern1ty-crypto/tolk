@@ -1,0 +1,225 @@
+/* Minimal left rail — no green pill boxes */
+
+.root {
+  display: none;
+  width: var(--sidebar-width, 188px);
+  flex-shrink: 0;
+  height: 100%;
+  flex-direction: column;
+  padding: 14px 10px 12px;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  z-index: 5;
+}
+
+@media (min-width: 1024px) {
+  .root {
+    display: flex;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 20px;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.brand:hover {
+  background: var(--bg-hover);
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--text-on-accent);
+  background: #f4f4f5;
+}
+
+.brandName {
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pins {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+
+.pinsLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.pinsEmpty {
+  margin: 0;
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.pin,
+.pinActive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 10px;
+  text-align: left;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.pin:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pinActive {
+  color: var(--text-primary);
+  font-weight: 700;
+  background: var(--bg-active, rgba(255, 255, 255, 0.06));
+}
+
+.pinTitle {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pinBadge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 750;
+  display: grid;
+  place-items: center;
+}
+
+.item,
+.itemActive {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 550;
+  text-align: left;
+  position: relative;
+}
+
+.item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* X-like: weight + left mark, no colored block */
+.itemActive {
+  color: var(--text-primary);
+  font-weight: 700;
+  background: transparent;
+}
+
+.itemActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--text-primary);
+}
+
+.itemLabel {
+  flex: 1;
+}
+
+.badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--text-on-accent);
+  font-size: 10px;
+  font-weight: 750;
+  display: grid;
+  place-items: center;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 12px;
+  text-align: left;
+  margin-top: 8px;
+}
+
+.user:hover {
+  background: var(--bg-hover);
+}
+
+.userMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.userName {
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userHandle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}

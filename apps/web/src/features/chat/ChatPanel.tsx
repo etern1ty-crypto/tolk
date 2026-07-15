@@ -4,13 +4,16 @@ import {
   Bookmark,
   CircleDot,
   Mic,
+  Palette,
   Paperclip,
   SendHorizontal,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAppStore } from '../../store/appStore';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { CHAT_THEMES, useAppStore } from '../../store/appStore';
+import { patternById } from '../../shared/patterns';
 import { IconBtn } from '../../shared/ui/IconBtn';
+import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
 
@@ -27,7 +30,6 @@ export function ChatPanel() {
   const messages = useAppStore((s) => s.messages);
   const me = useAppStore((s) => s.me);
   const highlightMessageId = useAppStore((s) => s.highlightMessageId);
-  const echoMode = useAppStore((s) => s.echoMode);
   const voiceRecording = useAppStore((s) => s.voiceRecording);
   const shelfItems = useAppStore((s) => s.shelfItems);
   const replyToId = useAppStore((s) => s.replyToId);
@@ -36,7 +38,6 @@ export function ChatPanel() {
   const openUserProfile = useAppStore((s) => s.openUserProfile);
   const sendMessage = useAppStore((s) => s.sendMessage);
   const retryMessage = useAppStore((s) => s.retryMessage);
-  const setEchoMode = useAppStore((s) => s.setEchoMode);
   const setContextMenu = useAppStore((s) => s.setContextMenu);
   const setReactionPicker = useAppStore((s) => s.setReactionPicker);
   const setAttachSheetOpen = useAppStore((s) => s.setAttachSheetOpen);
@@ -46,13 +47,20 @@ export function ChatPanel() {
   const setShelfOpen = useAppStore((s) => s.setShelfOpen);
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
+  const setChatTheme = useAppStore((s) => s.setChatTheme);
 
   const [text, setText] = useState('');
+  const [themeOpen, setThemeOpen] = useState(false);
+  /** TG-style: mic button toggles voice ↔ circle */
+  const [recordMode, setRecordMode] = useState<'voice' | 'circle'>('voice');
   const listRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<number | null>(null);
+  const holdArmTimer = useRef<number | null>(null);
   const voiceHold = useRef(false);
+  const didHoldRecord = useRef(false);
 
   const chat = chats.find((c) => c.id === activeChatId);
+  const theme = patternById(CHAT_THEMES, chat?.themeId, CHAT_THEMES[0]!);
   const chatMessages = useMemo(
     () =>
       messages
@@ -98,6 +106,13 @@ export function ChatPanel() {
     setText('');
   };
 
+  const clearHoldArm = () => {
+    if (holdArmTimer.current != null) {
+      window.clearTimeout(holdArmTimer.current);
+      holdArmTimer.current = null;
+    }
+  };
+
   const endVoice = (send: boolean) => {
     if (!voiceHold.current && !voiceRecording) return;
     voiceHold.current = false;
@@ -105,8 +120,51 @@ export function ChatPanel() {
     if (send) sendVoiceMock();
   };
 
+  const onRecordPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    didHoldRecord.current = false;
+    clearHoldArm();
+    (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+    holdArmTimer.current = window.setTimeout(() => {
+      didHoldRecord.current = true;
+      if (recordMode === 'voice') {
+        voiceHold.current = true;
+        setVoiceRecording(true);
+      } else {
+        setCircleSheetOpen(true);
+      }
+    }, 180);
+  };
+
+  const onRecordPointerUp = () => {
+    clearHoldArm();
+    if (!didHoldRecord.current) {
+      // short tap — switch voice ↔ circle (like Telegram)
+      setRecordMode((m) => (m === 'voice' ? 'circle' : 'voice'));
+      return;
+    }
+    if (recordMode === 'voice') {
+      endVoice(true);
+    }
+    // circle: sheet handles capture/send
+  };
+
+  const onRecordPointerCancel = () => {
+    clearHoldArm();
+    if (didHoldRecord.current && recordMode === 'voice') {
+      endVoice(false);
+    }
+    didHoldRecord.current = false;
+  };
+
   return (
     <section className={styles.root} aria-label={`Чат ${chat.title}`}>
+      <PatternBg
+        pattern={theme}
+        seed={chat.id}
+        density="high"
+        className={styles.wallpaper}
+      />
       <header className={styles.header}>
         <IconBtn
           className={styles.mobileOnly}
@@ -133,6 +191,13 @@ export function ChatPanel() {
             )}
           </div>
         </button>
+        <IconBtn
+          aria-label="Оформление чата"
+          title="Оформление чата"
+          onClick={() => setThemeOpen((v) => !v)}
+        >
+          <Palette size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+        </IconBtn>
         {shelfCount > 0 && (
           <button
             type="button"
@@ -144,6 +209,40 @@ export function ChatPanel() {
           </button>
         )}
       </header>
+
+      <AnimatePresence>
+        {themeOpen && (
+          <motion.div
+            className={styles.themeBar}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+          >
+            <span className={styles.themeLabel}>Фон чата</span>
+            <div className={styles.themeRow}>
+              {CHAT_THEMES.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={
+                    chat.themeId === t.id || (!chat.themeId && t.id === 'chat_dots')
+                      ? styles.themeActive
+                      : styles.themeChip
+                  }
+                  onClick={() => {
+                    setChatTheme(chat.id, t.id);
+                    setThemeOpen(false);
+                  }}
+                  title={t.label}
+                >
+                  <PatternBg pattern={t} seed={t.id} density="low" className={styles.themePreview} />
+                  <span>{t.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className={styles.messages} ref={listRef}>
         <AnimatePresence initial={false}>
@@ -320,28 +419,11 @@ export function ChatPanel() {
         <IconBtn onClick={() => setAttachSheetOpen(true)} aria-label="Вложение">
           <Paperclip size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
         </IconBtn>
-        <IconBtn
-          onClick={() => setCircleSheetOpen(true)}
-          aria-label="Кружок"
-          title="Видео-кружок"
-        >
-          <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-        </IconBtn>
-        <button
-          type="button"
-          className={`${styles.echoToggle} ${echoMode ? styles.echoOn : ''}`}
-          onClick={() => setEchoMode(!echoMode)}
-          aria-pressed={echoMode}
-        >
-          Echo
-        </button>
         <input
           className={styles.input}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={
-            echoMode ? 'Echo…' : replyMsg ? 'Ответ…' : 'Сообщение'
-          }
+          placeholder={replyMsg ? 'Ответ…' : 'Сообщение'}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -361,21 +443,26 @@ export function ChatPanel() {
         ) : (
           <IconBtn
             variant="soft"
-            className={styles.mic}
-            aria-label="Голосовое"
-            title="Удерживайте для войса"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              voiceHold.current = true;
-              setVoiceRecording(true);
-              (e.currentTarget as HTMLButtonElement).setPointerCapture(
-                e.pointerId
-              );
-            }}
-            onPointerUp={() => endVoice(true)}
-            onPointerCancel={() => endVoice(false)}
+            className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''}`}
+            aria-label={
+              recordMode === 'voice'
+                ? 'Голосовое. Нажмите — кружок'
+                : 'Кружок. Нажмите — голосовое'
+            }
+            title={
+              recordMode === 'voice'
+                ? 'Тап — кружок · Удержание — войс'
+                : 'Тап — войс · Удержание — кружок'
+            }
+            onPointerDown={onRecordPointerDown}
+            onPointerUp={onRecordPointerUp}
+            onPointerCancel={onRecordPointerCancel}
           >
-            <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            {recordMode === 'voice' ? (
+              <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            ) : (
+              <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            )}
           </IconBtn>
         )}
       </footer>

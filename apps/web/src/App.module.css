@@ -1,12 +1,70 @@
 .app {
   height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  position: relative;
   overflow: hidden;
+  background: var(--bg-deep);
+}
+
+/* Full-viewport emoji/word field — visible, not pure black */
+.ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.ambient > * {
+  width: 100%;
+  height: 100%;
+}
+
+.authLayer {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
 }
 
 .main {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+}
+
+/* Shell sits on top of ambient pattern */
+.shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(22, 24, 32, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@media (min-width: 1024px) {
+  .main {
+    padding: 16px 20px;
+  }
+
+  .shell {
+    max-width: var(--shell-max);
+    height: 100%;
+    margin: 0 auto;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    background: rgba(22, 24, 32, 0.9);
+  }
 }

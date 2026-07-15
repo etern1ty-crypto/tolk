@@ -1,11 +1,14 @@
 .banner {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e5e5e5;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 107, 107, 0.16),
+    rgba(255, 107, 107, 0.08)
+  );
+  color: #ff9b96;
   text-align: center;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
   padding: 7px 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid rgba(255, 107, 107, 0.22);
   flex-shrink: 0;
-  letter-spacing: 0.01em;
 }

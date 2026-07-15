@@ -1,12 +1,23 @@
 .root {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-width: 0;
-  background: #000;
+  background: var(--bg-elevated);
+  isolation: isolate;
+}
+
+.wallpaper {
+  position: absolute !important;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .header {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -72,6 +83,69 @@
   background: var(--bg-hover);
 }
 
+.themeBar {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--glass-strong);
+  backdrop-filter: blur(12px);
+  padding: 10px 12px 12px;
+}
+
+.themeLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.themeRow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.themeChip,
+.themeActive {
+  position: relative;
+  flex-shrink: 0;
+  width: 76px;
+  height: 64px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  padding: 0;
+}
+
+.themeActive {
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: none;
+}
+
+.themePreview {
+  position: absolute !important;
+  inset: 0;
+}
+
+.themeChip span,
+.themeActive span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px;
+  color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+
 .mobileOnly {
   display: none;
 }
@@ -83,6 +157,8 @@
 }
 
 .messages {
+  position: relative;
+  z-index: 1;
   flex: 1;
   overflow-y: auto;
   padding: 16px 14px 10px;
@@ -99,8 +175,8 @@
 }
 
 .placeholderIcon {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   margin: 0 auto 14px;
   border-radius: 50%;
   display: grid;
@@ -129,17 +205,17 @@
 }
 
 .bubble {
-  max-width: min(78%, 480px);
+  max-width: min(78%, 440px);
   padding: 10px 12px 7px;
   border-radius: var(--radius-bubble);
-  background: var(--bg-elevated);
+  background: rgba(28, 28, 32, 0.88);
   border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
   user-select: text;
 }
 
 .mine .bubble {
-  background: #161616;
+  background: rgba(244, 244, 245, 0.12);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -157,7 +233,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   margin-bottom: 4px;
 }
 
@@ -202,6 +278,8 @@
 }
 
 .composer {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -209,31 +287,24 @@
   border-top: 1px solid var(--border-subtle);
   background: var(--glass-strong);
   backdrop-filter: blur(16px);
+  /* keep inputs above mobile browser chrome */
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
 }
 
-.echoToggle {
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
-  flex-shrink: 0;
-}
+@media (max-width: 1023px) {
+  .composer {
+    gap: 2px;
+  }
 
-.echoOn {
-  color: #0a0a0a;
-  background: #f5f5f5;
-  border-color: transparent;
-  box-shadow: none;
+  .composer .input {
+    font-size: 16px; /* prevent iOS zoom */
+  }
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  background: #0a0a0a;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 999px;
   padding: 12px 14px;
@@ -242,7 +313,7 @@
 }
 
 .input:focus {
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: var(--border-strong);
   box-shadow: none;
 }
 
@@ -251,6 +322,14 @@
   width: 44px !important;
   height: 44px !important;
   border-radius: 15px !important;
+  touch-action: none;
+  user-select: none;
+}
+
+/* circle mode — round mic button like TG video note */
+.micCircle {
+  border-radius: 50% !important;
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.28);
 }
 
 .voice {
@@ -266,7 +345,7 @@
   height: 30px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  color: #f5f5f5;
+  color: var(--text-primary);
   display: grid;
   place-items: center;
 }
@@ -283,8 +362,8 @@
   display: block;
   width: 3px;
   border-radius: 2px;
-  background: #f5f5f5;
-  opacity: 0.65;
+  background: var(--text-primary);
+  opacity: 0.55;
   animation: wave 1s ease-in-out infinite;
 }
 
@@ -353,12 +432,11 @@
   width: 128px;
   height: 128px;
   border-radius: 50%;
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #18181b;
+  border: 1px solid rgba(255, 255, 255, 0.16);
   display: grid;
   place-items: center;
-  color: #f5f5f5;
-  box-shadow: none;
+  color: var(--text-primary);
 }
 
 .reactions {

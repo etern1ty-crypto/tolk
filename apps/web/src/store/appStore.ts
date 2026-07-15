@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import {
-  BANNERS,
   INITIAL_CHATS,
   INITIAL_MESSAGES,
   INITIAL_POSTS,
@@ -8,6 +7,7 @@ import {
   ME,
   USERS,
 } from '../mocks/fixtures';
+import { BANNER_PATTERNS, CHAT_THEMES } from '../shared/patterns';
 import type {
   AuthStep,
   Chat,
@@ -60,6 +60,8 @@ interface AppState {
   posts: Post[];
   shelfItems: ShelfItem[];
   echoes: EchoItem[];
+  /** chat ids pinned in SideNav for quick open while scrolling feed */
+  navPins: string[];
 
   activeChatId: string | null;
   highlightMessageId: string | null;
@@ -95,7 +97,8 @@ interface AppState {
   submitProfile: () => void;
   logout: () => void;
   updateMe: (patch: Partial<User>) => void;
-  setBanner: (banner: string) => void;
+  setBannerPattern: (id: string) => void;
+  setChatTheme: (chatId: string, themeId: string) => void;
 
   setMainTab: (tab: MainTab) => void;
   setActiveChat: (id: string | null) => void;
@@ -103,6 +106,7 @@ interface AppState {
   closeUserProfile: () => void;
   startChatWithUser: (userId: string) => void;
   setNewChatOpen: (v: boolean) => void;
+  toggleNavPin: (chatId: string) => void;
 
   setSearchQuery: (q: string) => void;
   sendMessage: (text: string) => void;
@@ -172,6 +176,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   posts: INITIAL_POSTS,
   shelfItems: [],
   echoes: [],
+  navPins: ['c_1', 'c_2'],
 
   activeChatId: null,
   highlightMessageId: null,
@@ -244,7 +249,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const me = { ...get().me, ...patch };
     set({ me, users: { ...get().users, [me.id]: me } });
   },
-  setBanner: (banner) => get().updateMe({ banner }),
+  setBannerPattern: (id) => get().updateMe({ bannerPatternId: id }),
+
+  setChatTheme: (chatId, themeId) =>
+    set((s) => ({
+      chats: s.chats.map((c) =>
+        c.id === chatId ? { ...c, themeId } : c
+      ),
+    })),
 
   setMainTab: (tab) => {
     set({
@@ -306,6 +318,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
   setNewChatOpen: (v) => set({ newChatOpen: v }),
   setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
+
+  toggleNavPin: (chatId) => {
+    const pins = get().navPins;
+    if (pins.includes(chatId)) {
+      set({ navPins: pins.filter((id) => id !== chatId) });
+      get().showToast('Снято с закрепа');
+    } else {
+      if (pins.length >= 8) {
+        get().showToast('Максимум 8 закрепов');
+        return;
+      }
+      set({ navPins: [...pins, chatId] });
+      get().showToast('В боковую панель');
+    }
+  },
 
   showToast: (msg) => {
     set({ toast: msg });
@@ -561,7 +588,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       likedBy: [],
       comments: [],
       media: opts.withMedia
-        ? MEDIA_PRESETS[Math.floor(Math.random() * MEDIA_PRESETS.length)]
+        ? {
+            kind: 'pattern' as const,
+            patternId:
+              MEDIA_PRESETS[
+                Math.floor(Math.random() * MEDIA_PRESETS.length)
+              ]!.patternId,
+          }
         : undefined,
     };
     set((s) => ({ posts: [post, ...s.posts] }));
@@ -645,4 +678,4 @@ export const useAppStore = create<AppState>((set, get) => ({
   navigateSettings: (route) => set({ settingsRoute: route }),
 }));
 
-export { BANNERS, REACTION_SET };
+export { BANNER_PATTERNS, CHAT_THEMES, REACTION_SET };

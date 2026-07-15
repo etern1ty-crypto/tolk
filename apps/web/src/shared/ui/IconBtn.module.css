@@ -31,31 +31,30 @@
 }
 
 .soft {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
 
 .soft:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 .mint {
-  background: #f5f5f5;
-  color: #0a0a0a;
+  background: #f4f4f5;
+  color: #0a0a0b;
   box-shadow: none;
 }
 
 .mint:hover:not(:disabled) {
   background: #fff;
-  color: #0a0a0a;
+  color: #0a0a0b;
   filter: none;
 }
 
 .danger {
-  color: var(--text-secondary);
+  color: var(--accent-danger);
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+  background: var(--accent-danger-dim);
 }

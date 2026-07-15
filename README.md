@@ -144,14 +144,22 @@ Backend / realtime — **ещё нет** (mock store + fixtures).
 
 ---
 
+## Backend & mobile
+
+| Doc | |
+|---|---|
+| [`docs/BACKEND_AGENT_PROMPT.md`](docs/BACKEND_AGENT_PROMPT.md) | **English AI prompt** for backend (copy-paste) |
+| [`docs/MOBILE_PREP.md`](docs/MOBILE_PREP.md) | iOS / Android (Expo) readiness |
+| [`packages/protocol`](packages/protocol) | Shared WS/REST contracts |
+
 ## Roadmap (коротко)
 
 - [x] Web shell · 3 tabs · mock happy path  
 - [x] Стена / профиль / чаты / Echo / полка (UI)  
-- [x] Monochrome + lucide  
-- [ ] Real API + WebSocket  
+- [x] Desktop shell + ambient patterns  
+- [ ] Real API + WebSocket (`apps/api`)  
 - [ ] Media upload / real voice & circles  
-- [ ] Native client (`apps/mobile`)  
+- [ ] Expo client (`apps/mobile`) iOS + Android  
 
 ---
 

@@ -1,6 +1,6 @@
 export type Id = string;
 
-export type MainTab = 'wall' | 'chats' | 'profile';
+export type MainTab = 'wall' | 'chats' | 'search' | 'profile';
 export type MessageStatus = 'pending' | 'sent' | 'failed' | 'read';
 export type MessageKind = 'text' | 'media' | 'voice' | 'circle' | 'file';
 export type AuthStep = 'phone' | 'otp' | 'profile' | 'done';
@@ -23,8 +23,8 @@ export interface User {
   phone?: string;
   bio?: string;
   online?: boolean;
-  /** CSS gradient or color for profile banner */
-  banner: string;
+  /** id from BANNER_PATTERNS */
+  bannerPatternId: string;
 }
 
 export interface Chat {
@@ -38,6 +38,8 @@ export interface Chat {
   muted?: boolean;
   online?: boolean;
   peerId?: Id;
+  /** id from CHAT_THEMES */
+  themeId?: string;
 }
 
 export interface Message {
@@ -67,10 +69,10 @@ export interface Post {
   repostOfId?: Id;
   likedBy: Id[];
   comments: Comment[];
-  /** mock image: gradient key or url */
+  /** decorative media block (emoji/word pattern id) */
   media?: {
-    kind: 'image' | 'color';
-    src: string;
+    kind: 'pattern';
+    patternId: string;
     alt?: string;
   };
 }

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MessageCircle, Newspaper, UserRound } from 'lucide-react';
+import { MessageCircle, Newspaper, Search, UserRound } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
@@ -13,6 +13,7 @@ const TABS: {
 }[] = [
   { id: 'wall', label: 'Стена', Icon: Newspaper },
   { id: 'chats', label: 'Чаты', Icon: MessageCircle },
+  { id: 'search', label: 'Поиск', Icon: Search },
   { id: 'profile', label: 'Профиль', Icon: UserRound },
 ];
 

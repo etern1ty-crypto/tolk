@@ -15,20 +15,36 @@ import { MainShell } from './features/shell/MainShell';
 import { OfflineBanner } from './features/shell/OfflineBanner';
 import { Toast } from './features/shell/Toast';
 import { useAppStore } from './store/appStore';
+import { AMBIENT_PATTERN } from './shared/patterns';
+import { PatternBg } from './shared/ui/PatternBg';
 import styles from './App.module.css';
 
 export default function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
 
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    return (
+      <div className={styles.app}>
+        <div className={styles.ambient} aria-hidden>
+          <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-auth" density="high" />
+        </div>
+        <div className={styles.authLayer}>
+          <AuthScreen />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className={styles.app}>
+      <div className={styles.ambient} aria-hidden>
+        <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-ambient" density="high" />
+      </div>
       <OfflineBanner />
       <div className={styles.main}>
-        <MainShell />
+        <div className={styles.shell}>
+          <MainShell />
+        </div>
       </div>
       <EchoChip />
       <EchoSheet />

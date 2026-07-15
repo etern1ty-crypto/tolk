@@ -1,12 +1,5 @@
 import type { Chat, Message, Post, User } from '../shared/types';
 
-export const BANNERS = {
-  deep: 'linear-gradient(160deg, #000 0%, #1a1a1a 100%)',
-  steel: 'linear-gradient(135deg, #0a0a0a 0%, #3a3a3a 100%)',
-  fog: 'linear-gradient(135deg, #111 0%, #555 120%)',
-  ink: 'linear-gradient(180deg, #000 0%, #2a2a2a 100%)',
-};
-
 export const ME: User = {
   id: 'u_me',
   username: 'nekach',
@@ -14,7 +7,7 @@ export const ME: User = {
   phone: '+7 900 000-00-00',
   bio: 'Делаю Толк.',
   online: true,
-  banner: BANNERS.deep,
+  bannerPatternId: 'mint_wave',
 };
 
 export const USERS: Record<string, User> = {
@@ -25,14 +18,14 @@ export const USERS: Record<string, User> = {
     displayName: 'Аня',
     bio: 'Дизайн · кофе',
     online: true,
-    banner: BANNERS.steel,
+    bannerPatternId: 'coffee',
   },
   u_3: {
     id: 'u_3',
     username: 'design_team',
     displayName: 'Design Team',
     bio: 'Группа',
-    banner: BANNERS.ink,
+    bannerPatternId: 'work',
   },
   u_4: {
     id: 'u_4',
@@ -40,7 +33,7 @@ export const USERS: Record<string, User> = {
     displayName: 'Миша',
     bio: 'В дороге',
     online: false,
-    banner: BANNERS.fog,
+    bannerPatternId: 'travel',
   },
   u_5: {
     id: 'u_5',
@@ -48,7 +41,7 @@ export const USERS: Record<string, User> = {
     displayName: 'Кира',
     bio: 'Фото · путешествия',
     online: true,
-    banner: BANNERS.steel,
+    bannerPatternId: 'soft_peach',
   },
 };
 
@@ -62,6 +55,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: '10:42',
     online: true,
     peerId: 'u_2',
+    themeId: 'chat_hearts',
   },
   {
     id: 'c_2',
@@ -72,6 +66,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: 'Вчера',
     pinned: true,
     peerId: 'u_3',
+    themeId: 'chat_mint',
   },
   {
     id: 'c_3',
@@ -82,6 +77,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: 'Пн',
     muted: true,
     peerId: 'u_4',
+    themeId: 'chat_stars',
   },
 ];
 
@@ -141,29 +137,6 @@ export const INITIAL_MESSAGES: Message[] = [
   },
 ];
 
-export const MEDIA_PRESETS = [
-  {
-    kind: 'color' as const,
-    src: 'linear-gradient(135deg, #1a1a1a 0%, #4a4a4a 120%)',
-    alt: 'gray',
-  },
-  {
-    kind: 'color' as const,
-    src: 'linear-gradient(135deg, #0d0d0d 0%, #2e2e2e 120%)',
-    alt: 'ink',
-  },
-  {
-    kind: 'color' as const,
-    src: 'linear-gradient(160deg, #222 0%, #666 130%)',
-    alt: 'steel',
-  },
-  {
-    kind: 'color' as const,
-    src: 'linear-gradient(180deg, #111 0%, #3a3a3a 100%)',
-    alt: 'fog',
-  },
-];
-
 export const INITIAL_POSTS: Post[] = [
   {
     id: 'p_1',
@@ -191,7 +164,7 @@ export const INITIAL_POSTS: Post[] = [
     onWall: true,
     likedBy: ['u_2', 'u_me'],
     comments: [],
-    media: MEDIA_PRESETS[1],
+    media: { kind: 'pattern', patternId: 'm1', alt: 'поездка' },
   },
   {
     id: 'p_3',
@@ -222,7 +195,7 @@ export const INITIAL_POSTS: Post[] = [
     onWall: true,
     likedBy: ['u_me'],
     comments: [],
-    media: MEDIA_PRESETS[0],
+    media: { kind: 'pattern', patternId: 'm2', alt: 'еда' },
   },
   {
     id: 'p_6',
@@ -233,6 +206,14 @@ export const INITIAL_POSTS: Post[] = [
     onWall: true,
     likedBy: ['u_2'],
     comments: [],
-    media: MEDIA_PRESETS[3],
+    media: { kind: 'pattern', patternId: 'm3', alt: 'музыка' },
   },
+];
+
+/** @deprecated use MEDIA_PATTERNS from patterns.ts */
+export const MEDIA_PRESETS = [
+  { kind: 'pattern' as const, patternId: 'm1' },
+  { kind: 'pattern' as const, patternId: 'm2' },
+  { kind: 'pattern' as const, patternId: 'm3' },
+  { kind: 'pattern' as const, patternId: 'm4' },
 ];

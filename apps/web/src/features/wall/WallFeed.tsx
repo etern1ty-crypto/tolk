@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { MEDIA_PATTERNS, patternById } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
+import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './WallFeed.module.css';
 
@@ -54,7 +56,6 @@ export function WallFeed() {
     <div className={styles.root}>
       <header className={styles.header}>
         <h1>Стена</h1>
-        <p className={styles.sub}>посты · рекомендации · без шума</p>
       </header>
 
       <motion.div
@@ -130,19 +131,26 @@ export function WallFeed() {
                     </button>
                     <div className={styles.metaRow}>
                       <time>{rel(post.createdAt)}</time>
-                      <span className={styles.badge}>
-                        {post.origin === 'profile' ? 'из профиля' : 'в стену'}
-                      </span>
                     </div>
                   </div>
                 </header>
-                {post.media && (
+                {post.media?.kind === 'pattern' && (
                   <div
                     className={styles.media}
-                    style={{ background: post.media.src }}
                     role="img"
                     aria-label={post.media.alt ?? 'медиа'}
-                  />
+                  >
+                    <PatternBg
+                      pattern={patternById(
+                        MEDIA_PATTERNS,
+                        post.media.patternId,
+                        MEDIA_PATTERNS[0]!
+                      )}
+                      seed={post.id}
+                      density="mid"
+                      className={styles.mediaFill}
+                    />
+                  </div>
                 )}
                 {post.text ? <p className={styles.text}>{post.text}</p> : null}
                 <footer className={styles.actions}>
