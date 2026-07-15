@@ -1,22 +1,18 @@
 {
-  "name": "app-temp",
-  "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "expo": "~57.0.4",
-    "expo-status-bar": "~57.0.0",
-    "react": "19.2.3",
-    "react-native": "0.86.0"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
-  },
+  "name": "tolk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Толк. — минималистичный мессенджер. Web MVP + product vault.",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "dev": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/web run build",
+    "preview": "npm --prefix apps/web run preview",
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:preview": "npm --prefix apps/web run preview -- --host 127.0.0.1 --port 4173"
   },
-  "private": true
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
 }

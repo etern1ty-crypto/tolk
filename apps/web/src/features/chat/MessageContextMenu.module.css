@@ -1,0 +1,49 @@
+.menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 200px;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  animation: pop 0.16s var(--ease-out);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 11px 12px;
+  border-radius: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.menu button:hover {
+  background: var(--bg-hover);
+}
+
+.danger {
+  color: var(--text-secondary) !important;
+}
+
+.danger:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}

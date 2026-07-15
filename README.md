@@ -1,0 +1,166 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" width="72" height="72" alt="Tolk" />
+</p>
+
+<h1 align="center">Толк.</h1>
+
+<p align="center">
+  <strong>Минималистичный мессенджер</strong> для русскоязычного комьюнити.<br/>
+  Быстрый · чистый · свой — без tab-bar ×5 и без клонирования MAX.
+</p>
+
+<p align="center">
+  <a href="#-быстрый-старт"><img src="https://img.shields.io/badge/web-MVP-ffffff?style=flat-square&labelColor=000000" alt="web MVP" /></a>
+  <a href="#-навигация"><img src="https://img.shields.io/badge/nav-Стена·Чаты·Профиль-a3a3a3?style=flat-square&labelColor=000000" alt="nav" /></a>
+  <a href="vault/"><img src="https://img.shields.io/badge/docs-Obsidian_vault-a3a3a3?style=flat-square&labelColor=000000" alt="vault" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a3a3a3?style=flat-square&labelColor=000000" alt="license" /></a>
+</p>
+
+---
+
+## Идея
+
+| | |
+|---|---|
+| **Чаты** | Home. Текст, войсы, кружки, реакции |
+| **Стена** | Лента постов (лайк · коммент · репост в профиль · переслать) |
+| **Профиль** | Оформление, посты, «добавить в стену», настройки |
+
+Дифференциаторы без шума: **Стена**, **Echo** (тихо), **Полка** (закрепы *в* чате).  
+Визуал: **монохром**, hairline-лента (как X), иконки **lucide**.
+
+Полный продукт-концепт → [`vault/Tolk_Core_Concept.md`](vault/Tolk_Core_Concept.md) · IA → [`vault/Navigation_IA.md`](vault/Navigation_IA.md)
+
+---
+
+## Структура репозитория
+
+```text
+tolk/
+├── apps/
+│   └── web/                 # Vite + React + TS · основной клиент
+├── vault/                   # Obsidian source of truth (продукт)
+├── docs/                    # Инженерные заметки, walkthrough, assets
+├── package.json             # root scripts → apps/web
+└── README.md
+```
+
+> В корне также лежит legacy Expo scaffold (ранний RN-эксперимент).  
+> **Актуальный UI — `apps/web`.**
+
+---
+
+## Быстрый старт
+
+```bash
+# Node 20+
+cd apps/web
+npm install
+npm run dev
+```
+
+Открой `http://127.0.0.1:5173`
+
+Из корня репозитория:
+
+```bash
+npm run dev      # то же, что apps/web
+npm run build
+npm run preview
+```
+
+### Демо друзьям (Cloudflare Tunnel)
+
+```bash
+# терминал 1
+cd apps/web && npm run dev -- --host 127.0.0.1 --port 5173
+
+# терминал 2
+cloudflared tunnel --url http://127.0.0.1:5173
+```
+
+В `vite.config.ts` включён `allowedHosts: true` для `*.trycloudflare.com`.
+
+---
+
+## Навигация
+
+```text
+┌──────────┬──────────┬──────────┐
+│  Стена   │  Чаты ★  │ Профиль  │
+└──────────┴──────────┴──────────┘
+     │           │          │
+   лента      list→chat   посты + ⚙
+```
+
+**Mock demo path:** login → чат → reply / реакция / войс / кружок → стена → профиль → settings.
+
+Подробнее: [`docs/walkthrough.md`](docs/walkthrough.md)
+
+---
+
+## Стек (web)
+
+| Слой | |
+|---|---|
+| UI | React 19 · TypeScript · Vite |
+| State | Zustand |
+| Motion | Framer Motion |
+| Icons | lucide-react (stroke 1.75) |
+| Style | CSS Modules · monochrome tokens |
+
+Backend / realtime — **ещё нет** (mock store + fixtures).
+
+---
+
+## Obsidian vault
+
+Папка [`vault/`](vault/) — зеркало live-vault (`Documents/tolk/tolk`).
+
+Рекомендуется открывать в Obsidian как vault:
+
+1. Obsidian → Open folder as vault → `…/tolk/vault`
+2. Читать старт: `Tolk_Core_Concept` → `MVP` → `Navigation_IA` → `For_Developers`
+
+Ключевые заметки:
+
+| Note | О чём |
+|---|---|
+| [`Navigation_IA`](vault/Navigation_IA.md) | 3 вкладки — основа |
+| [`User_Wall`](vault/User_Wall.md) | Стена = лента |
+| [`Chat_Shelf`](vault/Chat_Shelf.md) | Полка чата ≠ стена |
+| [`Living_Profiles`](vault/Living_Profiles.md) | Профиль |
+| [`Visual_Language`](vault/Visual_Language.md) | Ч/б UI |
+| [`MVP`](vault/MVP.md) | Scope |
+
+---
+
+## Дизайн
+
+- **Чёрный фон** `#000`, текст `#F5F5F5`
+- Primary CTA — белая pill-кнопка
+- Стена/профиль: **hairline dividers**, без «карточек»
+- Без цветных акцентов (mint/ice сняты)
+
+---
+
+## Roadmap (коротко)
+
+- [x] Web shell · 3 tabs · mock happy path  
+- [x] Стена / профиль / чаты / Echo / полка (UI)  
+- [x] Monochrome + lucide  
+- [ ] Real API + WebSocket  
+- [ ] Media upload / real voice & circles  
+- [ ] Native client (`apps/mobile`)  
+
+---
+
+## Лицензия
+
+[MIT](LICENSE) — см. файл в корне.
+
+---
+
+<p align="center">
+  <sub>Толк. — продукт, в котором есть толк.</sub>
+</p>

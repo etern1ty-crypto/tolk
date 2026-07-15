@@ -1,0 +1,43 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: min(100%, 420px);
+  background: var(--bg-sheet);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.sheet button {
+  text-align: left;
+  padding: 14px 12px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.sheet button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cancel {
+  margin-top: 6px;
+  text-align: center !important;
+  color: var(--text-secondary);
+}

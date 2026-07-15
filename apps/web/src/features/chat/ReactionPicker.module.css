@@ -1,0 +1,38 @@
+.bar {
+  position: fixed;
+  z-index: 75;
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+  animation: pop 0.16s var(--ease-out);
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.bar button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+
+.bar button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.18);
+}

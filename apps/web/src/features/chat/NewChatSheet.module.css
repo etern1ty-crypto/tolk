@@ -1,0 +1,83 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: min(100%, 440px);
+  max-height: 75vh;
+  background: var(--bg-sheet);
+  border-radius: 24px 24px 0 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sheet h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.search {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+}
+
+.sheet ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sheet li button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.sheet li button:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.av {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--accent-mint);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.sheet strong {
+  display: block;
+  font-size: 15px;
+}
+
+.sheet em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.cancel {
+  padding: 12px;
+  color: var(--text-secondary);
+}

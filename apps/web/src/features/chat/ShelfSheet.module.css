@@ -1,0 +1,60 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sheet {
+  width: min(100%, 440px);
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--bg-sheet);
+  border-radius: 24px 24px 0 0;
+  padding: 16px;
+}
+
+.sheet h3 {
+  margin: 0;
+}
+
+.hint {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.empty {
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+
+.sheet ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sheet li {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.sheet li p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.sheet li button {
+  color: var(--accent-ice);
+  font-size: 13px;
+  font-weight: 600;
+}
