@@ -76,10 +76,11 @@ function connectWebSocket(token: string, store: any) {
       
       if (wsEvent === 'message.created') {
         const { messages, chats, activeChatId } = store.getState();
-        if (messages.some((m: any) => m.id === data.id || m.id === data.clientId)) {
+        const cid = data.client_id || data.clientId;
+        if (messages.some((m: any) => m.id === data.id || m.id === cid)) {
           store.setState({
             messages: messages.map((m: any) => 
-              (m.id === data.id || m.id === data.clientId) 
+              (m.id === data.id || m.id === cid) 
                 ? { ...m, id: data.id, seq: data.seq, status: 'sent', createdAt: data.createdAt } 
                 : m
             )
@@ -652,19 +653,26 @@ export const useAppStore = create<AppState>()(
           is_echo: isEcho,
         }),
       }, get().token);
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === id
-            ? {
-                ...m,
-                id: res.id,
-                seq: res.seq,
-                status: 'sent',
-                createdAt: res.createdAt,
-              }
-            : m
-        ),
-      }));
+      const exists = get().messages.some((m) => m.id === res.id);
+      if (exists) {
+        set((s) => ({
+          messages: s.messages.filter((m) => m.id !== id),
+        }));
+      } else {
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === id
+              ? {
+                  ...m,
+                  id: res.id,
+                  seq: res.seq,
+                  status: 'sent',
+                  createdAt: res.createdAt,
+                }
+              : m
+          ),
+        }));
+      }
     } catch (err) {
       console.error('Failed to send message:', err);
       set((s) => ({

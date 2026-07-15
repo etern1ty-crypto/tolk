@@ -62,10 +62,17 @@ export function ChatPanel() {
   const chat = chats.find((c) => c.id === activeChatId);
   const theme = patternById(CHAT_THEMES, chat?.themeId, CHAT_THEMES[0]!);
   const chatMessages = useMemo(
-    () =>
-      messages
+    () => {
+      const seen = new Set();
+      return messages
         .filter((m) => m.chatId === activeChatId)
-        .sort((a, b) => a.createdAt - b.createdAt),
+        .filter((m) => {
+          if (seen.has(m.id)) return false;
+          seen.add(m.id);
+          return true;
+        })
+        .sort((a, b) => a.createdAt - b.createdAt);
+    },
     [messages, activeChatId]
   );
   const shelfCount = shelfItems.filter((s) => s.chatId === activeChatId).length;
