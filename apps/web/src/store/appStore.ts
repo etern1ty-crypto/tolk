@@ -175,8 +175,9 @@ function uid(prefix: string) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function formatTime(ts: number) {
-  return new Date(ts).toLocaleTimeString('ru-RU', {
+function formatTime(ts: any) {
+  const parsed = typeof ts === 'string' && /^\d+$/.test(ts) ? Number(ts) : ts;
+  return new Date(parsed).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   });

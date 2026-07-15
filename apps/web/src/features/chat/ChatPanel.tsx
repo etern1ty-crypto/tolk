@@ -17,8 +17,9 @@ import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
 
-function formatMsgTime(ts: number) {
-  return new Date(ts).toLocaleTimeString('ru-RU', {
+function formatMsgTime(ts: any) {
+  const parsed = typeof ts === 'string' && /^\d+$/.test(ts) ? Number(ts) : ts;
+  return new Date(parsed).toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
   });
