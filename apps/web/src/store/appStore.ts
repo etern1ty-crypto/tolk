@@ -19,7 +19,13 @@ import type {
   User,
 } from '../shared/types';
 
-const API_URL = 'http://localhost:3000';
+const getApiUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:3000`;
+  }
+  return 'http://localhost:3000';
+};
+const API_URL = getApiUrl();
 
 async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
   const headers = new Headers(options.headers || {});
@@ -54,7 +60,8 @@ function connectWebSocket(token: string, store: any) {
     activeSocket.close();
   }
   
-  const wsUrl = `ws://localhost:3000/ws?token=${token}`;
+  const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${wsProto}//${window.location.hostname}:3000/ws?token=${token}`;
   const ws = new WebSocket(wsUrl);
   activeSocket = ws;
   
@@ -69,10 +76,10 @@ function connectWebSocket(token: string, store: any) {
       
       if (wsEvent === 'message.created') {
         const { messages, chats, activeChatId } = store.getState();
-        if (messages.some((m: any) => m.id === data.id || m.client_id === data.client_id)) {
+        if (messages.some((m: any) => m.id === data.id || m.id === data.clientId)) {
           store.setState({
             messages: messages.map((m: any) => 
-              (m.id === data.id || m.client_id === data.client_id) 
+              (m.id === data.id || m.id === data.clientId) 
                 ? { ...m, id: data.id, seq: data.seq, status: 'sent', createdAt: data.createdAt } 
                 : m
             )
