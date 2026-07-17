@@ -25,6 +25,7 @@ export interface User {
   online?: boolean;
   /** id from BANNER_PATTERNS */
   bannerPatternId: string;
+  avatarRef?: string;
 }
 
 export interface Chat {
@@ -40,6 +41,7 @@ export interface Chat {
   peerId?: Id;
   /** id from CHAT_THEMES */
   themeId?: string;
+  avatarRef?: string;
 }
 
 export interface Message {

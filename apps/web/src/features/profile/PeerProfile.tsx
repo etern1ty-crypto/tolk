@@ -71,7 +71,7 @@ export function PeerProfile() {
           </IconBtn>
         </div>
         <div className={styles.avatarWrap}>
-          <Avatar name={user.displayName} size={84} online={user.online} />
+          <Avatar name={user.displayName} id={user.id} avatarUrl={user.avatarRef} size={84} online={user.online} />
         </div>
         <div className={styles.body}>
           <h1>{user.displayName}</h1>

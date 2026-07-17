@@ -12,7 +12,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect } from 'react';
-import { useAppStore } from '../../store/appStore';
+import { useAppStore, CHAT_THEMES, REACTION_SET } from '../../store/appStore';
+import { soundEffects } from '../../shared/soundEffects';
 import type { SettingsRoute } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
@@ -47,6 +48,19 @@ export function SettingsOverlay() {
   const navigateSettings = useAppStore((s) => s.navigateSettings);
   const setMainTab = useAppStore((s) => s.setMainTab);
   const logout = useAppStore((s) => s.logout);
+
+  // Customization selectors & actions
+  const globalChatThemeId = useAppStore((s) => s.globalChatThemeId);
+  const notificationSound = useAppStore((s) => s.notificationSound);
+  const soundVolume = useAppStore((s) => s.soundVolume);
+  const browserNotificationsEnabled = useAppStore((s) => s.browserNotificationsEnabled);
+  const defaultReaction = useAppStore((s) => s.defaultReaction);
+
+  const setGlobalChatTheme = useAppStore((s) => s.setGlobalChatTheme);
+  const setNotificationSound = useAppStore((s) => s.setNotificationSound);
+  const setSoundVolume = useAppStore((s) => s.setSoundVolume);
+  const setBrowserNotificationsEnabled = useAppStore((s) => s.setBrowserNotificationsEnabled);
+  const setDefaultReaction = useAppStore((s) => s.setDefaultReaction);
 
   useEffect(() => {
     if (!route) return;
@@ -115,7 +129,7 @@ export function SettingsOverlay() {
                       setMainTab('profile');
                     }}
                   >
-                    <Avatar name={me.displayName} size={52} />
+                    <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={52} />
                     <div>
                       <div className={styles.name}>{me.displayName}</div>
                       <div className={styles.uname}>
@@ -166,10 +180,94 @@ export function SettingsOverlay() {
               )}
 
               {route === 'chats' && (
-                <p className={styles.note}>
-                  Реакции, войсы и кружки — в диалоге. Эффекты кружков спрятаны
-                  (кнопка ···).
-                </p>
+                <div className={styles.stack}>
+                  <div className={styles.sectionTitle}>Фон чата по умолчанию</div>
+                  <div className={styles.themeGrid}>
+                    {CHAT_THEMES.map((theme) => (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        className={`${styles.themeCard} ${globalChatThemeId === theme.id ? styles.themeCardActive : ''}`}
+                        onClick={() => setGlobalChatTheme(theme.id)}
+                        style={{ background: theme.base }}
+                      >
+                        <span className={styles.themeLabel}>{theme.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={styles.divider} />
+
+                  <div className={styles.sectionTitle}>Звуки и уведомления</div>
+                  
+                  <div className={styles.rowFlex}>
+                    <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      Уведомления в браузере
+                    </span>
+                    <label className={styles.switch}>
+                      <input
+                        type="checkbox"
+                        checked={browserNotificationsEnabled}
+                        onChange={(e) => setBrowserNotificationsEnabled(e.target.checked)}
+                      />
+                      <span className={styles.slider} />
+                    </label>
+                  </div>
+
+                  <div className={styles.rowFlex}>
+                    <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      Звук уведомлений
+                    </span>
+                    <select
+                      value={notificationSound}
+                      onChange={(e) => {
+                        const val = e.target.value as 'pixel' | 'bubble' | 'silent';
+                        setNotificationSound(val);
+                        if (val === 'pixel') soundEffects.playPixelPush();
+                        else if (val === 'bubble') soundEffects.playReceivedSoft();
+                      }}
+                      className={styles.select}
+                    >
+                      <option value="pixel">Google Pixel Chime</option>
+                      <option value="bubble">Soft Bubble Pop</option>
+                      <option value="silent">Без звука</option>
+                    </select>
+                  </div>
+
+                  {notificationSound !== 'silent' && (
+                    <div className={styles.row} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span>Громкость звука</span>
+                        <span>{Math.round(soundVolume * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={soundVolume}
+                        onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+                        className={styles.volumeSlider}
+                      />
+                    </div>
+                  )}
+
+                  <div className={styles.divider} />
+
+                  <div className={styles.sectionTitle}>Реакция по умолчанию</div>
+                  <div className={styles.reactionRow}>
+                    {REACTION_SET.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className={`${styles.reactionBtn} ${defaultReaction === emoji ? styles.reactionBtnActive : ''}`}
+                        onClick={() => setDefaultReaction(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {route === 'sessions' && (

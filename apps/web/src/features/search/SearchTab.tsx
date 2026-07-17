@@ -130,7 +130,7 @@ export function SearchTab() {
                       className={styles.rowMain}
                       onClick={() => openUserProfile(u.id)}
                     >
-                      <Avatar name={u.displayName} size={44} online={u.online} />
+                      <Avatar name={u.displayName} id={u.id} avatarUrl={u.avatarRef} size={44} online={u.online} />
                       <div className={styles.meta}>
                         <span className={styles.name}>{u.displayName}</span>
                         <span className={styles.sub}>
@@ -167,7 +167,7 @@ export function SearchTab() {
                     transition={{ delay: Math.min(i * 0.03, 0.15) }}
                     onClick={() => setActiveChat(c.id)}
                   >
-                    <Avatar name={c.title} size={44} />
+                    <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
                     <div className={styles.meta}>
                       <span className={styles.name}>{c.title}</span>
                       <span className={styles.sub}>{c.preview || 'Группа'}</span>
@@ -197,7 +197,7 @@ export function SearchTab() {
                         setMainTab('wall');
                       }}
                     >
-                      <Avatar name={author?.displayName ?? '?'} size={36} />
+                      <Avatar name={author?.displayName ?? '?'} id={author?.id} avatarUrl={author?.avatarRef} size={36} />
                       <div className={styles.meta}>
                         <span className={styles.name}>
                           {author?.displayName ?? '…'}

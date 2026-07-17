@@ -110,7 +110,7 @@ export function SideNav() {
                   }}
                   title={`${chat.title} · ПКМ — открепить`}
                 >
-                  <Avatar name={chat.title} size={28} online={chat.online} />
+                  <Avatar name={chat.title} id={chat.id} avatarUrl={chat.avatarRef} size={28} online={chat.online} />
                   <span className={styles.pinTitle}>{chat.title}</span>
                   {chat.unread > 0 && (
                     <span className={styles.pinBadge}>
@@ -136,7 +136,7 @@ export function SideNav() {
         }}
         title="Профиль · ПКМ — настройки"
       >
-        <Avatar name={me.displayName} size={36} online={me.online} />
+        <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={36} online={me.online} />
         <div className={styles.userMeta}>
           <span className={styles.userName}>{me.displayName}</span>
           <span className={styles.userHandle}>@{me.username}</span>

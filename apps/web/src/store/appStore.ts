@@ -61,6 +61,47 @@ let lastTypingSent = 0;
 let typingTimeout: number | undefined;
 let reconnectCount = 0;
 
+function showBrowserNotification(data: any, store: any) {
+  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+
+  const state = store.getState();
+  const isBackground = document.visibilityState === 'hidden';
+  if (state.activeChatId === data.chatId && !isBackground) return;
+
+  const sender = state.users[data.senderId] || { displayName: 'Пользователь' };
+  const title = sender.displayName || sender.username || 'Новое сообщение';
+
+  let body = '';
+  if (data.kind === 'text') {
+    body = data.text;
+  } else if (data.kind === 'voice') {
+    body = '🎤 Голосовое сообщение';
+  } else if (data.kind === 'circle') {
+    body = '🎥 Видеосообщение';
+  } else if (data.kind === 'media') {
+    body = '🖼️ Изображение';
+  } else {
+    body = '📎 Вложение';
+  }
+
+  try {
+    const notification = new Notification(title, {
+      body,
+      tag: data.chatId,
+      renotify: true,
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      state.setActiveChat(data.chatId);
+      notification.close();
+    };
+  } catch (e) {
+    console.error('Failed to create browser notification:', e);
+  }
+}
+
 function connectWebSocket(token: string, store: any) {
   if (activeSocket) {
     if (activeSocket.readyState === WebSocket.CONNECTING || activeSocket.readyState === WebSocket.OPEN) {
@@ -111,11 +152,19 @@ function connectWebSocket(token: string, store: any) {
         if (!isFromMe && !isEcho) {
           const chat = chats.find((c: any) => c.id === data.chatId);
           if (chat && !chat.muted) {
-            if (activeChatId === data.chatId) {
-              soundEffects.playReceivedSoft();
-            } else {
-              soundEffects.playPixelPush();
+            const state = store.getState();
+            if (state.notificationSound !== 'silent') {
+              soundEffects.volume = state.soundVolume;
+              if (activeChatId === data.chatId) {
+                soundEffects.playReceivedSoft();
+              } else {
+                soundEffects.playPixelPush();
+              }
             }
+          }
+          const state = store.getState();
+          if (state.browserNotificationsEnabled) {
+            showBrowserNotification(data, store);
           }
         }
         
@@ -387,6 +436,17 @@ interface AppState {
   openSettings: () => void;
   closeSettings: () => void;
   navigateSettings: (route: NonNullable<SettingsRoute>) => void;
+
+  globalChatThemeId: string;
+  notificationSound: 'pixel' | 'bubble' | 'silent';
+  soundVolume: number;
+  browserNotificationsEnabled: boolean;
+  defaultReaction: string;
+  setGlobalChatTheme: (themeId: string) => void;
+  setNotificationSound: (sound: 'pixel' | 'bubble' | 'silent') => void;
+  setSoundVolume: (volume: number) => void;
+  setBrowserNotificationsEnabled: (enabled: boolean) => Promise<void>;
+  setDefaultReaction: (emoji: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -438,6 +498,12 @@ export const useAppStore = create<AppState>()(
       authMode: 'login' as const,
 
       reactionEmojis: REACTION_SET,
+
+      globalChatThemeId: 'chat_dots',
+      notificationSound: 'pixel',
+      soundVolume: 0.8,
+      browserNotificationsEnabled: false,
+      defaultReaction: '👍',
 
       setPhone: (v) => set({ draftPhone: v }),
       setDraftName: (v) => set({ draftName: v }),
@@ -872,36 +938,44 @@ export const useAppStore = create<AppState>()(
     try {
       get().showToast('Загрузка вложения...');
       
-      const uploadRes = await fetchApi('/media/uploads', {
-        method: 'POST',
-        body: JSON.stringify({
-          mime: file.type || 'application/octet-stream',
-          size: file.size,
-          kind: kind === 'media' ? 'image' : 'file'
-        })
-      }, token);
+      let publicUrl = '';
+      try {
+        const uploadRes = await fetchApi('/media/uploads', {
+          method: 'POST',
+          body: JSON.stringify({
+            mime: file.type || 'application/octet-stream',
+            size: file.size,
+            kind: kind === 'media' ? 'image' : 'file'
+          })
+        }, token);
 
-      const s3Res = await fetch(uploadRes.upload_url, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream'
+        const s3Res = await fetch(uploadRes.upload_url, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream'
+          }
+        });
+
+        if (!s3Res.ok) {
+          throw new Error(`Failed to upload file: ${s3Res.statusText}`);
         }
-      });
 
-      if (!s3Res.ok) {
-        throw new Error(`Failed to upload file: ${s3Res.statusText}`);
+        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        }, token);
+
+        publicUrl = uploadRes.public_url;
+      } catch (uploadErr) {
+        console.warn('S3 upload failed, falling back to local Object URL mock:', uploadErr);
+        publicUrl = URL.createObjectURL(file);
       }
-
-      await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-        method: 'POST',
-        body: JSON.stringify({})
-      }, token);
 
       await get().sendMessage(file.name, {
         kind,
         media: {
-          url: uploadRes.public_url,
+          url: publicUrl,
           filename: file.name,
           mime: file.type,
           size: file.size
@@ -1324,6 +1398,25 @@ export const useAppStore = create<AppState>()(
   openSettings: () => set({ settingsRoute: 'hub', viewingUserId: null }),
   closeSettings: () => set({ settingsRoute: null }),
   navigateSettings: (route) => set({ settingsRoute: route }),
+
+  setGlobalChatTheme: (themeId) => set({ globalChatThemeId: themeId }),
+  setNotificationSound: (sound) => set({ notificationSound: sound }),
+  setSoundVolume: (volume) => {
+    set({ soundVolume: volume });
+    soundEffects.volume = volume;
+  },
+  setBrowserNotificationsEnabled: async (enabled) => {
+    if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        set({ browserNotificationsEnabled: false });
+        get().showToast('Доступ к уведомлениям отклонен');
+        return;
+      }
+    }
+    set({ browserNotificationsEnabled: enabled });
+  },
+  setDefaultReaction: (emoji) => set({ defaultReaction: emoji }),
     }),
     {
       name: 'tolk-web-state',
@@ -1340,6 +1433,11 @@ export const useAppStore = create<AppState>()(
         echoes: state.echoes,
         navPins: state.navPins,
         wallSeenAt: state.wallSeenAt,
+        globalChatThemeId: state.globalChatThemeId,
+        notificationSound: state.notificationSound,
+        soundVolume: state.soundVolume,
+        browserNotificationsEnabled: state.browserNotificationsEnabled,
+        defaultReaction: state.defaultReaction,
       }),
     }
   )

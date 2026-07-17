@@ -31,6 +31,7 @@ export function ChatPanel() {
   const chats = useAppStore((s) => s.chats);
   const messages = useAppStore((s) => s.messages);
   const me = useAppStore((s) => s.me);
+  const globalChatThemeId = useAppStore((s) => s.globalChatThemeId);
   const highlightMessageId = useAppStore((s) => s.highlightMessageId);
   const voiceRecording = useAppStore((s) => s.voiceRecording);
   const shelfItems = useAppStore((s) => s.shelfItems);
@@ -66,7 +67,7 @@ export function ChatPanel() {
   const recordStartTimeRef = useRef<number>(0);
 
   const chat = chats.find((c) => c.id === activeChatId);
-  const theme = patternById(CHAT_THEMES, chat?.themeId, CHAT_THEMES[0]!);
+  const theme = patternById(CHAT_THEMES, chat?.themeId || globalChatThemeId, CHAT_THEMES[0]!);
   const chatMessages = useMemo(
     () => {
       const seen = new Set();

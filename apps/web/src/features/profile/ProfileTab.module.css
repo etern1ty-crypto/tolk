@@ -397,3 +397,185 @@
   padding: 32px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
+
+.avatarWrapEditable {
+  display: flex;
+  justify-content: center;
+  margin-top: -48px;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.avatarWrapEditable > span {
+  border: 3px solid var(--bg-primary);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s ease;
+}
+
+.avatarInnerWrap {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.avatarInnerWrap:hover .avatarHoverOverlay {
+  opacity: 1;
+}
+
+.avatarHoverOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  color: #fff;
+  font-size: 24px;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.cropperOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(12px);
+  padding: 16px;
+}
+
+.cropperPanel {
+  background: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.cropperTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  color: #fafafa;
+}
+
+.canvasContainer {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  cursor: grab;
+}
+
+.canvasContainer:active {
+  cursor: grabbing;
+}
+
+.cropperCanvas {
+  display: block;
+}
+
+.cropperCircleMask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.cropperControls {
+  width: 100%;
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cropperRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: #a0a0a8;
+}
+
+.cropperSlider {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #3a3a40;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.cropperSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fafafa;
+  border: none;
+  transition: transform 0.1s ease;
+}
+
+.cropperSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.cropperActions {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+}
+
+.btnCancel {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  background: #2a2a30;
+  color: #fafafa;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.btnCancel:hover {
+  background: #36363c;
+}
+
+.btnCrop {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #121214;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.btnCrop:hover {
+  background: #e0e0e0;
+}

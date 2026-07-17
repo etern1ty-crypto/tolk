@@ -64,7 +64,7 @@ export function WallFeed() {
         animate={{ opacity: 1 }}
       >
         <div className={styles.composerTop}>
-          <Avatar name={me.displayName} size={40} />
+          <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={40} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <textarea
               value={draft}
@@ -117,6 +117,8 @@ export function WallFeed() {
                   >
                     <Avatar
                       name={author?.displayName ?? '?'}
+                      id={author?.id}
+                      avatarUrl={author?.avatarRef}
                       size={40}
                       online={author?.online}
                     />

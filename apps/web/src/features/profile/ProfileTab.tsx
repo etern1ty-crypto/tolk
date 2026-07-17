@@ -1,8 +1,9 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImagePlus, MoreHorizontal, Settings, X, Paperclip } from 'lucide-react';
 import { useMemo, useState, useRef } from 'react';
-import { BANNER_PATTERNS, useAppStore } from '../../store/appStore';
+import { BANNER_PATTERNS, useAppStore, fetchApi } from '../../store/appStore';
 import { patternById, MEDIA_PATTERNS, generateCustomPattern } from '../../shared/patterns';
+import { useEffect } from 'react';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -26,6 +27,149 @@ export function ProfileTab() {
   const setBannerPattern = useAppStore((s) => s.setBannerPattern);
   const updateMe = useAppStore((s) => s.updateMe);
   const openSettings = useAppStore((s) => s.openSettings);
+
+  // Custom Avatar upload and cropping states & logic
+  const [croppingImage, setCroppingImage] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  const showToast = useAppStore((s) => s.showToast);
+
+  useEffect(() => {
+    if (!croppingImage) {
+      imgRef.current = null;
+      return;
+    }
+    const img = new Image();
+    img.src = croppingImage;
+    img.onload = () => {
+      imgRef.current = img;
+      drawCanvas();
+    };
+  }, [croppingImage]);
+
+  useEffect(() => {
+    if (imgRef.current) {
+      drawCanvas();
+    }
+  }, [zoom, pan]);
+
+  const drawCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imgRef.current) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const img = imgRef.current;
+    const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * zoom;
+    const w = img.width * scale;
+    const h = img.height * scale;
+
+    const x = (canvas.width - w) / 2 + pan.x;
+    const y = (canvas.height - h) / 2 + pan.y;
+
+    ctx.drawImage(img, x, y, w, h);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    setPan({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const uploadAvatar = async (file: File) => {
+    const token = useAppStore.getState().token;
+    try {
+      showToast('Загрузка аватара...');
+      let publicUrl = '';
+      try {
+        const uploadRes = await fetchApi('/media/uploads', {
+          method: 'POST',
+          body: JSON.stringify({
+            mime: file.type || 'image/jpeg',
+            size: file.size,
+            kind: 'image'
+          })
+        }, token);
+
+        const s3Res = await fetch(uploadRes.upload_url, {
+          method: 'PUT',
+          body: file,
+          headers: {
+            'Content-Type': file.type || 'image/jpeg'
+          }
+        });
+
+        if (!s3Res.ok) {
+          throw new Error(`S3 upload failed: ${s3Res.statusText}`);
+        }
+
+        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        }, token);
+
+        publicUrl = uploadRes.public_url;
+      } catch (uploadErr) {
+        console.warn('Avatar upload failed, falling back to local Object URL mock:', uploadErr);
+        publicUrl = URL.createObjectURL(file);
+      }
+
+      await updateMe({ avatarRef: publicUrl });
+      showToast('Аватар обновлен!');
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err);
+      showToast(err.message || 'Ошибка загрузки аватара');
+    }
+  };
+
+  const handleCrop = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imgRef.current) return;
+
+    const size = 300;
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = size;
+    cropCanvas.height = size;
+    const cropCtx = cropCanvas.getContext('2d');
+    if (!cropCtx) return;
+
+    cropCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+    cropCanvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      setCroppingImage(null);
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+      await uploadAvatar(file);
+    }, 'image/jpeg', 0.9);
+  };
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.current?.click();
+  };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [panel, setPanel] = useState<'none' | 'banner' | 'compose'>('none');
@@ -201,8 +345,13 @@ export function ProfileTab() {
         </div>
       </div>
 
-      <div className={styles.avatarWrap}>
-        <Avatar name={me.displayName} size={92} online />
+      <div className={styles.avatarWrapEditable} onClick={triggerAvatarUpload} title="Сменить аватар">
+        <div className={styles.avatarInnerWrap}>
+          <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={92} online />
+          <div className={styles.avatarHoverOverlay}>
+            <span>📷</span>
+          </div>
+        </div>
       </div>
 
       <div className={styles.info}>
@@ -592,6 +741,80 @@ export function ProfileTab() {
           })
         )}
       </section>
+
+      <input
+        type="file"
+        ref={avatarInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              setCroppingImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          }
+        }}
+        accept="image/*"
+        style={{ display: 'none' }}
+      />
+
+      {croppingImage && (
+        <div className={styles.cropperOverlay}>
+          <div className={styles.cropperPanel}>
+            <h3 className={styles.cropperTitle}>Кадрирование аватара</h3>
+            
+            <div
+              className={styles.canvasContainer}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+            >
+              <canvas
+                ref={canvasRef}
+                width={280}
+                height={280}
+                className={styles.cropperCanvas}
+              />
+              <div className={styles.cropperCircleMask} />
+            </div>
+
+            <div className={styles.cropperControls}>
+              <div className={styles.cropperRow}>
+                <span>Масштаб</span>
+                <span>{Math.round(zoom * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className={styles.cropperSlider}
+              />
+            </div>
+
+            <div className={styles.cropperActions}>
+              <button
+                type="button"
+                className={styles.btnCancel}
+                onClick={() => setCroppingImage(null)}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className={styles.btnCrop}
+                onClick={handleCrop}
+              >
+                Готово
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

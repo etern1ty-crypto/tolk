@@ -88,7 +88,7 @@ export function ChatList() {
               onClick={() => chat.peerId && openUserProfile(chat.peerId)}
               aria-label={`Профиль ${chat.title}`}
             >
-              <Avatar name={chat.title} online={chat.online} size={48} />
+              <Avatar name={chat.title} id={chat.id} avatarUrl={chat.avatarRef} online={chat.online} size={48} />
             </button>
             <button
               type="button"
