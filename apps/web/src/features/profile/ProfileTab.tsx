@@ -1,9 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ImagePlus, MoreHorizontal, Settings, X, Paperclip } from 'lucide-react';
-import { useMemo, useState, useRef } from 'react';
+import { ImagePlus, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore, fetchApi } from '../../store/appStore';
 import { patternById, MEDIA_PATTERNS, generateCustomPattern } from '../../shared/patterns';
-import { useEffect } from 'react';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -27,6 +26,7 @@ export function ProfileTab() {
   const setBannerPattern = useAppStore((s) => s.setBannerPattern);
   const updateMe = useAppStore((s) => s.updateMe);
   const openSettings = useAppStore((s) => s.openSettings);
+  const token = useAppStore((s) => s.token);
 
   // Custom Avatar upload and cropping states & logic
   const [croppingImage, setCroppingImage] = useState<string | null>(null);
@@ -40,6 +40,31 @@ export function ProfileTab() {
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   const showToast = useAppStore((s) => s.showToast);
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [isComposeExpanded, setIsComposeExpanded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const data = await fetchApi('/notifications', {}, token);
+        if (active) setNotifications(data || []);
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      }
+    };
+    if (token) {
+      load();
+      const interval = setInterval(load, 10000);
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!croppingImage) {
@@ -222,11 +247,14 @@ export function ProfileTab() {
     if (!touch) return;
     dragStartY.current = touch.clientY;
     dragStartHeight.current = mediaHeight;
-    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     const touch = e.touches[0];
     if (!touch) return;
     const deltaY = touch.clientY - dragStartY.current;
@@ -283,6 +311,63 @@ export function ProfileTab() {
     <div className={styles.root}>
       <div className={styles.banner}>
         <PatternBg pattern={banner} seed={me.id} density="high" className={styles.bannerFill} />
+        <div className={styles.bannerLeftActions}>
+          <div className={styles.menuWrap}>
+            <IconBtn
+              variant="soft"
+              onClick={() => setNotifOpen((v) => !v)}
+              aria-label="Уведомления"
+              aria-expanded={notifOpen}
+            >
+              {notifOpen ? (
+                <X size={18} strokeWidth={iconProps.strokeWidth} />
+              ) : (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Bell size={18} strokeWidth={iconProps.strokeWidth} />
+                  {notifications.length > 0 && (
+                    <span className={styles.notifBadge}>{notifications.length}</span>
+                  )}
+                </div>
+              )}
+            </IconBtn>
+            <AnimatePresence>
+              {notifOpen && (
+                <motion.div
+                  className={styles.menu}
+                  style={{ left: 0, right: 'auto', minWidth: '260px', maxHeight: '300px', overflowY: 'auto' }}
+                  role="menu"
+                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div className={styles.notifTitle}>Уведомления</div>
+                  {notifications.length === 0 ? (
+                    <div className={styles.notifEmpty}>Нет новых уведомлений</div>
+                  ) : (
+                    notifications.map((n, idx) => (
+                      <button
+                        key={`${n.postId}-${n.userId}-${n.type}-${idx}`}
+                        type="button"
+                        className={styles.notifItem}
+                        onClick={() => {
+                          setSelectedPostId(n.postId);
+                          setNotifOpen(false);
+                        }}
+                      >
+                        <Avatar name={n.displayName} id={n.userId} avatarUrl={n.avatarRef} size={28} />
+                        <div className={styles.notifText}>
+                          <strong>{n.displayName}</strong>{' '}
+                          {n.type === 'like' ? 'поставил(а) лайк' : `коммент: "${n.text}"`}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
         <div className={styles.bannerActions}>
           <div className={styles.menuWrap}>
             <IconBtn
@@ -311,7 +396,7 @@ export function ProfileTab() {
                     type="button"
                     role="menuitem"
                     onClick={() => {
-                      setPanel('compose');
+                      setIsComposeExpanded(true);
                       closeMenu();
                     }}
                   >
@@ -427,21 +512,22 @@ export function ProfileTab() {
           </motion.section>
         )}
 
-        {panel === 'compose' && (
-          <motion.section
-            key="compose"
-            className={styles.panel}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-          >
-            <div className={styles.panelHead}>
-              <h2>Новый пост</h2>
-              <button type="button" className={styles.panelClose} onClick={() => setPanel('none')}>
-                Закрыть
-              </button>
+      </AnimatePresence>
+
+      <section className={styles.section}>
+        <div className={styles.composerWrap}>
+          {!isComposeExpanded ? (
+            <div className={styles.collapsedComposer} onClick={() => setIsComposeExpanded(true)}>
+              <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={32} />
+              <input type="text" placeholder="Что у вас нового?" readOnly />
             </div>
-            <div className={styles.composeCard}>
+          ) : (
+            <motion.div
+              className={styles.composeCard}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
               <div style={{ position: 'relative' }}>
                 <textarea
                   value={draft}
@@ -577,6 +663,7 @@ export function ProfileTab() {
                       justifyContent: 'center',
                       cursor: 'ns-resize',
                       userSelect: 'none',
+                      touchAction: 'none',
                       zIndex: 10
                     }}
                   >
@@ -620,6 +707,7 @@ export function ProfileTab() {
                           justifyContent: 'center',
                           cursor: 'ns-resize',
                           userSelect: 'none',
+                          touchAction: 'none',
                           zIndex: 10
                         }}
                       >
@@ -651,40 +739,57 @@ export function ProfileTab() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                className={styles.publish}
-                disabled={!draft.trim() && !withMedia && !photoFile}
-                onClick={async () => {
-                  await createPost(draft, {
-                    from: 'profile',
-                    addToWall: toWall,
-                    withMedia,
-                    photoFile: photoFile ?? undefined,
-                    patternText: patternText || undefined,
-                    mediaHeight: (photoFile || withMedia) ? mediaHeight : undefined,
-                    fontSize: textSize !== 16 ? textSize : undefined,
-                    fontFamily: textFont !== 'sans' ? textFont : undefined
-                  });
-                  setDraft('');
-                  setWithMedia(false);
-                  setPhotoFile(null);
-                  setPhotoPreview(null);
-                  setPatternText('');
-                  setTextSize(16);
-                  setTextFont('sans');
-                  setMediaHeight(200);
-                  setPanel('none');
-                }}
-              >
-                Опубликовать
-              </button>
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className={styles.cancelCompose}
+                  onClick={() => {
+                    setDraft('');
+                    setWithMedia(false);
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
+                    setPatternText('');
+                    setTextSize(16);
+                    setTextFont('sans');
+                    setMediaHeight(200);
+                    setIsComposeExpanded(false);
+                  }}
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  className={styles.publish}
+                  disabled={!draft.trim() && !withMedia && !photoFile}
+                  onClick={async () => {
+                    await createPost(draft, {
+                      from: 'profile',
+                      addToWall: toWall,
+                      withMedia,
+                      photoFile: photoFile ?? undefined,
+                      patternText: patternText || undefined,
+                      mediaHeight: (photoFile || withMedia) ? mediaHeight : undefined,
+                      fontSize: textSize !== 16 ? textSize : undefined,
+                      fontFamily: textFont !== 'sans' ? textFont : undefined
+                    });
+                    setDraft('');
+                    setWithMedia(false);
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
+                    setPatternText('');
+                    setTextSize(16);
+                    setTextFont('sans');
+                    setMediaHeight(200);
+                    setIsComposeExpanded(false);
+                  }}
+                >
+                  Опубликовать
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </div>
 
-      <section className={styles.section}>
         <h2>Посты</h2>
         {myPosts.length === 0 ? (
           <p className={styles.empty}>Пока пусто</p>
@@ -815,6 +920,96 @@ export function ProfileTab() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {selectedPostId && (
+          (() => {
+            const selectedPost = posts.find((p) => p.id === selectedPostId);
+            if (!selectedPost) return null;
+            const mediaPat =
+              selectedPost.media?.kind === 'pattern'
+                ? selectedPost.media.patternId === 'custom' && selectedPost.media.items
+                  ? generateCustomPattern(selectedPost.media.items.join(' '), selectedPost.id)
+                  : patternById(MEDIA_PATTERNS, selectedPost.media.patternId, MEDIA_PATTERNS[0]!)
+                : null;
+            return (
+              <motion.div
+                className={styles.modalOverlay}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSelectedPostId(null)}
+              >
+                <motion.div
+                  className={styles.modalContent}
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className={styles.modalHeader}>
+                    <h3>Пост</h3>
+                    <IconBtn onClick={() => setSelectedPostId(null)}>
+                      <X size={18} />
+                    </IconBtn>
+                  </div>
+                  <div className={styles.modalBody}>
+                    <article className={styles.post} style={{ margin: 0 }}>
+                      <div className={styles.postTop}>
+                        <time>{rel(selectedPost.createdAt)}</time>
+                      </div>
+                      {mediaPat && (
+                        <div className={styles.media} style={selectedPost.media?.height ? { height: `${selectedPost.media.height}px` } : undefined}>
+                          <PatternBg pattern={mediaPat} seed={selectedPost.id} density="mid" className={styles.mediaFill} />
+                        </div>
+                      )}
+                      {selectedPost.media?.kind === 'image' && selectedPost.media?.url && (
+                        <div className={styles.media} style={selectedPost.media.height ? { height: `${selectedPost.media.height}px` } : undefined}>
+                          <img src={selectedPost.media.url} alt="media" className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                        </div>
+                      )}
+                      {selectedPost.text && (
+                        <p
+                          style={{
+                            fontSize: selectedPost.media?.fontSize ? `${selectedPost.media.fontSize}px` : undefined,
+                            fontFamily: selectedPost.media?.fontFamily === 'serif' ? 'serif' : selectedPost.media?.fontFamily === 'mono' ? 'monospace' : undefined,
+                            lineHeight: 1.45
+                          }}
+                        >
+                          {selectedPost.text}
+                        </p>
+                      )}
+                    </article>
+
+                    <div className={styles.commentsSection}>
+                      <h4>Комментарии</h4>
+                      {selectedPost.comments && selectedPost.comments.length > 0 ? (
+                        <div className={styles.commentsList}>
+                          {selectedPost.comments.map((c: any) => {
+                            const commentUser = useAppStore.getState().users[c.userId] || { displayName: 'Пользователь' };
+                            return (
+                              <div key={c.id} className={styles.commentItem}>
+                                <Avatar name={commentUser.displayName} id={c.userId} avatarUrl={commentUser.avatarRef} size={24} />
+                                <div className={styles.commentTextWrap}>
+                                  <div className={styles.commentAuthor}>{commentUser.displayName}</div>
+                                  <div className={styles.commentText}>{c.text}</div>
+                                  <div className={styles.commentTime}>{rel(c.createdAt)}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className={styles.emptyComments}>Нет комментариев</div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })()
+        )}
+      </AnimatePresence>
     </div>
   );
 }

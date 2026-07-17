@@ -183,6 +183,17 @@ export const CHAT_THEMES: DecorPattern[] = [
     size: 18,
     gap: 12,
   },
+  {
+    id: 'chat_minimalist',
+    label: 'Минимал',
+    kind: 'emoji',
+    base: 'linear-gradient(180deg, #121316 0%, #17181c 100%)',
+    items: ['✦', '✧', '◇', '◈', '❖', '⋆', '✳', '·'],
+    ink: 'rgba(255,255,255,0.06)',
+    opacity: 0.5,
+    size: 14,
+    gap: 12,
+  },
 ];
 
 export const MEDIA_PATTERNS: DecorPattern[] = [

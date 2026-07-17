@@ -216,6 +216,7 @@ export function SettingsOverlay() {
                               body: compressed,
                               headers: { 'Content-Type': 'image/webp' },
                             });
+                            await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
                             useAppStore.getState().setGlobalCustomWallpaper(uploadRes.public_url);
                           } catch (err) {
                             useAppStore.getState().showToast('Ошибка загрузки обоев');

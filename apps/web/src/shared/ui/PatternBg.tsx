@@ -41,23 +41,37 @@ export function PatternBg({
   children,
 }: Props) {
   const scattered = useMemo(() => {
-    const count = density === 'low' ? 30 : density === 'high' ? 90 : 55;
     if (!pattern.items.length) return [] as ScatteredItem[];
 
     const h = seedHash(seed);
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    for (let i = 0; i < count; i++) {
-      const idx = Math.floor(rng() * pattern.items.length);
-      out.push({
-        text: pattern.items[idx]!,
-        x: rng() * 100,
-        y: rng() * 100,
-        rotate: rng() * 360 - 180,
-        scale: 0.6 + rng() * 0.8,
-        opacity: 0.35 + rng() * 0.55,
-      });
+    const step = density === 'low' ? 24 : density === 'high' ? 10 : 16;
+    
+    for (let yCoord = -step; yCoord < 120; yCoord += step) {
+      const row = Math.round((yCoord + step) / step);
+      const shift = (row % 2) * (step / 2);
+      
+      for (let xCoord = -step; xCoord < 120; xCoord += step) {
+        const jitterX = (rng() - 0.5) * (step * 0.25);
+        const jitterY = (rng() - 0.5) * (step * 0.25);
+        
+        const finalX = xCoord + shift + jitterX;
+        const finalY = yCoord + jitterY;
+        
+        const idx = Math.floor(rng() * pattern.items.length);
+        const rotate = -30 + (rng() - 0.5) * 15;
+        
+        out.push({
+          text: pattern.items[idx]!,
+          x: finalX,
+          y: finalY,
+          rotate,
+          scale: 0.8 + rng() * 0.4,
+          opacity: 0.18 + rng() * 0.12,
+        });
+      }
     }
     return out;
   }, [pattern, seed, density]);
@@ -74,7 +88,7 @@ export function PatternBg({
         <svg
           className={styles.grid}
           viewBox="0 0 100 100"
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid slice"
           aria-hidden
           style={{ opacity: baseOpacity }}
         >

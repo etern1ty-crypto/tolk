@@ -34,6 +34,8 @@ export function ChatPanel() {
   const messages = useAppStore((s) => s.messages);
   const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
+  const activeMediaId = useAppStore((s) => s.activeMediaId);
+  const setActiveMediaId = useAppStore((s) => s.setActiveMediaId);
   const globalChatThemeId = useAppStore((s) => s.globalChatThemeId);
   const highlightMessageId = useAppStore((s) => s.highlightMessageId);
   const voiceRecording = useAppStore((s) => s.voiceRecording);
@@ -499,7 +501,7 @@ export function ChatPanel() {
                           userSelect: 'none',
                           WebkitTapHighlightColor: 'transparent'
                         }}
-                        onClick={() => useAppStore.getState().setActiveMediaId(m.id)}
+                        onClick={() => setActiveMediaId(activeMediaId === m.id ? null : m.id)}
                         title="Нажмите, чтобы включить видео"
                       >
                         <video 
@@ -509,7 +511,7 @@ export function ChatPanel() {
                             width: '100%', 
                             height: '100%', 
                             objectFit: 'cover',
-                            filter: useAppStore.getState().activeMediaId === m.id ? 'none' : 'grayscale(1) brightness(0.7)'
+                            filter: activeMediaId === m.id ? 'none' : 'grayscale(1) brightness(0.7)'
                           }}
                           playsInline
                         />
