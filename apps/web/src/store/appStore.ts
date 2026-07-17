@@ -90,7 +90,7 @@ function showBrowserNotification(data: any, store: any) {
       body,
       tag: data.chatId,
       renotify: true,
-    });
+    } as any);
 
     notification.onclick = () => {
       window.focus();
