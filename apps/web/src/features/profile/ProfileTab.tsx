@@ -132,8 +132,8 @@ export function ProfileTab() {
 
         publicUrl = uploadRes.public_url;
       } catch (uploadErr) {
-        console.warn('Avatar upload failed, falling back to local Object URL mock:', uploadErr);
-        publicUrl = URL.createObjectURL(file);
+        console.error('Avatar upload failed:', uploadErr);
+        throw uploadErr;
       }
 
       await updateMe({ avatarRef: publicUrl });

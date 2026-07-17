@@ -968,8 +968,8 @@ export const useAppStore = create<AppState>()(
 
         publicUrl = uploadRes.public_url;
       } catch (uploadErr) {
-        console.warn('S3 upload failed, falling back to local Object URL mock:', uploadErr);
-        publicUrl = URL.createObjectURL(file);
+        console.error('Media upload failed:', uploadErr);
+        throw uploadErr;
       }
 
       await get().sendMessage(file.name, {
