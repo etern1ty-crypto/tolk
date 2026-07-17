@@ -17,6 +17,7 @@ export function SearchTab() {
   const startChatWithUser = useAppStore((s) => s.startChatWithUser);
   const setActiveChat = useAppStore((s) => s.setActiveChat);
   const setMainTab = useAppStore((s) => s.setMainTab);
+  const setCommentPostId = useAppStore((s) => s.setCommentPostId);
 
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
@@ -195,6 +196,7 @@ export function SearchTab() {
                       transition={{ delay: Math.min(i * 0.03, 0.15) }}
                       onClick={() => {
                         setMainTab('wall');
+                        setCommentPostId(p.id);
                       }}
                     >
                       <Avatar name={author?.displayName ?? '?'} id={author?.id} avatarUrl={author?.avatarRef} size={36} />
