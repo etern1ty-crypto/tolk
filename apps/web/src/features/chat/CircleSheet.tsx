@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../../store/appStore';
+import { useAppStore, fetchApi } from '../../store/appStore';
 import styles from './CircleSheet.module.css';
 
 export function CircleSheet() {
   const open = useAppStore((s) => s.circleSheetOpen);
   const setCircleSheetOpen = useAppStore((s) => s.setCircleSheetOpen);
-  const sendCircleMock = useAppStore((s) => s.sendCircleMock);
   const showEffects = useAppStore((s) => s.showCircleEffects);
   const setShowCircleEffects = useAppStore((s) => s.setShowCircleEffects);
   const showToast = useAppStore((s) => s.showToast);
@@ -19,7 +18,17 @@ export function CircleSheet() {
   const [recording, setRecording] = useState(false);
   const [hasCam, setHasCam] = useState(false);
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const startTimeRef = useRef<number>(0);
+  const [duration, setDuration] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
   const stopStream = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
@@ -31,8 +40,8 @@ export function CircleSheet() {
     if (!navigator.mediaDevices?.getUserMedia) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing },
-        audio: false,
+        video: { facingMode: facing, width: 320, height: 320 },
+        audio: true,
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -40,7 +49,8 @@ export function CircleSheet() {
         await videoRef.current.play().catch(() => undefined);
       }
       setHasCam(true);
-    } catch {
+    } catch (err) {
+      console.error('Error starting camera stream:', err);
       setHasCam(false);
     }
   };
@@ -57,6 +67,12 @@ export function CircleSheet() {
     void startCam(camera);
     return () => stopStream();
   }, [open]);
+
+  useEffect(() => {
+    if (recording && duration >= 15) {
+      stopRecording();
+    }
+  }, [recording, duration]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,6 +102,114 @@ export function CircleSheet() {
     });
   }, [flash, camera, hasCam]);
 
+  const startRecording = () => {
+    if (!streamRef.current) return;
+    chunksRef.current = [];
+    
+    let options = { mimeType: 'video/webm;codecs=vp9,opus' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    }
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      options = { mimeType: 'video/webm' };
+    }
+    
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(streamRef.current, options);
+    } catch {
+      recorder = new MediaRecorder(streamRef.current);
+    }
+    
+    mediaRecorderRef.current = recorder;
+    
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push(e.data);
+      }
+    };
+    
+    recorder.onstop = async () => {
+      const durationSec = Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000));
+      if (chunksRef.current.length > 0) {
+        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'video/webm' });
+        const file = new File([blob], 'circle.webm', { type: blob.type });
+        
+        const token = useAppStore.getState().token;
+        const chatId = useAppStore.getState().activeChatId;
+        const sendMessage = useAppStore.getState().sendMessage;
+        
+        if (chatId) {
+          try {
+            showToast('Отправка кружка...');
+            
+            const uploadRes = await fetchApi('/media/uploads', {
+              method: 'POST',
+              body: JSON.stringify({
+                mime: file.type || 'video/webm',
+                size: file.size,
+                kind: 'file'
+              })
+            }, token);
+
+            const s3Res = await fetch(uploadRes.upload_url, {
+              method: 'PUT',
+              body: file,
+              headers: {
+                'Content-Type': file.type || 'video/webm'
+              }
+            });
+
+            if (!s3Res.ok) {
+              throw new Error(`Failed to upload circle: ${s3Res.statusText}`);
+            }
+
+            await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+              method: 'POST',
+              body: JSON.stringify({})
+            }, token);
+
+            await sendMessage('Видеосообщение', {
+              kind: 'circle',
+              media: {
+                url: uploadRes.public_url,
+                durationSec,
+                filename: 'circle.webm',
+                mime: file.type,
+                size: file.size
+              }
+            });
+            showToast('Кружок отправлен');
+          } catch (err: any) {
+            console.error('Failed to upload circle video:', err);
+            showToast('Не удалось отправить кружок');
+          }
+        }
+      }
+      setCircleSheetOpen(false);
+    };
+    
+    recorder.start();
+    startTimeRef.current = Date.now();
+    setRecording(true);
+    setDuration(0);
+    
+    timerRef.current = window.setInterval(() => {
+      setDuration(Math.round((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+  };
+
+  const stopRecording = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setRecording(false);
+  };
+
   if (!open) return null;
 
   return (
@@ -104,7 +228,7 @@ export function CircleSheet() {
           />
           {!hasCam && (
             <span className={styles.hint}>
-              {recording ? '● запись…' : 'камера недоступна · mock ok'}
+              {recording ? '● запись…' : 'камера/микрофон недоступны'}
             </span>
           )}
           {recording && hasCam && <span className={styles.recDot}>●</span>}
@@ -137,16 +261,14 @@ export function CircleSheet() {
             type="button"
             className={styles.rec}
             onClick={() => {
-              if (recording) return;
-              setRecording(true);
-              window.setTimeout(() => {
-                setRecording(false);
-                sendCircleMock();
-                showToast('Кружок отправлен');
-              }, 1100);
+              if (recording) {
+                stopRecording();
+              } else {
+                startRecording();
+              }
             }}
           >
-            {recording ? '…' : '●'}
+            {recording ? `${duration}с` : '●'}
           </button>
           <button type="button" onClick={() => setCircleSheetOpen(false)}>
             ✕

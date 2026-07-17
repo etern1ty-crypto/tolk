@@ -252,3 +252,36 @@ export function seedHash(s: string): number {
   }
   return h >>> 0;
 }
+
+export function generateCustomPattern(inputText: string, seed: string): DecorPattern {
+  const words = inputText.trim().split(/\s+/).filter(Boolean);
+  const items = words.length > 0 ? words : ['✦'];
+  
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = (h << 5) - h + seed.charCodeAt(i);
+    h |= 0;
+  }
+  h = Math.abs(h);
+
+  const hue = h % 360;
+  const sat = 45 + (h % 30);
+  const light = 12 + (h % 12);
+  const baseColor = `linear-gradient(135deg, hsl(${hue}, ${sat}%, ${light}%) 0%, hsl(${(hue + 45) % 360}, ${sat}%, ${light + 8}%) 100%)`;
+  const inkColor = `hsla(${(hue + 25) % 360}, ${sat}%, 80%, 0.28)`;
+  
+  const isEmojiPattern = /\p{Emoji}/u.test(inputText) || /[\uD800-\uDFFF]/.test(inputText);
+
+  return {
+    id: 'custom',
+    label: 'Custom Pattern',
+    kind: isEmojiPattern ? 'emoji' : 'words',
+    base: baseColor,
+    ink: inkColor,
+    items: items,
+    opacity: isEmojiPattern ? 0.45 : 1.0,
+    size: isEmojiPattern ? 28 : 14,
+    rotate: isEmojiPattern ? 15 : -10,
+    gap: isEmojiPattern ? 14 : 16
+  };
+}

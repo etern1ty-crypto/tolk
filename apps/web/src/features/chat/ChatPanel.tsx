@@ -10,12 +10,13 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { CHAT_THEMES, useAppStore } from '../../store/appStore';
+import { CHAT_THEMES, useAppStore, fetchApi } from '../../store/appStore';
 import { patternById } from '../../shared/patterns';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
+import { VoicePlayer } from './VoicePlayer';
 
 function formatMsgTime(ts: any) {
   const parsed = typeof ts === 'string' && /^\d+$/.test(ts) ? Number(ts) : ts;
@@ -44,7 +45,6 @@ export function ChatPanel() {
   const setAttachSheetOpen = useAppStore((s) => s.setAttachSheetOpen);
   const setCircleSheetOpen = useAppStore((s) => s.setCircleSheetOpen);
   const setVoiceRecording = useAppStore((s) => s.setVoiceRecording);
-  const sendVoiceMock = useAppStore((s) => s.sendVoiceMock);
   const setShelfOpen = useAppStore((s) => s.setShelfOpen);
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
@@ -59,6 +59,11 @@ export function ChatPanel() {
   const holdArmTimer = useRef<number | null>(null);
   const voiceHold = useRef(false);
   const didHoldRecord = useRef(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordStartTimeRef = useRef<number>(0);
 
   const chat = chats.find((c) => c.id === activeChatId);
   const theme = patternById(CHAT_THEMES, chat?.themeId, CHAT_THEMES[0]!);
@@ -121,11 +126,80 @@ export function ChatPanel() {
     }
   };
 
-  const endVoice = (send: boolean) => {
+  const endVoice = async (send: boolean) => {
     if (!voiceHold.current && !voiceRecording) return;
     voiceHold.current = false;
     setVoiceRecording(false);
-    if (send) sendVoiceMock();
+    
+    const recorder = mediaRecorderRef.current;
+    const stream = streamRef.current;
+    
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = async () => {
+        const durationSec = Math.max(1, Math.round((Date.now() - recordStartTimeRef.current) / 1000));
+        
+        if (send && audioChunksRef.current.length > 0) {
+          const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          const file = new File([blob], 'voice.webm', { type: blob.type });
+          
+          const token = useAppStore.getState().token;
+          const chatId = activeChatId;
+          if (chatId) {
+            try {
+              // @ts-ignore
+              useAppStore.getState().showToast('Отправка голосового...');
+              
+              const uploadRes = await fetchApi('/media/uploads', {
+                method: 'POST',
+                body: JSON.stringify({
+                  mime: file.type || 'audio/webm',
+                  size: file.size,
+                  kind: 'file'
+                })
+              }, token);
+
+              const s3Res = await fetch(uploadRes.upload_url, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                  'Content-Type': file.type || 'audio/webm'
+                }
+              });
+
+              if (!s3Res.ok) {
+                throw new Error(`Failed to upload voice: ${s3Res.statusText}`);
+              }
+
+              await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+                method: 'POST',
+                body: JSON.stringify({})
+              }, token);
+
+              await sendMessage('Голосовое сообщение', {
+                kind: 'voice',
+                media: {
+                  url: uploadRes.public_url,
+                  durationSec,
+                  filename: 'voice.webm',
+                  mime: file.type,
+                  size: file.size
+                }
+              });
+            } catch (err: any) {
+              console.error('Failed to upload voice recording:', err);
+              // @ts-ignore
+              useAppStore.getState().showToast('Ошибка отправки голосового');
+            }
+          }
+        }
+        
+        stream?.getTracks().forEach((track) => track.stop());
+      };
+      
+      recorder.stop();
+    } else {
+      stream?.getTracks().forEach((track) => track.stop());
+    }
   };
 
   const onRecordPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -133,11 +207,38 @@ export function ChatPanel() {
     didHoldRecord.current = false;
     clearHoldArm();
     (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-    holdArmTimer.current = window.setTimeout(() => {
+    holdArmTimer.current = window.setTimeout(async () => {
       didHoldRecord.current = true;
       if (recordMode === 'voice') {
-        voiceHold.current = true;
-        setVoiceRecording(true);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          streamRef.current = stream;
+          audioChunksRef.current = [];
+          
+          let options = { mimeType: 'audio/webm' };
+          let recorder: MediaRecorder;
+          try {
+            recorder = new MediaRecorder(stream, options);
+          } catch {
+            recorder = new MediaRecorder(stream);
+          }
+          
+          mediaRecorderRef.current = recorder;
+          recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
+            }
+          };
+          recorder.start();
+          recordStartTimeRef.current = Date.now();
+          voiceHold.current = true;
+          setVoiceRecording(true);
+        } catch (err) {
+          console.error('Error starting audio recording:', err);
+          // @ts-ignore
+          useAppStore.getState().showToast('Доступ к микрофону отклонен');
+          didHoldRecord.current = false;
+        }
       } else {
         setCircleSheetOpen(true);
       }
@@ -147,20 +248,18 @@ export function ChatPanel() {
   const onRecordPointerUp = () => {
     clearHoldArm();
     if (!didHoldRecord.current) {
-      // short tap — switch voice ↔ circle (like Telegram)
       setRecordMode((m) => (m === 'voice' ? 'circle' : 'voice'));
       return;
     }
     if (recordMode === 'voice') {
-      endVoice(true);
+      void endVoice(true);
     }
-    // circle: sheet handles capture/send
   };
 
   const onRecordPointerCancel = () => {
     clearHoldArm();
     if (didHoldRecord.current && recordMode === 'voice') {
-      endVoice(false);
+      void endVoice(false);
     }
     didHoldRecord.current = false;
   };
@@ -321,37 +420,98 @@ export function ChatPanel() {
                   )}
                   {m.isEcho && <span className={styles.echoTag}>Echo</span>}
                   {m.kind === 'voice' && (
-                    <div className={styles.voice}>
-                      <span className={styles.play}>
-                        <Mic size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-                      </span>
-                      <span className={styles.wave}>
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                      <span>
-                        0:{String(m.durationSec ?? 0).padStart(2, '0')}
-                      </span>
-                    </div>
+                    m.media?.url ? (
+                      <VoicePlayer src={m.media.url} durationSec={m.media.durationSec} />
+                    ) : (
+                      <div className={styles.voice}>
+                        <span className={styles.play}>
+                          <Mic size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+                        </span>
+                        <span className={styles.wave}>
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span>
+                          0:{String(m.durationSec ?? 0).padStart(2, '0')}
+                        </span>
+                      </div>
+                    )
                   )}
                   {m.kind === 'circle' && (
-                    <div className={styles.circleMsg}>
-                      <div className={styles.circleDisk}>
-                        <CircleDot size={36} strokeWidth={iconProps.strokeWidth} />
+                    m.media?.url ? (
+                      <div 
+                        style={{ 
+                          width: '180px', 
+                          height: '180px', 
+                          borderRadius: '50%', 
+                          overflow: 'hidden', 
+                          border: '2px solid var(--accent)',
+                          position: 'relative',
+                          background: '#000',
+                          cursor: 'pointer'
+                        }}
+                        onClick={(e) => {
+                          const video = e.currentTarget.querySelector('video');
+                          if (video) {
+                            video.muted = !video.muted;
+                          }
+                        }}
+                        title="Нажмите, чтобы включить/выключить звук"
+                      >
+                        <video 
+                          src={m.media.url} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                        />
                       </div>
-                      <span>Кружок · {m.durationSec ?? 5}с</span>
+                    ) : (
+                      <div className={styles.circleMsg}>
+                        <div className={styles.circleDisk}>
+                          <CircleDot size={36} strokeWidth={iconProps.strokeWidth} />
+                        </div>
+                        <span>Кружок · {m.durationSec ?? 5}с</span>
+                      </div>
+                    )
+                  )}
+                  {m.kind === 'media' && m.media?.url && (
+                    <div style={{ borderRadius: '8px', overflow: 'hidden', margin: '4px 0', maxHeight: '240px', border: '1px solid var(--border-subtle)' }}>
+                      <img src={m.media.url} alt="Attachment" style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block' }} />
                     </div>
                   )}
-                  {(m.kind === 'text' ||
-                    m.kind === 'file' ||
-                    m.kind === 'media') && (
+                  {m.kind === 'file' && m.media?.url && (
+                    <a 
+                      href={m.media.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px', 
+                        textDecoration: 'underline', 
+                        color: 'var(--accent)', 
+                        fontSize: '14px', 
+                        margin: '6px 0',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <span>📄</span>
+                      <span>{m.media.filename || m.text || 'Скачать файл'}</span>
+                    </a>
+                  )}
+                  {(m.kind === 'text' || (!m.media?.url && (m.kind === 'file' || m.kind === 'media'))) && (
                     <div className={styles.bubbleText}>{m.text}</div>
+                  )}
+                  {m.kind === 'media' && m.media?.url && m.text && !m.text.includes('mock attachment') && (
+                    <div className={styles.bubbleText} style={{ marginTop: '4px' }}>{m.text}</div>
                   )}
                   <div className={styles.bubbleMeta}>
                     <span>{formatMsgTime(m.createdAt)}</span>

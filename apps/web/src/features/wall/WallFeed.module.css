@@ -226,24 +226,24 @@
 
 .actions {
   display: flex;
-  gap: 4px;
-  margin-top: 6px;
-  max-width: 380px;
-  justify-content: space-between;
-  border: none;
-  padding: 0;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+  border-top: 1px solid var(--border-subtle);
+  padding: 6px 0 2px;
 }
 
 .actions button {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
   padding: 8px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-size: 13px;
   color: var(--text-tertiary);
   font-weight: 500;
-  min-width: 48px;
 }
 
 .actions button:hover {
@@ -252,5 +252,5 @@
 }
 
 .liked {
-  color: var(--text-primary) !important;
+  color: var(--accent) !important;
 }

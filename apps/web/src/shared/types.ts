@@ -56,6 +56,13 @@ export interface Message {
   reactions: Record<string, string[]>; // emoji -> userIds
   replyToId?: Id;
   replyPreview?: string;
+  media?: {
+    url: string;
+    filename?: string;
+    mime?: string;
+    size?: number;
+    durationSec?: number;
+  };
 }
 
 export interface Post {
@@ -69,11 +76,16 @@ export interface Post {
   repostOfId?: Id;
   likedBy: Id[];
   comments: Comment[];
-  /** decorative media block (emoji/word pattern id) */
   media?: {
-    kind: 'pattern';
-    patternId: string;
+    kind: 'pattern' | 'image';
+    patternId?: string;
+    url?: string;
+    media_id?: string;
     alt?: string;
+    items?: string[];
+    height?: number;
+    fontSize?: number;
+    fontFamily?: string;
   };
 }
 

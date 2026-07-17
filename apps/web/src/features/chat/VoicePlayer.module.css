@@ -1,0 +1,83 @@
+.player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  max-width: 260px;
+  padding: 2px 0;
+}
+
+.playBtn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.playBtn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.06);
+}
+
+.playBtn:active {
+  transform: scale(0.94);
+}
+
+.track {
+  flex: 1;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.bars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.bar {
+  display: block;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: background 0.15s;
+}
+
+.barFilled {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.barPlaying {
+  background: var(--accent, rgba(255, 255, 255, 0.85));
+  animation: pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
+.meta {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-tertiary);
+}
+
+.micIcon {
+  opacity: 0.55;
+}
+
+.time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}

@@ -52,61 +52,114 @@
   font-size: 14px;
 }
 
-.steps {
+/* ── toggle ───────────────────────────────────────────────── */
+.toggle {
   display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 4px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 22px;
 }
 
-.dot,
-.dotActive {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+.toggleActive,
+.toggleInactive {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 650;
+  transition: background 0.18s, color 0.18s;
 }
 
-.dotActive {
-  width: 16px;
-  border-radius: 4px;
-  background: #f4f4f5;
+.toggleActive {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
 }
 
+.toggleInactive {
+  background: transparent;
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+}
+
+.toggleInactive:hover {
+  color: var(--text-secondary);
+}
+
+/* ── form ─────────────────────────────────────────────────── */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .label {
+  display: block;
   font-size: 11px;
   font-weight: 650;
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  margin-bottom: 6px;
 }
 
 .input {
+  width: 100%;
   background: var(--bg-deep);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 14px 16px;
-  font-size: 16px;
+  font-size: 15px;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
 }
 
 .input:focus {
   border-color: var(--border-strong);
   box-shadow: none;
+  outline: none;
 }
 
+/* password wrapper */
+.pwWrap {
+  position: relative;
+}
+
+.pwInput {
+  padding-right: 48px;
+}
+
+.eyeBtn {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.eyeBtn:hover {
+  opacity: 0.9;
+}
+
+/* ── primary button ───────────────────────────────────────── */
 .primary {
-  margin-top: 8px;
   background: #f4f4f5;
   color: #0a0a0b;
   font-weight: 700;
+  font-size: 15px;
   border-radius: 999px;
   padding: 14px 16px;
+  transition: background 0.15s, opacity 0.15s;
 }
 
 .primary:hover:not(:disabled) {
@@ -114,5 +167,6 @@
 }
 
 .primary:disabled {
-  opacity: 0.3;
+  opacity: 0.45;
+  cursor: not-allowed;
 }

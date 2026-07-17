@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/appStore';
 import styles from './AttachSheet.module.css';
 
@@ -6,6 +6,10 @@ export function AttachSheet() {
   const open = useAppStore((s) => s.attachSheetOpen);
   const setAttachSheetOpen = useAppStore((s) => s.setAttachSheetOpen);
   const sendMessage = useAppStore((s) => s.sendMessage);
+  const uploadAttachment = useAppStore((s) => s.uploadAttachment);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -18,8 +22,31 @@ export function AttachSheet() {
 
   if (!open) return null;
 
-  const pick = (label: string) => {
-    sendMessage(`[${label}] mock attachment`);
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadAttachment(file, 'media');
+      setAttachSheetOpen(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadAttachment(file, 'file');
+      setAttachSheetOpen(false);
+    }
+  };
+
+  const pickVoiceMock = () => {
+    sendMessage('Голосовое сообщение', {
+      kind: 'voice',
+      media: {
+        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+        durationSec: 10,
+        filename: 'voice.mp3'
+      }
+    });
     setAttachSheetOpen(false);
   };
 
@@ -36,13 +63,29 @@ export function AttachSheet() {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className={styles.title}>Вложение</h3>
-        <button type="button" onClick={() => pick('Фото')}>
+        
+        <input
+          type="file"
+          ref={imageInputRef}
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageSelect}
+        />
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept="*/*"
+          style={{ display: 'none' }}
+          onChange={handleFileSelect}
+        />
+
+        <button type="button" onClick={() => imageInputRef.current?.click()}>
           📷 Фото
         </button>
-        <button type="button" onClick={() => pick('Файл')}>
+        <button type="button" onClick={() => fileInputRef.current?.click()}>
           📄 Файл
         </button>
-        <button type="button" onClick={() => pick('Войс')}>
+        <button type="button" onClick={pickVoiceMock}>
           🎙 Голосовое
         </button>
         <button

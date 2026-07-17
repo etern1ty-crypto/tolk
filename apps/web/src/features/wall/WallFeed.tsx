@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
-import { MEDIA_PATTERNS, patternById } from '../../shared/patterns';
+import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
@@ -134,25 +134,42 @@ export function WallFeed() {
                     </div>
                   </div>
                 </header>
-                {post.media?.kind === 'pattern' && (
-                  <div
-                    className={styles.media}
-                    role="img"
-                    aria-label={post.media.alt ?? 'медиа'}
-                  >
-                    <PatternBg
-                      pattern={patternById(
-                        MEDIA_PATTERNS,
-                        post.media.patternId,
-                        MEDIA_PATTERNS[0]!
-                      )}
-                      seed={post.id}
-                      density="mid"
-                      className={styles.mediaFill}
-                    />
+                {post.media?.kind === 'pattern' && (() => {
+                  const pat = post.media.patternId === 'custom' && post.media.items
+                    ? generateCustomPattern(post.media.items.join(' '), post.id)
+                    : patternById(MEDIA_PATTERNS, post.media.patternId, MEDIA_PATTERNS[0]!);
+                  return (
+                    <div
+                      className={styles.media}
+                      role="img"
+                      aria-label={post.media.alt ?? 'медиа'}
+                      style={post.media.height ? { height: `${post.media.height}px` } : undefined}
+                    >
+                      <PatternBg
+                        pattern={pat}
+                        seed={post.id}
+                        density="mid"
+                        className={styles.mediaFill}
+                      />
+                    </div>
+                  );
+                })()}
+                {post.media?.kind === 'image' && post.media?.url && (
+                  <div className={styles.media} style={post.media.height ? { height: `${post.media.height}px` } : undefined}>
+                    <img src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
                   </div>
                 )}
-                {post.text ? <p className={styles.text}>{post.text}</p> : null}
+                {post.text ? (
+                  <p 
+                    className={styles.text}
+                    style={{
+                      fontSize: post.media?.fontSize ? `${post.media.fontSize}px` : undefined,
+                      fontFamily: post.media?.fontFamily === 'serif' ? 'serif' : post.media?.fontFamily === 'mono' ? 'monospace' : undefined,
+                    }}
+                  >
+                    {post.text}
+                  </p>
+                ) : null}
                 <footer className={styles.actions}>
                   <button
                     type="button"

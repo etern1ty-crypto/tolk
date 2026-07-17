@@ -24,8 +24,8 @@ export function SearchTab() {
   const query = q.trim().toLowerCase();
 
   const people = useMemo(() => {
+    if (!query) return [];
     const list = Object.values(users).filter((u) => u.id !== me.id);
-    if (!query) return list;
     return list.filter(
       (u) =>
         u.displayName.toLowerCase().includes(query) ||
@@ -35,14 +35,14 @@ export function SearchTab() {
   }, [users, me.id, query]);
 
   const foundPosts = useMemo(() => {
+    if (!query) return [];
     const list = posts.filter((p) => p.onWall);
-    if (!query) return list.slice(0, 12);
     return list.filter((p) => p.text.toLowerCase().includes(query));
   }, [posts, query]);
 
   const channels = useMemo(() => {
+    if (!query) return [];
     const list = chats.filter((c) => c.type === 'group');
-    if (!query) return list;
     return list.filter(
       (c) =>
         c.title.toLowerCase().includes(query) ||

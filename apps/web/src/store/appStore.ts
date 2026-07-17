@@ -2,11 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   INITIAL_POSTS,
-  MEDIA_PRESETS,
   ME,
   USERS,
 } from '../mocks/fixtures';
 import { BANNER_PATTERNS, CHAT_THEMES } from '../shared/patterns';
+import { soundEffects } from '../shared/soundEffects';
 import type {
   AuthStep,
   Chat,
@@ -20,16 +20,21 @@ import type {
 } from '../shared/types';
 
 const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3000`;
+    return window.location.origin;
   }
   return 'http://localhost:3000';
 };
 const API_URL = getApiUrl();
 
-async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
+export async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
   const headers = new Headers(options.headers || {});
-  headers.set('Content-Type', 'application/json');
+  if (options.body) {
+    headers.set('Content-Type', 'application/json');
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -54,19 +59,32 @@ async function fetchApi(path: string, options: RequestInit = {}, token?: string 
 let activeSocket: WebSocket | null = null;
 let lastTypingSent = 0;
 let typingTimeout: number | undefined;
+let reconnectCount = 0;
 
 function connectWebSocket(token: string, store: any) {
   if (activeSocket) {
+    if (activeSocket.readyState === WebSocket.CONNECTING || activeSocket.readyState === WebSocket.OPEN) {
+      return;
+    }
     activeSocket.close();
   }
   
   const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsProto}//${window.location.hostname}:3000/ws?token=${token}`;
+  const wsUrl = import.meta.env.VITE_WS_URL
+    ? `${import.meta.env.VITE_WS_URL}?token=${token}`
+    : `${wsProto}//${window.location.host}/ws?token=${token}`;
   const ws = new WebSocket(wsUrl);
   activeSocket = ws;
   
   ws.onopen = () => {
-    console.log('[WS] Connected');
+    console.log('[WS] Connected successfully');
+    reconnectCount = 0; // Reset backoff counter on success
+    
+    // Auto catch-up missed messages and chats on connection/reconnection
+    const state = store.getState();
+    if (state.token) {
+      state.initApi().catch((e: any) => console.error('[WS] Catch-up sync failed:', e));
+    }
   };
   
   ws.onmessage = (event) => {
@@ -86,6 +104,19 @@ function connectWebSocket(token: string, store: any) {
             )
           });
           return;
+        }
+
+        const isFromMe = data.senderId === store.getState().me.id;
+        const isEcho = data.isEcho || data.is_echo;
+        if (!isFromMe && !isEcho) {
+          const chat = chats.find((c: any) => c.id === data.chatId);
+          if (chat && !chat.muted) {
+            if (activeChatId === data.chatId) {
+              soundEffects.playReceivedSoft();
+            } else {
+              soundEffects.playPixelPush();
+            }
+          }
         }
         
         const newMsg: Message = {
@@ -156,19 +187,51 @@ function connectWebSocket(token: string, store: any) {
   
   ws.onclose = (event) => {
     console.log('[WS] Connection closed:', event.code, event.reason);
-    activeSocket = null;
-    if (store.getState().token) {
-      window.setTimeout(() => {
-        if (store.getState().token) {
-          connectWebSocket(store.getState().token, store);
-        }
-      }, 5000);
+    if (activeSocket === ws) {
+      activeSocket = null;
+      if (store.getState().token) {
+        reconnectCount++;
+        // Jittered exponential backoff
+        const backoffDelay = Math.min(
+          1000 * Math.pow(1.5, reconnectCount) + Math.random() * 1000,
+          30000
+        );
+        console.log(`[WS] Reconnecting in ${Math.round(backoffDelay)}ms (attempt ${reconnectCount})...`);
+        window.setTimeout(() => {
+          if (store.getState().token) {
+            connectWebSocket(store.getState().token, store);
+          }
+        }, backoffDelay);
+      }
     }
   };
   
   ws.onerror = (err) => {
     console.error('[WS] Connection error:', err);
   };
+}
+
+// Global listeners for instant reconnect and tab focus syncing
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      const state = useAppStore.getState();
+      if (state.token) {
+        console.log('[WS] Tab focused, ensuring connection is active & syncing missed messages...');
+        connectWebSocket(state.token, useAppStore);
+        // Instant HTTP sync as double insurance
+        state.initApi().catch((e: any) => console.error('[WS] Focus sync failed:', e));
+      }
+    }
+  });
+
+  window.addEventListener('online', () => {
+    const state = useAppStore.getState();
+    if (state.token) {
+      console.log('[WS] Network online, reconnecting...');
+      connectWebSocket(state.token, useAppStore);
+    }
+  });
 }
 
 function uid(prefix: string) {
@@ -235,6 +298,14 @@ interface AppState {
 
   setPhone: (v: string) => void;
   setDraftName: (v: string) => void;
+  setDraftUsername: (v: string) => void;
+  setDraftPassword: (v: string) => void;
+  draftUsername: string;
+  draftPassword: string;
+  authMode: 'login' | 'register';
+  setAuthMode: (m: 'login' | 'register') => void;
+  registerWithPassword: () => Promise<void>;
+  loginWithPassword: () => Promise<void>;
   submitPhone: () => Promise<void>;
   submitOtp: (code: string) => Promise<void>;
   bypassOtp: (phone: string) => Promise<void>;
@@ -249,14 +320,21 @@ interface AppState {
 
   setMainTab: (tab: MainTab) => void;
   setActiveChat: (id: string | null) => Promise<void>;
-  openUserProfile: (userId: string) => void;
+  openUserProfile: (userId: string) => Promise<void>;
   closeUserProfile: () => void;
   startChatWithUser: (userId: string) => Promise<void>;
   setNewChatOpen: (v: boolean) => void;
   toggleNavPin: (chatId: string) => void;
 
   setSearchQuery: (q: string) => void;
-  sendMessage: (text: string) => Promise<void>;
+  sendMessage: (
+    text: string,
+    opts?: {
+      kind?: 'text' | 'media' | 'voice' | 'circle' | 'file';
+      media?: { url: string; filename?: string; mime?: string; size?: number; durationSec?: number };
+    }
+  ) => Promise<void>;
+  uploadAttachment: (file: File, kind: 'media' | 'file') => Promise<void>;
   sendVoiceMock: () => void;
   sendCircleMock: () => void;
   retryMessage: (id: string) => void;
@@ -291,15 +369,20 @@ interface AppState {
       from: 'wall' | 'profile';
       addToWall: boolean;
       withMedia?: boolean;
+      photoFile?: File;
+      patternText?: string;
+      mediaHeight?: number;
+      fontSize?: number;
+      fontFamily?: string;
     }
-  ) => void;
-  toggleLike: (postId: string) => void;
-  addComment: (postId: string, text: string) => void;
-  repostToProfile: (postId: string) => void;
+  ) => Promise<void>;
+  toggleLike: (postId: string) => Promise<void>;
+  addComment: (postId: string, text: string) => Promise<void>;
+  repostToProfile: (postId: string) => Promise<void>;
   setCommentPostId: (id: string | null) => void;
   setForwardPostId: (id: string | null) => void;
   forwardPostToChat: (postId: string, chatId: string) => void;
-  deletePost: (postId: string) => void;
+  deletePost: (postId: string) => Promise<void>;
 
   openSettings: () => void;
   closeSettings: () => void;
@@ -312,8 +395,6 @@ export const useAppStore = create<AppState>()(
       token: null,
       isAuthenticated: false,
       authStep: 'phone',
-      draftPhone: '',
-      draftName: '',
       me: { ...ME },
       users: { ...USERS },
 
@@ -350,10 +431,72 @@ export const useAppStore = create<AppState>()(
       typingChatId: null,
 
       settingsRoute: null,
+      draftPhone: '',
+      draftName: '',
+      draftUsername: '',
+      draftPassword: '',
+      authMode: 'login' as const,
+
       reactionEmojis: REACTION_SET,
 
       setPhone: (v) => set({ draftPhone: v }),
       setDraftName: (v) => set({ draftName: v }),
+      setDraftUsername: (v) => set({ draftUsername: v }),
+      setDraftPassword: (v) => set({ draftPassword: v }),
+      setAuthMode: (m) => set({ authMode: m }),
+      registerWithPassword: async () => {
+        const username = get().draftUsername.trim();
+        const firstName = get().draftName.trim();
+        const password = get().draftPassword.trim();
+        if (!username || !firstName || !password) {
+          get().showToast('Заполните все поля');
+          return;
+        }
+        get().showToast('Создаём аккаунт...');
+        try {
+          const res = await fetchApi('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ username, firstName, password }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'done',
+            isAuthenticated: true,
+            mainTab: 'chats',
+          });
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка регистрации');
+        }
+      },
+
+      loginWithPassword: async () => {
+        const username = get().draftUsername.trim();
+        const password = get().draftPassword.trim();
+        if (!username || !password) {
+          get().showToast('Введите имя пользователя и пароль');
+          return;
+        }
+        get().showToast('Входим...');
+        try {
+          const res = await fetchApi('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'done',
+            isAuthenticated: true,
+            mainTab: 'chats',
+          });
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Неверные данные');
+        }
+      },
+
       submitPhone: async () => {
         const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
         if (phone.length < 6) return;
@@ -395,13 +538,18 @@ export const useAppStore = create<AppState>()(
             method: 'POST',
             body: JSON.stringify({ phone, code: '1234' }),
           });
+          // Store token immediately so PATCH /me can auth
           set({
             token: res.access_token,
             me: res.user,
-            authStep: 'profile',
+            authStep: 'done',
+            isAuthenticated: true,
             draftPhone: phone,
             draftName: res.user.displayName || '',
+            mainTab: 'chats',
           });
+          // Boot the app
+          await get().initApi();
         } catch (err: any) {
           get().showToast(err.message || 'Ошибка обхода OTP');
         }
@@ -513,7 +661,20 @@ export const useAppStore = create<AppState>()(
     }
   },
 
-  openUserProfile: (userId) => set({ viewingUserId: userId, settingsRoute: null }),
+  openUserProfile: async (userId) => {
+    set({ viewingUserId: userId, settingsRoute: null });
+    const token = get().token;
+    try {
+      const userPosts = await fetchApi(`/users/${userId}/posts`, {}, token);
+      set((s) => {
+        const otherPosts = s.posts.filter((p) => p.authorId !== userId);
+        const combined = [...otherPosts, ...userPosts].sort((a, b) => b.createdAt - a.createdAt);
+        return { posts: combined };
+      });
+    } catch (err) {
+      console.error('Failed to fetch user posts:', err);
+    }
+  },
   closeUserProfile: () => set({ viewingUserId: null }),
 
   startChatWithUser: async (userId) => {
@@ -586,10 +747,14 @@ export const useAppStore = create<AppState>()(
     }, 2200);
   },
 
-  sendMessage: async (text) => {
+  sendMessage: async (text, opts) => {
     const t = text.trim();
     const chatId = get().activeChatId;
-    if (!t || !chatId) return;
+    const kind = opts?.kind || 'text';
+    const media = opts?.media;
+
+    if ((kind === 'text' && !t) || !chatId) return;
+
     const id = uid('m');
     const createdAt = Date.now();
     const isEcho = get().echoMode;
@@ -598,11 +763,12 @@ export const useAppStore = create<AppState>()(
     const replyMsg = replyToId
       ? get().messages.find((m) => m.id === replyToId)
       : undefined;
+
     const msg: Message = {
       id,
       chatId,
       senderId: get().me.id,
-      kind: 'text',
+      kind,
       text: t,
       status: offline ? 'failed' : 'pending',
       createdAt,
@@ -612,17 +778,28 @@ export const useAppStore = create<AppState>()(
       replyPreview: replyMsg
         ? replyMsg.text.slice(0, 80)
         : undefined,
+      media
     };
+
     set((s) => ({
       messages: [...s.messages, msg],
       replyToId: null,
       chats: s.chats.map((c) =>
         c.id === chatId
-          ? { ...c, preview: isEcho ? `Echo: ${t}` : t, timeLabel: formatTime(createdAt) }
+          ? { 
+              ...c, 
+              preview: isEcho ? `Echo: ${t || `[${kind}]`}` : (t || `[${kind}]`), 
+              timeLabel: formatTime(createdAt) 
+            }
           : c
       ),
       echoMode: isEcho ? false : s.echoMode,
     }));
+
+    if (!isEcho) {
+      soundEffects.playSent();
+    }
+  
     if (isEcho) {
       set((s) => ({
         echoes: [
@@ -633,27 +810,31 @@ export const useAppStore = create<AppState>()(
             fromName: get().me.displayName,
             chatId,
             messageId: id,
-            text: t,
+            text: t || `[${kind}]`,
             status: 'pending',
             createdAt,
           },
         ],
       }));
     }
+
     if (offline) {
       return;
     }
+
     try {
       const res = await fetchApi(`/chats/${chatId}/messages`, {
         method: 'POST',
         body: JSON.stringify({
           client_id: id,
-          kind: 'text',
+          kind,
           text: t,
           reply_to: replyToId || undefined,
           is_echo: isEcho,
+          media
         }),
       }, get().token);
+
       const exists = get().messages.some((m) => m.id === res.id);
       if (exists) {
         set((s) => ({
@@ -677,11 +858,60 @@ export const useAppStore = create<AppState>()(
     } catch (err) {
       console.error('Failed to send message:', err);
       set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === id ? { ...m, status: 'failed' } : m
-        ),
+        messages: s.messages.map((m) => (m.id === id ? { ...m, status: 'failed' } : m)),
       }));
       get().showToast('Не удалось отправить сообщение');
+    }
+  },
+
+  uploadAttachment: async (file, kind) => {
+    const token = get().token;
+    const chatId = get().activeChatId;
+    if (!chatId) return;
+
+    try {
+      get().showToast('Загрузка вложения...');
+      
+      const uploadRes = await fetchApi('/media/uploads', {
+        method: 'POST',
+        body: JSON.stringify({
+          mime: file.type || 'application/octet-stream',
+          size: file.size,
+          kind: kind === 'media' ? 'image' : 'file'
+        })
+      }, token);
+
+      const s3Res = await fetch(uploadRes.upload_url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream'
+        }
+      });
+
+      if (!s3Res.ok) {
+        throw new Error(`Failed to upload file: ${s3Res.statusText}`);
+      }
+
+      await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({})
+      }, token);
+
+      await get().sendMessage(file.name, {
+        kind,
+        media: {
+          url: uploadRes.public_url,
+          filename: file.name,
+          mime: file.type,
+          size: file.size
+        }
+      });
+
+      get().showToast('Вложение отправлено');
+    } catch (err: any) {
+      console.error('Failed to upload attachment:', err);
+      get().showToast(err.message || 'Ошибка загрузки вложения');
     }
   },
 
@@ -701,9 +931,23 @@ export const useAppStore = create<AppState>()(
       usersMap[mePayload.id] = mePayload;
       
       const chatsList = await fetchApi('/chats', {}, token);
+      
+      let combinedPosts: Post[] = [];
+      try {
+        const postsList = await fetchApi('/wall/feed', {}, token);
+        const myPostsList = await fetchApi(`/users/${mePayload.id}/posts`, {}, token);
+        const combinedPostsMap = new Map();
+        postsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
+        myPostsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
+        combinedPosts = Array.from(combinedPostsMap.values()).sort((a: any, b: any) => b.createdAt - a.createdAt) as Post[];
+      } catch (err) {
+        console.error('Failed to fetch posts in initApi:', err);
+      }
+
       set({
         users: usersMap,
         chats: chatsList,
+        posts: combinedPosts,
       });
       
       const activeId = get().activeChatId;
@@ -714,7 +958,7 @@ export const useAppStore = create<AppState>()(
     } catch (err: any) {
       console.error('API initialization failed:', err);
       get().showToast('Ошибка подключения к серверу');
-      if (err.message.includes('401') || err.message.includes('419') || err.message.includes('expired')) {
+      if (err.message && (err.message.includes('401') || err.message.includes('419') || err.message.includes('expired'))) {
         get().logout();
       }
     }
@@ -888,88 +1132,169 @@ export const useAppStore = create<AppState>()(
   setShowCircleEffects: (v) => set({ showCircleEffects: v }),
   toggleOffline: () => set((s) => ({ isOffline: !s.isOffline })),
 
-  createPost: (text, opts) => {
+  createPost: async (text, opts) => {
+    const token = get().token;
     const t = text.trim();
-    if (!t && !opts.withMedia) return;
-    const post: Post = {
-      id: uid('p'),
-      authorId: get().me.id,
-      text: t || (opts.withMedia ? '' : t),
-      createdAt: Date.now(),
-      origin: opts.from,
-      onWall: opts.from === 'wall' ? true : opts.addToWall,
-      likedBy: [],
-      comments: [],
-      media: opts.withMedia
-        ? {
-            kind: 'pattern' as const,
-            patternId:
-              MEDIA_PRESETS[
-                Math.floor(Math.random() * MEDIA_PRESETS.length)
-              ]!.patternId,
+    if (!t && !opts.photoFile && !opts.withMedia) return;
+
+    let mediaPayload = undefined;
+
+    if (opts.photoFile) {
+      try {
+        const uploadRes = await fetchApi('/media/uploads', {
+          method: 'POST',
+          body: JSON.stringify({
+            mime: opts.photoFile.type,
+            size: opts.photoFile.size,
+            kind: 'image'
+          })
+        }, token);
+
+        const s3Res = await fetch(uploadRes.upload_url, {
+          method: 'PUT',
+          body: opts.photoFile,
+          headers: {
+            'Content-Type': opts.photoFile.type
           }
-        : undefined,
-    };
-    set((s) => ({ posts: [post, ...s.posts] }));
-    get().showToast(
-      post.onWall ? 'Опубликовано · в стене' : 'Пост в профиле'
-    );
-  },
+        });
 
-  toggleLike: (postId) => {
-    const me = get().me.id;
-    set((s) => ({
-      posts: s.posts.map((p) => {
-        if (p.id !== postId) return p;
-        const has = p.likedBy.includes(me);
-        return {
-          ...p,
-          likedBy: has ? p.likedBy.filter((id) => id !== me) : [...p.likedBy, me],
+        if (!s3Res.ok) {
+          throw new Error(`Failed to upload file: ${s3Res.statusText}`);
+        }
+
+        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
+          method: 'POST',
+          body: JSON.stringify({})
+        }, token);
+
+        mediaPayload = {
+          kind: 'image',
+          url: uploadRes.public_url,
+          media_id: uploadRes.media_id,
+          height: opts.mediaHeight
         };
-      }),
-    }));
+      } catch (err: any) {
+        get().showToast(err.message || 'Ошибка загрузки фото');
+        return;
+      }
+    } else if (opts.withMedia) {
+      const pText = opts.patternText?.trim() || '✦';
+      const items = pText.split(/\s+/).filter(Boolean);
+      mediaPayload = {
+        kind: 'pattern',
+        patternId: 'custom',
+        items: items,
+        alt: pText,
+        height: opts.mediaHeight
+      };
+    }
+
+    if (mediaPayload) {
+      if (opts.fontSize) (mediaPayload as any).fontSize = opts.fontSize;
+      if (opts.fontFamily) (mediaPayload as any).fontFamily = opts.fontFamily;
+    } else if (opts.fontSize || opts.fontFamily) {
+      mediaPayload = {
+        kind: 'pattern',
+        patternId: 'none',
+        fontSize: opts.fontSize,
+        fontFamily: opts.fontFamily
+      };
+    }
+
+    try {
+      const clientPostId = uid('p');
+      const res = await fetchApi('/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          client_id: clientPostId,
+          text: t,
+          origin: opts.from,
+          on_wall: opts.from === 'wall' ? true : opts.addToWall,
+          media: mediaPayload
+        })
+      }, token);
+
+      set((s) => ({
+        posts: [res, ...s.posts]
+      }));
+
+      get().showToast(
+        res.onWall ? 'Опубликовано · в стене' : 'Пост в профиле'
+      );
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка создания поста');
+    }
   },
 
-  addComment: (postId, text) => {
+  toggleLike: async (postId) => {
+    const token = get().token;
+    const me = get().me.id;
+    try {
+      const res = await fetchApi(`/posts/${postId}/like`, { method: 'POST' }, token);
+      set((s) => ({
+        posts: s.posts.map((p) => {
+          if (p.id !== postId) return p;
+          return {
+            ...p,
+            likedBy: res.liked
+              ? [...p.likedBy, me]
+              : p.likedBy.filter((id) => id !== me)
+          };
+        })
+      }));
+    } catch (err) {
+      console.error('Failed to toggle like:', err);
+    }
+  },
+
+  addComment: async (postId, text) => {
+    const token = get().token;
     const t = text.trim();
     if (!t) return;
-    set((s) => ({
-      posts: s.posts.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              comments: [
-                ...p.comments,
-                {
-                  id: uid('cm'),
-                  userId: get().me.id,
-                  text: t,
-                  createdAt: Date.now(),
-                },
-              ],
-            }
-          : p
-      ),
-    }));
+    try {
+      const res = await fetchApi(`/posts/${postId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ text: t })
+      }, token);
+      set((s) => ({
+        posts: s.posts.map((p) => {
+          if (p.id !== postId) return p;
+          return {
+            ...p,
+            comments: [...p.comments, res]
+          };
+        })
+      }));
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    }
   },
 
-  repostToProfile: (postId) => {
+  repostToProfile: async (postId) => {
+    const token = get().token;
     const src = get().posts.find((p) => p.id === postId);
     if (!src) return;
-    const post: Post = {
-      id: uid('p'),
-      authorId: get().me.id,
-      text: src.text,
-      createdAt: Date.now(),
-      origin: 'profile',
-      onWall: false,
-      repostOfId: src.id,
-      likedBy: [],
-      comments: [],
-      media: src.media,
-    };
-    set((s) => ({ posts: [post, ...s.posts], mainTab: 'profile' }));
-    get().showToast('Репост в профиль');
+    try {
+      const clientPostId = uid('p');
+      const res = await fetchApi('/posts', {
+        method: 'POST',
+        body: JSON.stringify({
+          client_id: clientPostId,
+          text: src.text,
+          origin: 'profile',
+          on_wall: false,
+          repost_of_id: src.id,
+          media: src.media
+        })
+      }, token);
+      set((s) => ({
+        posts: [res, ...s.posts],
+        mainTab: 'profile'
+      }));
+      get().showToast('Репост в профиль');
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка репоста');
+    }
   },
 
   setCommentPostId: (id) => set({ commentPostId: id }),
@@ -983,8 +1308,18 @@ export const useAppStore = create<AppState>()(
     get().sendMessage(`↪ ${author}: ${post.text}`);
   },
 
-  deletePost: (postId) =>
-    set((s) => ({ posts: s.posts.filter((p) => p.id !== postId) })),
+  deletePost: async (postId) => {
+    const token = get().token;
+    try {
+      await fetchApi(`/posts/${postId}`, { method: 'DELETE' }, token);
+      set((s) => ({
+        posts: s.posts.filter((p) => p.id !== postId)
+      }));
+      get().showToast('Пост удален');
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка удаления поста');
+    }
+  },
 
   openSettings: () => set({ settingsRoute: 'hub', viewingUserId: null }),
   closeSettings: () => set({ settingsRoute: null }),

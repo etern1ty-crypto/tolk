@@ -9,10 +9,32 @@ export default defineConfig({
     port: 5173,
     // cloudflared / trycloudflare.com demos
     allowedHosts: true,
+    proxy: {
+      '/ws': {
+        target: 'ws://127.0.0.1:3000',
+        ws: true,
+        changeOrigin: true,
+      },
+      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions)': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
     host: '127.0.0.1',
     port: 4173,
     allowedHosts: true,
+    proxy: {
+      '/ws': {
+        target: 'ws://127.0.0.1:3000',
+        ws: true,
+        changeOrigin: true,
+      },
+      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions)': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
 })

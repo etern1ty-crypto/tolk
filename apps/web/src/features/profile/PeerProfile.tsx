@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
-import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById } from '../../shared/patterns';
+import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -105,13 +105,15 @@ export function PeerProfile() {
             list.map((p) => {
               const mediaPat =
                 p.media?.kind === 'pattern'
-                  ? patternById(MEDIA_PATTERNS, p.media.patternId, MEDIA_PATTERNS[0]!)
+                  ? p.media.patternId === 'custom' && p.media.items
+                    ? generateCustomPattern(p.media.items.join(' '), p.id)
+                    : patternById(MEDIA_PATTERNS, p.media.patternId, MEDIA_PATTERNS[0]!)
                   : null;
               return (
                 <article key={p.id} className={styles.post}>
                   <time>{rel(p.createdAt)}</time>
                   {mediaPat && (
-                    <div className={styles.media}>
+                    <div className={styles.media} style={p.media?.height ? { height: `${p.media.height}px` } : undefined}>
                       <PatternBg
                         pattern={mediaPat}
                         seed={p.id}
@@ -120,7 +122,22 @@ export function PeerProfile() {
                       />
                     </div>
                   )}
-                  {p.text ? <p>{p.text}</p> : null}
+                  {p.media?.kind === 'image' && p.media?.url && (
+                    <div className={styles.media} style={p.media.height ? { height: `${p.media.height}px` } : undefined}>
+                      <img src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  {p.text ? (
+                    <p 
+                      style={{
+                        fontSize: p.media?.fontSize ? `${p.media.fontSize}px` : undefined,
+                        fontFamily: p.media?.fontFamily === 'serif' ? 'serif' : p.media?.fontFamily === 'mono' ? 'monospace' : undefined,
+                        lineHeight: 1.45
+                      }}
+                    >
+                      {p.text}
+                    </p>
+                  ) : null}
                 </article>
               );
             })
