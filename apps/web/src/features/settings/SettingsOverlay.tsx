@@ -1,23 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  ChevronLeft,
-  HardDrive,
-  Info,
-  LogOut,
-  MessageSquare,
-  MonitorSmartphone,
-  Palette,
-  Shield,
-  User,
-  X,
-} from 'lucide-react';
+import { Upload, ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
 import { useEffect } from 'react';
-import { useAppStore, CHAT_THEMES, REACTION_SET } from '../../store/appStore';
+import { useAppStore, CHAT_THEMES, REACTION_SET, fetchApi } from '../../store/appStore';
 import { soundEffects } from '../../shared/soundEffects';
 import type { SettingsRoute } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
+import { PatternBg } from '../../shared/ui/PatternBg';
 import styles from './SettingsOverlay.module.css';
+import imageCompression from 'browser-image-compression';
 
 type HubRoute = Exclude<NonNullable<SettingsRoute>, 'hub'>;
 
@@ -189,11 +180,55 @@ export function SettingsOverlay() {
                         type="button"
                         className={`${styles.themeCard} ${globalChatThemeId === theme.id ? styles.themeCardActive : ''}`}
                         onClick={() => setGlobalChatTheme(theme.id)}
-                        style={{ background: theme.base }}
                       >
+                        <PatternBg pattern={theme} seed={theme.id} density="low" className={styles.themePreviewBg} />
                         <span className={styles.themeLabel}>{theme.label}</span>
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className={`${styles.themeCard} ${useAppStore.getState().globalCustomWallpaper ? styles.themeCardActive : ''}`}
+                      onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = async (e: any) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const compressed = await imageCompression(file, {
+                              maxSizeMB: 0.5,
+                              maxWidthOrHeight: 1920,
+                              fileType: 'image/webp',
+                              initialQuality: 0.8,
+                            });
+                            const token = useAppStore.getState().token;
+                            const uploadRes = await fetchApi('/media/uploads', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                mime: 'image/webp',
+                                size: compressed.size,
+                                kind: 'image',
+                              }),
+                            }, token);
+                            await fetch(uploadRes.upload_url, {
+                              method: 'PUT',
+                              body: compressed,
+                              headers: { 'Content-Type': 'image/webp' },
+                            });
+                            useAppStore.getState().setGlobalCustomWallpaper(uploadRes.public_url);
+                          } catch (err) {
+                            useAppStore.getState().showToast('Ошибка загрузки обоев');
+                          }
+                        };
+                        input.click();
+                      }}
+                    >
+                      <div className={styles.themePreviewBg} style={{ background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Upload size={20} />
+                      </div>
+                      <span className={styles.themeLabel}>Своё</span>
+                    </button>
                   </div>
 
                   <div className={styles.divider} />

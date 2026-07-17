@@ -18,6 +18,16 @@ function rel(ts: number) {
   return `${Math.floor(h / 24)} д`;
 }
 
+export function formatLastSeen(ts?: number) {
+  if (!ts) return 'был(а) недавно';
+  const d = new Date(ts);
+  const now = new Date();
+  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `был(а) сегодня в ${time}`;
+  return `был(а) ${d.toLocaleDateString()} в ${time}`;
+}
+
 export function PeerProfile() {
   const userId = useAppStore((s) => s.viewingUserId);
   const users = useAppStore((s) => s.users);
@@ -76,6 +86,11 @@ export function PeerProfile() {
         <div className={styles.body}>
           <h1>{user.displayName}</h1>
           <p className={styles.uname}>@{user.username}</p>
+          {user.online ? (
+            <p className={styles.online}>в сети</p>
+          ) : (
+            <p className={styles.lastSeen}>{formatLastSeen(user.lastSeenAt)}</p>
+          )}
           <p className={styles.bio}>{user.bio || '—'}</p>
           {isSelf ? (
             <button

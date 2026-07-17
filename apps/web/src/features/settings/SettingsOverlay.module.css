@@ -192,7 +192,7 @@
 
 .themeGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -205,20 +205,32 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
 }
 
 .themeCardActive {
-  border-color: #fafafa;
+  border-color: var(--accent, #fafafa);
+}
+
+.themePreviewBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
 }
 
 .themeLabel {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 99px;
   backdrop-filter: blur(4px);
+  position: relative;
+  z-index: 1;
 }
 
 .divider {

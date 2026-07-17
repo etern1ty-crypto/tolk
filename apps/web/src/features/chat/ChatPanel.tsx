@@ -8,6 +8,7 @@ import {
   Paperclip,
   SendHorizontal,
   X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { CHAT_THEMES, useAppStore, fetchApi } from '../../store/appStore';
@@ -16,7 +17,8 @@ import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
-import { VoicePlayer } from './VoicePlayer';
+import { GlobalMediaPlayer } from './GlobalMediaPlayer';
+import { formatLastSeen } from '../profile/PeerProfile';
 
 function formatMsgTime(ts: any) {
   const parsed = typeof ts === 'string' && /^\d+$/.test(ts) ? Number(ts) : ts;
@@ -30,6 +32,7 @@ export function ChatPanel() {
   const activeChatId = useAppStore((s) => s.activeChatId);
   const chats = useAppStore((s) => s.chats);
   const messages = useAppStore((s) => s.messages);
+  const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
   const globalChatThemeId = useAppStore((s) => s.globalChatThemeId);
   const highlightMessageId = useAppStore((s) => s.highlightMessageId);
@@ -50,6 +53,16 @@ export function ChatPanel() {
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
   const setChatTheme = useAppStore((s) => s.setChatTheme);
+  const uploadAttachment = useAppStore((s) => s.uploadAttachment);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadAttachment(file, 'media');
+    }
+  };
 
   const [text, setText] = useState('');
   const [themeOpen, setThemeOpen] = useState(false);
@@ -68,6 +81,8 @@ export function ChatPanel() {
 
   const chat = chats.find((c) => c.id === activeChatId);
   const theme = patternById(CHAT_THEMES, chat?.themeId || globalChatThemeId, CHAT_THEMES[0]!);
+  const globalCustomWallpaper = useAppStore((s) => s.globalCustomWallpaper);
+  const customWp = chat?.customWallpaperRef || globalCustomWallpaper;
   const chatMessages = useMemo(
     () => {
       const seen = new Set();
@@ -267,12 +282,23 @@ export function ChatPanel() {
 
   return (
     <section className={styles.root} aria-label={`Чат ${chat.title}`}>
-      <PatternBg
-        pattern={theme}
-        seed={chat.id}
-        density="high"
-        className={styles.wallpaper}
-      />
+      {customWp ? (
+        <div
+          className={styles.wallpaper}
+          style={{
+            backgroundImage: `url(${customWp})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+      ) : (
+        <PatternBg
+          pattern={theme}
+          seed={chat.id}
+          density="high"
+          className={styles.wallpaper}
+        />
+      )}
       <header className={styles.header}>
         <IconBtn
           className={styles.mobileOnly}
@@ -294,8 +320,10 @@ export function ChatPanel() {
               <span className={styles.online}>в сети</span>
             ) : chat.type === 'group' ? (
               'группа'
+            ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
+              formatLastSeen(users[chat.peerId].lastSeenAt)
             ) : (
-              'профиль'
+              'был(а) недавно'
             )}
           </div>
         </button>
@@ -352,6 +380,7 @@ export function ChatPanel() {
         )}
       </AnimatePresence>
 
+      <GlobalMediaPlayer />
       <div className={styles.messages} ref={listRef}>
         <AnimatePresence initial={false}>
           {chatMessages.map((m) => {
@@ -422,7 +451,18 @@ export function ChatPanel() {
                   {m.isEcho && <span className={styles.echoTag}>Echo</span>}
                   {m.kind === 'voice' && (
                     m.media?.url ? (
-                      <VoicePlayer src={m.media.url} durationSec={m.media.durationSec} />
+                      <div className={styles.voice} onClick={() => useAppStore.getState().setActiveMediaId(m.id)}>
+                        <audio data-media-id={m.id} src={m.media.url} preload="metadata" />
+                        <span className={styles.play}>
+                          <Mic size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+                        </span>
+                        <span className={styles.wave}>
+                          <i /><i /><i /><i /><i /><i /><i /><i />
+                        </span>
+                        <span>
+                          0:{String(m.media.durationSec ?? 0).padStart(2, '0')}
+                        </span>
+                      </div>
                     ) : (
                       <div className={styles.voice}>
                         <span className={styles.play}>
@@ -446,7 +486,7 @@ export function ChatPanel() {
                   )}
                   {m.kind === 'circle' && (
                     m.media?.url ? (
-                      <div 
+                      <div
                         style={{ 
                           width: '180px', 
                           height: '180px', 
@@ -455,22 +495,22 @@ export function ChatPanel() {
                           border: '2px solid var(--accent)',
                           position: 'relative',
                           background: '#000',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          WebkitTapHighlightColor: 'transparent'
                         }}
-                        onClick={(e) => {
-                          const video = e.currentTarget.querySelector('video');
-                          if (video) {
-                            video.muted = !video.muted;
-                          }
-                        }}
-                        title="Нажмите, чтобы включить/выключить звук"
+                        onClick={() => useAppStore.getState().setActiveMediaId(m.id)}
+                        title="Нажмите, чтобы включить видео"
                       >
                         <video 
+                          data-media-id={m.id}
                           src={m.media.url} 
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                          autoPlay
-                          loop
-                          muted
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover',
+                            filter: useAppStore.getState().activeMediaId === m.id ? 'none' : 'grayscale(1) brightness(0.7)'
+                          }}
                           playsInline
                         />
                       </div>
@@ -516,8 +556,14 @@ export function ChatPanel() {
                   )}
                   <div className={styles.bubbleMeta}>
                     <span>{formatMsgTime(m.createdAt)}</span>
-                    {mine && m.status === 'pending' && <span>…</span>}
-                    {mine && m.status === 'sent' && <span>✓</span>}
+                    {mine && m.status === 'pending' && <span className={styles.checkmarks}>…</span>}
+                    {mine && m.status !== 'pending' && m.status !== 'failed' && (
+                      (chat && m.seq !== undefined && m.seq <= (chat.peerLastReadSeq || 0)) ? (
+                        <span className={styles.checkmarks} title="Прочитано">✓✓</span>
+                      ) : (
+                        <span className={styles.checkmarks} title="Отправлено">✓</span>
+                      )
+                    )}
                     {mine && m.status === 'failed' && (
                       <button
                         type="button"
@@ -585,6 +631,16 @@ export function ChatPanel() {
       )}
 
       <footer className={styles.composer}>
+        <input
+          type="file"
+          ref={imageInputRef}
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageSelect}
+        />
+        <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Галерея">
+          <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+        </IconBtn>
         <IconBtn onClick={() => setAttachSheetOpen(true)} aria-label="Вложение">
           <Paperclip size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
         </IconBtn>

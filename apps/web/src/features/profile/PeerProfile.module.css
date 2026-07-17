@@ -63,9 +63,23 @@
 }
 
 .uname {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
+  font-size: 15px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-weight: 500;
+}
+
+.lastSeen {
+  margin: 2px 0 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.online {
+  margin: 2px 0 6px;
+  font-size: 13px;
+  color: #10b981;
+  font-weight: 500;
 }
 
 .bio {

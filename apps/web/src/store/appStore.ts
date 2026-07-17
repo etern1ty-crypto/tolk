@@ -177,6 +177,7 @@ function connectWebSocket(token: string, store: any) {
           text: data.text,
           status: 'sent',
           createdAt: data.createdAt,
+          seq: data.seq,
           isEcho: data.isEcho,
           replyToId: data.replyToId,
           reactions: {},
@@ -193,6 +194,7 @@ function connectWebSocket(token: string, store: any) {
               ...c,
               preview,
               timeLabel,
+              latestMessageCreatedAt: new Date(data.createdAt).getTime(),
               unread: activeChatId === data.chatId ? 0 : c.unread + 1
             };
           }
@@ -203,6 +205,12 @@ function connectWebSocket(token: string, store: any) {
           messages: [...messages, newMsg],
           chats: updatedChats
         });
+        
+        if (activeChatId === data.chatId && !isFromMe) {
+          fetchApi(`/chats/${data.chatId}/read`, { method: 'POST' }, store.getState().token).catch((e) => {
+            console.error('[WS] Failed to mark received message as read:', e);
+          });
+        }
         
         if (data.senderId !== store.getState().me.id && !store.getState().users[data.senderId]) {
           const newUser = {
@@ -216,6 +224,18 @@ function connectWebSocket(token: string, store: any) {
             users: { ...store.getState().users, [data.senderId]: newUser }
           });
         }
+      } else if (wsEvent === 'chat.read') {
+        const { chats } = store.getState();
+        const updatedChats = chats.map((c: any) => {
+          if (c.id === data.chatId && data.userId !== store.getState().me.id) {
+            return {
+              ...c,
+              peerLastReadSeq: data.lastReadSeq
+            };
+          }
+          return c;
+        });
+        store.setState({ chats: updatedChats });
       } else if (wsEvent === 'presence.typing') {
         const { activeChatId } = store.getState();
         if (activeChatId === data.chat_id && data.user_id !== store.getState().me.id) {
@@ -320,6 +340,8 @@ interface AppState {
   navPins: string[];
 
   activeChatId: string | null;
+  activeMediaId: string | null;
+  setActiveMediaId: (id: string | null) => void;
   highlightMessageId: string | null;
   /** peer profile overlay (not main tab) */
   viewingUserId: string | null;
@@ -439,11 +461,13 @@ interface AppState {
   navigateSettings: (route: NonNullable<SettingsRoute>) => void;
 
   globalChatThemeId: string;
+  globalCustomWallpaper: string | null;
   notificationSound: 'pixel' | 'bubble' | 'silent';
   soundVolume: number;
   browserNotificationsEnabled: boolean;
   defaultReaction: string;
   setGlobalChatTheme: (themeId: string) => void;
+  setGlobalCustomWallpaper: (url: string | null) => void;
   setNotificationSound: (sound: 'pixel' | 'bubble' | 'silent') => void;
   setSoundVolume: (volume: number) => void;
   setBrowserNotificationsEnabled: (enabled: boolean) => Promise<void>;
@@ -471,6 +495,7 @@ export const useAppStore = create<AppState>()(
       navPins: [],
 
       activeChatId: null,
+      activeMediaId: null,
       highlightMessageId: null,
       viewingUserId: null,
 
@@ -501,6 +526,7 @@ export const useAppStore = create<AppState>()(
       reactionEmojis: REACTION_SET,
 
       globalChatThemeId: 'chat_dots',
+      globalCustomWallpaper: null,
       notificationSound: 'pixel',
       soundVolume: 0.8,
       browserNotificationsEnabled: false,
@@ -707,9 +733,11 @@ export const useAppStore = create<AppState>()(
     });
     if (tab === 'wall') get().markWallSeen();
   },
+  setActiveMediaId: (id) => set({ activeMediaId: id }),
 
   setActiveChat: async (id) => {
     set({
+      activeMediaId: null,
       activeChatId: id,
       mainTab: 'chats',
       contextMenu: null,
@@ -721,8 +749,9 @@ export const useAppStore = create<AppState>()(
       try {
         const msgs = await fetchApi(`/chats/${id}/messages`, {}, get().token);
         set({ messages: msgs });
+        await fetchApi(`/chats/${id}/read`, { method: 'POST' }, get().token);
       } catch (err) {
-        console.error('Failed to fetch messages:', err);
+        console.error('Failed to fetch messages or mark read:', err);
         get().showToast('Не удалось загрузить сообщения');
       }
     }
@@ -856,7 +885,8 @@ export const useAppStore = create<AppState>()(
           ? { 
               ...c, 
               preview: isEcho ? `Echo: ${t || `[${kind}]`}` : (t || `[${kind}]`), 
-              timeLabel: formatTime(createdAt) 
+              timeLabel: formatTime(createdAt),
+              latestMessageCreatedAt: createdAt
             }
           : c
       ),
@@ -1009,14 +1039,24 @@ export const useAppStore = create<AppState>()(
       const mePayload = await fetchApi('/me', {}, token);
       set({ me: mePayload });
       
-      const usersList = await fetchApi('/users', {}, token);
-      const usersMap = usersList.reduce((acc: Record<string, User>, u: User) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
+      const chatsList = await fetchApi('/chats', {}, token);
+      
+      const usersMap: Record<string, User> = {};
       usersMap[mePayload.id] = mePayload;
       
-      const chatsList = await fetchApi('/chats', {}, token);
+      chatsList.forEach((c: any) => {
+        if (c.peerId) {
+          usersMap[c.peerId] = {
+            id: c.peerId,
+            username: '',
+            displayName: c.title,
+            avatarRef: c.avatarRef,
+            online: c.online,
+            lastSeenAt: c.lastSeenAt || 0,
+            bannerPatternId: 'mint_wave',
+          };
+        }
+      });
       
       let combinedPosts: Post[] = [];
       try {
@@ -1083,7 +1123,7 @@ export const useAppStore = create<AppState>()(
       voiceRecording: false,
       chats: s.chats.map((c) =>
         c.id === chatId
-          ? { ...c, preview: `🎤 0:${String(msg.durationSec).padStart(2, '0')}`, timeLabel: formatTime(createdAt) }
+          ? { ...c, preview: `🎤 0:${String(msg.durationSec).padStart(2, '0')}`, timeLabel: formatTime(createdAt), latestMessageCreatedAt: createdAt }
           : c
       ),
     }));
@@ -1111,7 +1151,7 @@ export const useAppStore = create<AppState>()(
       showCircleEffects: false,
       chats: s.chats.map((c) =>
         c.id === chatId
-          ? { ...c, preview: '⭕ Кружок', timeLabel: formatTime(createdAt) }
+          ? { ...c, preview: '⭕ Кружок', timeLabel: formatTime(createdAt), latestMessageCreatedAt: createdAt }
           : c
       ),
     }));
@@ -1411,7 +1451,8 @@ export const useAppStore = create<AppState>()(
   closeSettings: () => set({ settingsRoute: null }),
   navigateSettings: (route) => set({ settingsRoute: route }),
 
-  setGlobalChatTheme: (themeId) => set({ globalChatThemeId: themeId }),
+  setGlobalChatTheme: (themeId) => set({ globalChatThemeId: themeId, globalCustomWallpaper: null }),
+  setGlobalCustomWallpaper: (url) => set({ globalCustomWallpaper: url }),
   setNotificationSound: (sound) => set({ notificationSound: sound }),
   setSoundVolume: (volume) => {
     set({ soundVolume: volume });
@@ -1454,5 +1495,15 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+// Sync persisted soundVolume with soundEffects on initialization and changes
+if (typeof window !== 'undefined') {
+  // Set initial volume from store
+  soundEffects.volume = useAppStore.getState().soundVolume;
+  // Subscribe to updates
+  useAppStore.subscribe((state) => {
+    soundEffects.volume = state.soundVolume;
+  });
+}
 
 export { BANNER_PATTERNS, CHAT_THEMES, REACTION_SET };

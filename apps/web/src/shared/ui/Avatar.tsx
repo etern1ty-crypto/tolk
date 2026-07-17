@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import styles from './Avatar.module.css';
 
 type Props = {
@@ -26,8 +27,10 @@ function getGradient(seed: string): string {
 
 /** Hashed SVG-like gradient or custom image avatar component */
 export function Avatar({ name, id, avatarUrl, size = 44, online, className }: Props) {
+  const [hasError, setHasError] = useState(false);
   const letter = (name?.trim()?.[0] ?? '?').toUpperCase();
-  const background = avatarUrl ? 'transparent' : getGradient(id || name || 'default');
+  const showImage = avatarUrl && !hasError;
+  const background = showImage ? 'transparent' : getGradient(id || name || 'default');
 
   return (
     <span
@@ -41,8 +44,13 @@ export function Avatar({ name, id, avatarUrl, size = 44, online, className }: Pr
       data-online={online || undefined}
       aria-hidden
     >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt={name} className={styles.img} />
+      {showImage ? (
+        <img
+          src={avatarUrl}
+          alt={name}
+          className={styles.img}
+          onError={() => setHasError(true)}
+        />
       ) : (
         letter
       )}

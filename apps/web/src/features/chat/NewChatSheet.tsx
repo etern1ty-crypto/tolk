@@ -1,26 +1,41 @@
-import { useMemo, useState } from 'react';
-import { useAppStore } from '../../store/appStore';
+import { useEffect, useState } from 'react';
+import { useAppStore, fetchApi } from '../../store/appStore';
+import { Avatar } from '../../shared/ui/Avatar';
 import styles from './NewChatSheet.module.css';
+import type { User } from '../../shared/types';
 
 export function NewChatSheet() {
   const open = useAppStore((s) => s.newChatOpen);
   const setNewChatOpen = useAppStore((s) => s.setNewChatOpen);
-  const users = useAppStore((s) => s.users);
-  const me = useAppStore((s) => s.me);
+  const token = useAppStore((s) => s.token);
   const startChatWithUser = useAppStore((s) => s.startChatWithUser);
+  
   const [q, setQ] = useState('');
+  const [list, setList] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const list = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    return Object.values(users)
-      .filter((u) => u.id !== me.id)
-      .filter(
-        (u) =>
-          !query ||
-          u.displayName.toLowerCase().includes(query) ||
-          u.username.toLowerCase().includes(query)
-      );
-  }, [users, me.id, q]);
+  useEffect(() => {
+    if (!open) return;
+    const query = q.trim();
+    if (!query) {
+      setList([]);
+      return;
+    }
+
+    setLoading(true);
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const results = await fetchApi(`/users?q=${encodeURIComponent(query)}`, {}, token);
+        setList(results || []);
+      } catch (err) {
+        console.error('Failed to search users:', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [q, open, token]);
 
   if (!open) return null;
 
@@ -28,7 +43,10 @@ export function NewChatSheet() {
     <div
       className={styles.overlay}
       role="presentation"
-      onClick={() => setNewChatOpen(false)}
+      onClick={() => {
+        setQ('');
+        setNewChatOpen(false);
+      }}
     >
       <div
         className={styles.sheet}
@@ -45,16 +63,20 @@ export function NewChatSheet() {
           autoFocus
         />
         <ul>
-          {list.map((u) => (
+          {loading && <p className={styles.emptyPrompt}>Поиск…</p>}
+          {!loading && !q.trim() && <p className={styles.emptyPrompt}>Начните вводить имя или @username</p>}
+          {!loading && q.trim() && list.length === 0 && <p className={styles.emptyPrompt}>Пользователи не найдены</p>}
+          {!loading && list.map((u) => (
             <li key={u.id}>
               <button
                 type="button"
                 onClick={() => {
                   startChatWithUser(u.id);
+                  setQ('');
                   setNewChatOpen(false);
                 }}
               >
-                <span className={styles.av}>{u.displayName.charAt(0)}</span>
+                <Avatar name={u.displayName} id={u.id} avatarUrl={u.avatarRef} size={36} online={u.online} />
                 <span>
                   <strong>{u.displayName}</strong>
                   <em>@{u.username}</em>
@@ -63,7 +85,14 @@ export function NewChatSheet() {
             </li>
           ))}
         </ul>
-        <button type="button" className={styles.cancel} onClick={() => setNewChatOpen(false)}>
+        <button
+          type="button"
+          className={styles.cancel}
+          onClick={() => {
+            setQ('');
+            setNewChatOpen(false);
+          }}
+        >
           Отмена
         </button>
       </div>

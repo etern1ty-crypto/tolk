@@ -161,6 +161,28 @@ export const CHAT_THEMES: DecorPattern[] = [
     items: [],
     opacity: 0,
   },
+  {
+    id: 'chat_geo',
+    label: 'Геом',
+    kind: 'emoji',
+    base: 'linear-gradient(180deg, #111318 0%, #1c1e28 100%)',
+    items: ['△', '○', '□', '◇', '⬡', '⏣'],
+    ink: 'rgba(255,255,255,0.08)',
+    opacity: 0.6,
+    size: 20,
+    gap: 14,
+  },
+  {
+    id: 'chat_outline',
+    label: 'Контур',
+    kind: 'emoji',
+    base: 'linear-gradient(180deg, #0e1014 0%, #181c24 100%)',
+    items: ['◠', '◯', '▽', '◁', '▷', '⟡', '⊡'],
+    ink: 'rgba(180,190,255,0.1)',
+    opacity: 0.7,
+    size: 18,
+    gap: 12,
+  },
 ];
 
 export const MEDIA_PATTERNS: DecorPattern[] = [

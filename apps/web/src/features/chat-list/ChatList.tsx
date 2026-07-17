@@ -22,18 +22,24 @@ export function ChatList() {
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const list = [...chats].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return 0;
+    
+    const sorted = [...chats].sort((a, b) => {
+      const aTime = a.latestMessageCreatedAt || 0;
+      const bTime = b.latestMessageCreatedAt || 0;
+      return bTime - aTime;
     });
-    if (!q) return list;
-    return list.filter(
+
+    const pinned = sorted.filter((c) => c.pinned || navPins.includes(c.id));
+    const normal = sorted.filter((c) => !(c.pinned || navPins.includes(c.id)));
+    const combined = [...pinned, ...normal];
+
+    if (!q) return combined;
+    return combined.filter(
       (c) =>
         c.title.toLowerCase().includes(q) ||
         c.preview.toLowerCase().includes(q)
     );
-  }, [chats, searchQuery]);
+  }, [chats, searchQuery, navPins]);
 
   return (
     <section className={styles.root} aria-label="Список чатов">

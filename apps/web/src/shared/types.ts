@@ -23,6 +23,7 @@ export interface User {
   phone?: string;
   bio?: string;
   online?: boolean;
+  lastSeenAt?: number;
   /** id from BANNER_PATTERNS */
   bannerPatternId: string;
   avatarRef?: string;
@@ -41,7 +42,10 @@ export interface Chat {
   peerId?: Id;
   /** id from CHAT_THEMES */
   themeId?: string;
+  customWallpaperRef?: string;
   avatarRef?: string;
+  latestMessageCreatedAt?: number;
+  peerLastReadSeq?: number;
 }
 
 export interface Message {
@@ -52,6 +56,7 @@ export interface Message {
   text: string;
   status: MessageStatus;
   createdAt: number;
+  seq?: number;
   isEcho?: boolean;
   /** voice duration sec */
   durationSec?: number;

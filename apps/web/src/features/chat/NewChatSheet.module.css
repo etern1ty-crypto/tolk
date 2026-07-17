@@ -40,6 +40,13 @@
   flex: 1;
 }
 
+.emptyPrompt {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px 0;
+  font-size: 15px;
+}
+
 .sheet li button {
   width: 100%;
   display: flex;
