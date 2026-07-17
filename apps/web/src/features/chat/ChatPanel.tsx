@@ -216,7 +216,7 @@ export function ChatPanel() {
           streamRef.current = stream;
           audioChunksRef.current = [];
           
-          let options = { mimeType: 'audio/webm' };
+          let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 };
           let recorder: MediaRecorder;
           try {
             recorder = new MediaRecorder(stream, options);

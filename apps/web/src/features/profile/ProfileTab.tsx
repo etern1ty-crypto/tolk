@@ -159,12 +159,12 @@ export function ProfileTab() {
 
     cropCanvas.toBlob(async (blob) => {
       if (!blob) return;
-      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const file = new File([blob], 'avatar.webp', { type: 'image/webp' });
       setCroppingImage(null);
       setZoom(1);
       setPan({ x: 0, y: 0 });
       await uploadAvatar(file);
-    }, 'image/jpeg', 0.9);
+    }, 'image/webp', 0.85);
   };
 
   const triggerAvatarUpload = () => {

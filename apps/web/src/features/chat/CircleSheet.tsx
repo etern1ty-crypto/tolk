@@ -106,12 +106,16 @@ export function CircleSheet() {
     if (!streamRef.current) return;
     chunksRef.current = [];
     
-    let options = { mimeType: 'video/webm;codecs=vp9,opus' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      options = { mimeType: 'video/webm;codecs=vp8,opus' };
+    let options: MediaRecorderOptions = { 
+      mimeType: 'video/webm;codecs=vp9,opus',
+      videoBitsPerSecond: 250000,
+      audioBitsPerSecond: 32000
+    };
+    if (!MediaRecorder.isTypeSupported(options.mimeType as string)) {
+      options = { ...options, mimeType: 'video/webm;codecs=vp8,opus' };
     }
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      options = { mimeType: 'video/webm' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType as string)) {
+      options = { ...options, mimeType: 'video/webm' };
     }
     
     let recorder: MediaRecorder;

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import imageCompression from 'browser-image-compression';
 import {
   INITIAL_POSTS,
   ME,
@@ -938,22 +939,33 @@ export const useAppStore = create<AppState>()(
     try {
       get().showToast('Загрузка вложения...');
       
+      let processedFile = file;
+      if (file.type.startsWith('image/') && kind === 'media') {
+        processedFile = await imageCompression(file, {
+          maxSizeMB: 1,
+          maxWidthOrHeight: 1920,
+          useWebWorker: true,
+          fileType: 'image/webp',
+          initialQuality: 0.85
+        }) as File;
+      }
+      
       let publicUrl = '';
       try {
         const uploadRes = await fetchApi('/media/uploads', {
           method: 'POST',
           body: JSON.stringify({
-            mime: file.type || 'application/octet-stream',
-            size: file.size,
+            mime: processedFile.type || 'application/octet-stream',
+            size: processedFile.size,
             kind: kind === 'media' ? 'image' : 'file'
           })
         }, token);
 
         const s3Res = await fetch(uploadRes.upload_url, {
           method: 'PUT',
-          body: file,
+          body: processedFile,
           headers: {
-            'Content-Type': file.type || 'application/octet-stream'
+            'Content-Type': processedFile.type || 'application/octet-stream'
           }
         });
 
