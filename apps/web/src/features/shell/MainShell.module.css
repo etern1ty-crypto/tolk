@@ -24,6 +24,14 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* Space for BottomNav without double borders on feed */
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 1024px) {
+  .pageCol {
+    padding-bottom: 0;
+  }
 }
 
 .paper {

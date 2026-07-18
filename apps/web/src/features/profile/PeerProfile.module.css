@@ -44,10 +44,13 @@
   margin-top: -44px;
   position: relative;
   z-index: 1;
+  overflow: visible;
 }
 
 .avatarWrap > span {
   border: 3px solid var(--bg-primary);
+  overflow: visible;
+  box-sizing: content-box;
 }
 
 .body {

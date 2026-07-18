@@ -1,9 +1,8 @@
 import { motion } from 'framer-motion';
-import { PenSquare, Search, Wifi, WifiOff } from 'lucide-react';
+import { PenSquare, Search } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { Avatar } from '../../shared/ui/Avatar';
-import { IconBtn } from '../../shared/ui/IconBtn';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatList.module.css';
 
@@ -17,12 +16,10 @@ export function ChatList() {
   const setNewChatOpen = useAppStore((s) => s.setNewChatOpen);
   const navPins = useAppStore((s) => s.navPins);
   const toggleNavPin = useAppStore((s) => s.toggleNavPin);
-  const isOffline = useAppStore((s) => s.isOffline);
-  const toggleOffline = useAppStore((s) => s.toggleOffline);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    
+
     const sorted = [...chats].sort((a, b) => {
       const aTime = a.latestMessageCreatedAt || 0;
       const bTime = b.latestMessageCreatedAt || 0;
@@ -45,17 +42,6 @@ export function ChatList() {
     <section className={styles.root} aria-label="Список чатов">
       <header className={styles.header}>
         <h1 className={styles.title}>Чаты</h1>
-        <IconBtn
-          onClick={toggleOffline}
-          title={isOffline ? 'Offline' : 'Online'}
-          aria-label="Сеть"
-        >
-          {isOffline ? (
-            <WifiOff size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-          ) : (
-            <Wifi size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-          )}
-        </IconBtn>
       </header>
 
       <div className={styles.searchWrap}>

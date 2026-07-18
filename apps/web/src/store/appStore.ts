@@ -62,13 +62,35 @@ let lastTypingSent = 0;
 let typingTimeout: number | undefined;
 let reconnectCount = 0;
 
+let lastUserActivity = Date.now();
+if (typeof window !== 'undefined') {
+  const bump = () => {
+    lastUserActivity = Date.now();
+  };
+  window.addEventListener('pointerdown', bump, { passive: true });
+  window.addEventListener('keydown', bump, { passive: true });
+  window.addEventListener('scroll', bump, { passive: true });
+  document.addEventListener('visibilitychange', bump);
+}
+
+function isUserAfk(ms = 60_000) {
+  if (typeof document === 'undefined') return true;
+  if (document.visibilityState === 'hidden') return true;
+  return Date.now() - lastUserActivity >= ms;
+}
+
 function showBrowserNotification(data: any, store: any) {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
   const state = store.getState();
+  if (!state.browserNotificationsEnabled) return;
+  if (state.notifPrefs && state.notifPrefs.messages === false) return;
+
   const isBackground = document.visibilityState === 'hidden';
-  if (state.activeChatId === data.chatId && !isBackground) return;
+  const afk = isUserAfk(45_000);
+  // Active in this chat and not AFK → skip OS toast
+  if (state.activeChatId === data.chatId && !isBackground && !afk) return;
 
   const sender = state.users[data.senderId] || { displayName: 'Пользователь' };
   const title = sender.displayName || sender.username || 'Новое сообщение';
@@ -87,6 +109,18 @@ function showBrowserNotification(data: any, store: any) {
   }
 
   try {
+    // Prefer SW path on mobile PWA when available
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title,
+        body,
+        tag: data.chatId,
+        url: `/?chat=${encodeURIComponent(data.chatId)}`,
+      });
+      return;
+    }
+
     const notification = new Notification(title, {
       body,
       tag: data.chatId,
@@ -451,7 +485,8 @@ interface AppState {
     }
   ) => Promise<void>;
   toggleLike: (postId: string) => Promise<void>;
-  addComment: (postId: string, text: string) => Promise<void>;
+  addComment: (postId: string, text: string, parentId?: string | null) => Promise<void>;
+  toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
   repostToProfile: (postId: string) => Promise<void>;
   setCommentPostId: (id: string | null) => void;
   setForwardPostId: (id: string | null) => void;
@@ -468,12 +503,19 @@ interface AppState {
   soundVolume: number;
   browserNotificationsEnabled: boolean;
   defaultReaction: string;
+  notifPrefs: {
+    messages: boolean;
+    comments: boolean;
+    likes: boolean;
+    posts: boolean;
+  };
   setGlobalChatTheme: (themeId: string) => void;
   setGlobalCustomWallpaper: (url: string | null) => void;
   setNotificationSound: (sound: 'pixel' | 'bubble' | 'silent') => void;
   setSoundVolume: (volume: number) => void;
   setBrowserNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setDefaultReaction: (emoji: string) => void;
+  setNotifPref: (key: keyof AppState['notifPrefs'], value: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -533,6 +575,12 @@ export const useAppStore = create<AppState>()(
       soundVolume: 0.8,
       browserNotificationsEnabled: false,
       defaultReaction: '👍',
+      notifPrefs: {
+        messages: true,
+        comments: true,
+        likes: true,
+        posts: true,
+      },
 
       setPhone: (v) => set({ draftPhone: v }),
       setDraftName: (v) => set({ draftName: v }),
@@ -765,6 +813,15 @@ export const useAppStore = create<AppState>()(
     set({ viewingUserId: userId, settingsRoute: null });
     const token = get().token;
     try {
+      // Prefer full profile (username) over chat-list stub with empty username
+      try {
+        const profile = await fetchApi(`/users/${userId}`, {}, token);
+        set((s) => ({
+          users: { ...s.users, [userId]: { ...s.users[userId], ...profile } },
+        }));
+      } catch {
+        /* optional */
+      }
       const userPosts = await fetchApi(`/users/${userId}/posts`, {}, token);
       set((s) => {
         const otherPosts = s.posts.filter((p) => p.authorId !== userId);
@@ -813,20 +870,32 @@ export const useAppStore = create<AppState>()(
   },
 
   createGroupChat: async (title, memberIds) => {
+    if (!title.trim()) {
+      get().showToast('Введите название группы');
+      throw new Error('Title required');
+    }
+    if (!memberIds.length) {
+      get().showToast('Выберите хотя бы одного участника');
+      throw new Error('Members required');
+    }
     try {
       const res = await fetchApi(
         '/chats/group',
         {
           method: 'POST',
-          body: JSON.stringify({ title, member_ids: memberIds }),
+          body: JSON.stringify({ title: title.trim(), member_ids: memberIds }),
         },
         get().token
       );
+      if (!res?.id) {
+        throw new Error('Пустой ответ сервера');
+      }
       set((s) => ({
         chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
         activeChatId: res.id,
         mainTab: 'chats',
         messages: [],
+        newChatOpen: false,
       }));
       get().showToast('Группа создана');
     } catch (err: any) {
@@ -836,20 +905,26 @@ export const useAppStore = create<AppState>()(
   },
 
   createChannel: async (title) => {
+    if (!title.trim()) {
+      get().showToast('Введите название канала');
+      throw new Error('Title required');
+    }
     try {
       const res = await fetchApi(
         '/chats/channel',
         {
           method: 'POST',
-          body: JSON.stringify({ title }),
+          body: JSON.stringify({ title: title.trim() }),
         },
         get().token
       );
+      if (!res?.id) throw new Error('Пустой ответ сервера');
       set((s) => ({
         chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
         activeChatId: res.id,
         mainTab: 'chats',
         messages: [],
+        newChatOpen: false,
       }));
       get().showToast('Канал создан');
     } catch (err: any) {
@@ -923,13 +998,20 @@ export const useAppStore = create<AppState>()(
       replyToId: replyMsg?.id,
       replyPreview: replyMsg
         ? (() => {
+            const author =
+              replyMsg.senderId === get().me.id
+                ? get().me.displayName
+                : get().users[replyMsg.senderId]?.displayName || '…';
             const t = (replyMsg.text || '').trim();
-            if (t) return t.slice(0, 80);
-            if (replyMsg.kind === 'media') return 'Фото';
-            if (replyMsg.kind === 'voice') return 'Голосовое';
-            if (replyMsg.kind === 'circle') return 'Кружок';
-            if (replyMsg.kind === 'file') return replyMsg.media?.filename || 'Файл';
-            return 'Сообщение';
+            let body = t ? t.slice(0, 80) : '';
+            if (!body) {
+              if (replyMsg.kind === 'media') body = 'Фото';
+              else if (replyMsg.kind === 'voice') body = 'Голосовое';
+              else if (replyMsg.kind === 'circle') body = 'Кружок';
+              else if (replyMsg.kind === 'file') body = replyMsg.media?.filename || 'Файл';
+              else body = 'Сообщение';
+            }
+            return `${author}: ${body}`;
           })()
         : undefined,
       media
@@ -1106,7 +1188,7 @@ export const useAppStore = create<AppState>()(
         if (c.peerId) {
           usersMap[c.peerId] = {
             id: c.peerId,
-            username: '',
+            username: c.peerUsername || '',
             displayName: c.title,
             avatarRef: c.avatarRef,
             online: c.online,
@@ -1431,26 +1513,59 @@ export const useAppStore = create<AppState>()(
     }
   },
 
-  addComment: async (postId, text) => {
+  addComment: async (postId, text, parentId?: string | null) => {
     const token = get().token;
     const t = text.trim();
     if (!t) return;
     try {
       const res = await fetchApi(`/posts/${postId}/comments`, {
         method: 'POST',
-        body: JSON.stringify({ text: t })
+        body: JSON.stringify({ text: t, parent_id: parentId || undefined })
       }, token);
       set((s) => ({
         posts: s.posts.map((p) => {
           if (p.id !== postId) return p;
           return {
             ...p,
-            comments: [...p.comments, res]
+            comments: [...p.comments, { ...res, likedBy: res.likedBy || [] }]
           };
         })
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to add comment:', err);
+      get().showToast(err.message || 'Ошибка комментария');
+    }
+  },
+
+  toggleCommentLike: async (postId, commentId) => {
+    const token = get().token;
+    const me = get().me.id;
+    try {
+      const res = await fetchApi(
+        `/posts/${postId}/comments/${commentId}/like`,
+        { method: 'POST' },
+        token
+      );
+      set((s) => ({
+        posts: s.posts.map((p) => {
+          if (p.id !== postId) return p;
+          return {
+            ...p,
+            comments: p.comments.map((c) => {
+              if (c.id !== commentId) return c;
+              const likedBy = c.likedBy || [];
+              return {
+                ...c,
+                likedBy: res.liked
+                  ? [...likedBy, me]
+                  : likedBy.filter((id) => id !== me),
+              };
+            }),
+          };
+        }),
+      }));
+    } catch (err) {
+      console.error('Failed to like comment:', err);
     }
   },
 
@@ -1544,6 +1659,10 @@ export const useAppStore = create<AppState>()(
     set({ browserNotificationsEnabled: enabled });
   },
   setDefaultReaction: (emoji) => set({ defaultReaction: emoji }),
+  setNotifPref: (key, value) =>
+    set((s) => ({
+      notifPrefs: { ...s.notifPrefs, [key]: value },
+    })),
     }),
     {
       name: 'tolk-web-state',
@@ -1565,6 +1684,7 @@ export const useAppStore = create<AppState>()(
         soundVolume: state.soundVolume,
         browserNotificationsEnabled: state.browserNotificationsEnabled,
         defaultReaction: state.defaultReaction,
+        notifPrefs: state.notifPrefs,
       }),
     }
   )

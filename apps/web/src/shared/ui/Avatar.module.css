@@ -16,16 +16,18 @@
 .root[data-online]::after {
   content: '';
   position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 24%;
-  height: 24%;
+  right: 0;
+  bottom: 0;
+  width: max(10px, 22%);
+  height: max(10px, 22%);
   min-width: 10px;
   min-height: 10px;
   border-radius: 50%;
   background: #22c55e;
-  border: 2px solid var(--bg-primary, #121214);
+  border: 2.5px solid var(--bg-surface, var(--bg-primary, #1a1c26));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
   z-index: 10;
+  pointer-events: none;
 }
 
 .img {

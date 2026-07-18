@@ -49,6 +49,42 @@
   flex: 1;
 }
 
+.headerActions {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.headerMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 180px;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.headerMenu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  width: 100%;
+}
+
+.headerMenu button:hover {
+  background: var(--bg-hover);
+}
+
 .headerTitle {
   font-weight: 650;
   font-size: 16px;

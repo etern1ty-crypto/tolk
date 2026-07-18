@@ -54,6 +54,8 @@ export function SettingsOverlay() {
   const setSoundVolume = useAppStore((s) => s.setSoundVolume);
   const setBrowserNotificationsEnabled = useAppStore((s) => s.setBrowserNotificationsEnabled);
   const setDefaultReaction = useAppStore((s) => s.setDefaultReaction);
+  const notifPrefs = useAppStore((s) => s.notifPrefs);
+  const setNotifPref = useAppStore((s) => s.setNotifPref);
 
   useEffect(() => {
     if (!route) return;
@@ -298,6 +300,31 @@ export function SettingsOverlay() {
                       </button>
                     ))}
                   </div>
+
+                  <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Триггеры уведомлений</div>
+                  {(
+                    [
+                      ['messages', 'Новые сообщения'],
+                      ['comments', 'Комментарии'],
+                      ['likes', 'Лайки'],
+                      ['posts', 'Новые посты'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className={styles.rowFlex}>
+                      <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
+                        {label}
+                      </span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={notifPrefs?.[key] ?? true}
+                          onChange={(e) => setNotifPref(key, e.target.checked)}
+                        />
+                        <span className={styles.slider} />
+                      </label>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -305,31 +332,84 @@ export function SettingsOverlay() {
                 <div className={styles.stack}>
                   <div className={styles.session}>
                     <strong>Этот браузер</strong>
-                    <span className={styles.navSub}>Активна · web</span>
+                    <span className={styles.navSub}>Активна · web · текущая сессия</span>
                   </div>
+                  <p className={styles.note}>
+                    Завершить другие устройства можно будет после синка списка сессий с API.
+                    Сейчас выход из аккаунта сбрасывает только этот клиент.
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.logout}
+                    onClick={() => {
+                      if (window.confirm('Выйти из аккаунта на этом устройстве?')) logout();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    Выйти здесь
+                  </button>
                 </div>
               )}
 
               {route === 'appearance' && (
-                <p className={styles.note}>
-                  Тёмная тема. Фон профиля — на вкладке Профиль.
-                </p>
+                <div className={styles.stack}>
+                  <div className={styles.sectionTitle}>Тема</div>
+                  <Row label="Режим" value="Тёмная (системная для Толк.)" />
+                  <p className={styles.note}>
+                    Фон профиля и баннер — на вкладке <strong>Профиль</strong>. Фон чата — в
+                    «Чаты» / ⋯ → Оформление внутри диалога.
+                  </p>
+                  <div className={styles.sectionTitle}>Интерфейс</div>
+                  <Row label="Иконки" value="lucide · stroke 1.75" />
+                  <Row label="Шрифт" value="Inter / system" />
+                </div>
               )}
 
               {route === 'privacy' && (
-                <p className={styles.note}>
-                  Кто видит стену / last seen — soon.
-                </p>
+                <div className={styles.stack}>
+                  <div className={styles.sectionTitle}>Видимость</div>
+                  <Row label="Стена" value="Видна подписчикам / в ленте (MVP)" />
+                  <Row label="Last seen" value="Показывается контактам" />
+                  <Row label="Онлайн" value="Зелёная точка в аватаре" />
+                  <p className={styles.note}>
+                    Гранулярные правила «кто видит last seen / стену» — следующие итерации.
+                    Блокировка и жалобы — через профиль пира (скоро).
+                  </p>
+                </div>
               )}
 
               {route === 'storage' && (
-                <p className={styles.note}>Кэш медиа — soon.</p>
+                <div className={styles.stack}>
+                  <div className={styles.sectionTitle}>Данные</div>
+                  <Row label="Медиа" value="Кэш браузера + серверные uploads" />
+                  <Row label="Локальный стейт" value="localStorage · tolk-web-state" />
+                  <button
+                    type="button"
+                    className={styles.saveBtn}
+                    onClick={() => {
+                      if (window.confirm('Очистить кэш приложения в этом браузере? (не удаляет аккаунт)')) {
+                        try {
+                          localStorage.removeItem('tolk-web-state');
+                          useAppStore.getState().showToast('Кэш очищен — перезагрузите страницу');
+                        } catch {
+                          useAppStore.getState().showToast('Не удалось очистить');
+                        }
+                      }
+                    }}
+                  >
+                    Очистить локальный кэш
+                  </button>
+                </div>
               )}
 
               {route === 'about' && (
-                <p className={styles.note}>
-                  <strong>Толк.</strong> — чаты · стена · профиль. Web MVP.
-                </p>
+                <div className={styles.stack}>
+                  <p className={styles.note}>
+                    <strong>Толк.</strong> — чаты · стена · профиль. Web MVP.
+                  </p>
+                  <Row label="Клиент" value="apps/web · React + Vite" />
+                  <Row label="Версия" value="0.1.0" />
+                </div>
               )}
             </div>
           </motion.div>

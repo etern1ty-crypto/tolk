@@ -1,6 +1,6 @@
 import type { Message } from '../types';
 
-/** Safe one-line preview for reply bars / quotes. */
+/** Safe one-line body for reply bars / quotes. */
 export function formatReplyPreview(msg: Pick<Message, 'text' | 'kind' | 'media'> | null | undefined): string {
   if (!msg) return '';
   const text = (msg.text || '').trim();
@@ -19,4 +19,15 @@ export function formatReplyPreview(msg: Pick<Message, 'text' | 'kind' | 'media'>
     default:
       return text || 'Сообщение';
   }
+}
+
+/** Bubble quote: "Author: body" */
+export function formatReplyQuote(
+  msg: Pick<Message, 'text' | 'kind' | 'media'> | null | undefined,
+  authorName?: string
+): string {
+  const body = formatReplyPreview(msg);
+  if (!body) return '';
+  const name = (authorName || '').trim();
+  return name ? `${name}: ${body}` : body;
 }

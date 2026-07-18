@@ -85,7 +85,11 @@ export function PeerProfile() {
         </div>
         <div className={styles.body}>
           <h1>{user.displayName}</h1>
-          <p className={styles.uname}>@{user.username}</p>
+          {user.username?.trim() ? (
+            <p className={styles.uname}>@{user.username}</p>
+          ) : (
+            <p className={styles.uname} style={{ opacity: 0.55 }}>без username</p>
+          )}
           {user.online ? (
             <p className={styles.online}>в сети</p>
           ) : (

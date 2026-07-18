@@ -101,6 +101,8 @@ export interface Comment {
   userId: Id;
   text: string;
   createdAt: number;
+  parentId?: Id | null;
+  likedBy?: Id[];
 }
 
 export interface EchoItem {

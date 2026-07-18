@@ -4,6 +4,7 @@ import {
   Bookmark,
   CircleDot,
   Mic,
+  MoreVertical,
   Palette,
   Paperclip,
   SendHorizontal,
@@ -50,15 +51,16 @@ export function ChatPanel() {
   const sendMessage = useAppStore((s) => s.sendMessage);
   const retryMessage = useAppStore((s) => s.retryMessage);
   const setContextMenu = useAppStore((s) => s.setContextMenu);
-  const setReactionPicker = useAppStore((s) => s.setReactionPicker);
   const setAttachSheetOpen = useAppStore((s) => s.setAttachSheetOpen);
   const setCircleSheetOpen = useAppStore((s) => s.setCircleSheetOpen);
   const setVoiceRecording = useAppStore((s) => s.setVoiceRecording);
   const setShelfOpen = useAppStore((s) => s.setShelfOpen);
   const toggleReaction = useAppStore((s) => s.toggleReaction);
+  const defaultReaction = useAppStore((s) => s.defaultReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
   const setChatTheme = useAppStore((s) => s.setChatTheme);
   const uploadAttachment = useAppStore((s) => s.uploadAttachment);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const swipeStartX = useRef(0);
@@ -357,23 +359,39 @@ export function ChatPanel() {
             </div>
           </div>
         </button>
-        <IconBtn
-          aria-label="Оформление чата"
-          title="Оформление чата"
-          onClick={() => setThemeOpen((v) => !v)}
-        >
-          <Palette size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-        </IconBtn>
-        {shelfCount > 0 && (
-          <button
-            type="button"
-            className={styles.shelfBtn}
-            onClick={() => setShelfOpen(true)}
+        <div className={styles.headerActions}>
+          <IconBtn
+            aria-label="Ещё"
+            title="Ещё"
+            onClick={() => setHeaderMenuOpen((v) => !v)}
           >
-            <Bookmark size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-            {shelfCount}
-          </button>
-        )}
+            <MoreVertical size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+          </IconBtn>
+          {headerMenuOpen && (
+            <div className={styles.headerMenu} role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setThemeOpen((v) => !v);
+                  setHeaderMenuOpen(false);
+                }}
+              >
+                <Palette size={16} /> Оформление
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setShelfOpen(true);
+                  setHeaderMenuOpen(false);
+                }}
+              >
+                <Bookmark size={16} /> Полка{shelfCount > 0 ? ` · ${shelfCount}` : ''}
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <AnimatePresence>
@@ -441,24 +459,22 @@ export function ChatPanel() {
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  style={
-                    swipeMsgId === m.id
+                  style={{
+                    touchAction: 'pan-y',
+                    ...(swipeMsgId === m.id
                       ? {
                           transform: `translateX(${Math.min(Math.max(swipeDx, 0), 72)}px)`,
                           transition: swipeDx === 0 ? 'transform 0.18s ease' : 'none',
                         }
-                      : undefined
-                  }
+                      : {}),
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
                   }}
-                  onDoubleClick={(e) => {
-                    setReactionPicker({
-                      messageId: m.id,
-                      x: e.clientX,
-                      y: e.clientY,
-                    });
+                  onDoubleClick={() => {
+                    // Quick reaction (default from settings) — full picker is in long-press menu
+                    toggleReaction(m.id, defaultReaction || '👍');
                   }}
                   onPointerDown={(e) => {
                     if (e.pointerType === 'mouse') return;

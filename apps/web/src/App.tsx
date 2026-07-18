@@ -14,7 +14,7 @@ import { ForwardSheet } from './features/wall/ForwardSheet';
 import { MainShell } from './features/shell/MainShell';
 import { OfflineBanner } from './features/shell/OfflineBanner';
 import { Toast } from './features/shell/Toast';
-import { useAppStore } from './store/appStore';
+import { fetchApi, useAppStore } from './store/appStore';
 import { AMBIENT_PATTERN } from './shared/patterns';
 import { PatternBg } from './shared/ui/PatternBg';
 import { useEffect } from 'react';
@@ -26,6 +26,48 @@ export default function App() {
   useEffect(() => {
     useAppStore.getState().initApi();
   }, []);
+
+  // Deep links: /?chat= · /?user= · /?post= · /s/:slug handled via path
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chat = params.get('chat');
+    const user = params.get('user');
+    const post = params.get('post');
+    const run = async () => {
+      const store = useAppStore.getState();
+      if (!store.isAuthenticated) return;
+      if (chat) {
+        await store.setActiveChat(chat);
+      } else if (user) {
+        await store.openUserProfile(user);
+      } else if (post) {
+        store.setMainTab('wall');
+        store.setCommentPostId(post);
+      }
+      // /s/slug share resolve
+      const path = window.location.pathname;
+      const m = path.match(/^\/s\/([a-zA-Z0-9_-]+)$/);
+      if (m?.[1] && store.token) {
+        try {
+          const link = await fetchApi(
+            `/share-links/${m[1]}`,
+            {},
+            store.token
+          );
+          if (link.kind === 'user') await store.openUserProfile(link.targetId);
+          else if (link.kind === 'post') {
+            store.setMainTab('wall');
+            store.setCommentPostId(link.targetId);
+          } else if (link.kind === 'group' || link.kind === 'channel') {
+            await store.setActiveChat(link.targetId);
+          }
+        } catch (e) {
+          console.warn('share link resolve failed', e);
+        }
+      }
+    };
+    void run();
+  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     return (

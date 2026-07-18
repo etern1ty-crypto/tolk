@@ -1,0 +1,18 @@
+{
+  "name": "Толк.",
+  "short_name": "Толк",
+  "description": "Минималистичный мессенджер",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12141c",
+  "theme_color": "#0b0c0f",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -24,7 +24,8 @@ export function PostComposer({
   const me = useAppStore((s) => s.me);
   const createPost = useAppStore((s) => s.createPost);
 
-  const [expanded, setExpanded] = useState(from === 'wall');
+  // Always start collapsed on mobile-friendly UX (wall used to autofocus keyboard)
+  const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState('');
   const [toWall, setToWall] = useState(defaultToWall);
   const [withMedia, setWithMedia] = useState(false);
@@ -153,7 +154,7 @@ export function PostComposer({
               onChange={(e) => setDraft(e.target.value)}
               placeholder={collapsedPlaceholder}
               rows={3}
-              autoFocus
+              autoFocus={from !== 'wall'}
               style={{
                 fontSize: `${textSize}px`,
                 fontFamily:
