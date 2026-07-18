@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Link2, MessageCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { copyShareLink } from '../../shared/lib/share';
 import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
@@ -36,6 +37,8 @@ export function PeerProfile() {
   const closeUserProfile = useAppStore((s) => s.closeUserProfile);
   const startChatWithUser = useAppStore((s) => s.startChatWithUser);
   const setMainTab = useAppStore((s) => s.setMainTab);
+  const token = useAppStore((s) => s.token);
+  const showToast = useAppStore((s) => s.showToast);
 
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
@@ -117,6 +120,22 @@ export function PeerProfile() {
               Написать
             </button>
           )}
+          <button
+            type="button"
+            className={styles.cta}
+            style={{ marginTop: 8, background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+            onClick={async () => {
+              try {
+                await copyShareLink('user', user.id, token);
+                showToast('Ссылка скопирована');
+              } catch (e: any) {
+                showToast(e.message || 'Ошибка');
+              }
+            }}
+          >
+            <Link2 size={16} />
+            Поделиться
+          </button>
           <h2>Посты</h2>
           {list.length === 0 ? (
             <p className={styles.empty}>Пока тихо.</p>

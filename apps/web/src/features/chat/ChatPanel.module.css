@@ -604,6 +604,15 @@
   display: block;
 }
 
+.channelReadonly {
+  flex: 1;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px;
+}
+
 .typing {
   align-self: flex-start;
   display: flex;

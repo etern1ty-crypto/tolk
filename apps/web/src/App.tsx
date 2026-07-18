@@ -4,6 +4,7 @@ import { EchoSheet } from './features/echoes/EchoSheet';
 import { AttachSheet } from './features/chat/AttachSheet';
 import { CircleSheet } from './features/chat/CircleSheet';
 import { MessageContextMenu } from './features/chat/MessageContextMenu';
+import { ChatInfoSheet } from './features/chat/ChatInfoSheet';
 import { NewChatSheet } from './features/chat/NewChatSheet';
 import { ReactionPicker } from './features/chat/ReactionPicker';
 import { ShelfSheet } from './features/chat/ShelfSheet';
@@ -59,7 +60,11 @@ export default function App() {
             store.setMainTab('wall');
             store.setCommentPostId(link.targetId);
           } else if (link.kind === 'group' || link.kind === 'channel') {
-            await store.setActiveChat(link.targetId);
+            try {
+              await store.joinByShareSlug(m[1]);
+            } catch {
+              await store.setActiveChat(link.targetId);
+            }
           }
         } catch (e) {
           console.warn('share link resolve failed', e);
@@ -98,6 +103,7 @@ export default function App() {
       <AttachSheet />
       <CircleSheet />
       <NewChatSheet />
+      <ChatInfoSheet />
       <MessageContextMenu />
       <ReactionPicker />
       <ShelfSheet />

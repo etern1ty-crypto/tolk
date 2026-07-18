@@ -33,6 +33,10 @@ export interface Chat {
   id: Id;
   type: 'dm' | 'group' | 'channel';
   title: string;
+  description?: string;
+  isPublic?: boolean;
+  myRole?: 'owner' | 'admin' | 'member';
+  memberCount?: number;
   preview: string;
   unread: number;
   timeLabel: string;

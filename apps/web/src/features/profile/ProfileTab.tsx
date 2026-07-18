@@ -1,7 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ImagePlus, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
+import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore, fetchApi } from '../../store/appStore';
+import { copyShareLink } from '../../shared/lib/share';
 import { patternById, MEDIA_PATTERNS, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
@@ -41,30 +42,20 @@ export function ProfileTab() {
 
   const showToast = useAppStore((s) => s.showToast);
 
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const notifications = useAppStore((s) => s.notifications);
+  const notificationsUnread = useAppStore((s) => s.notificationsUnread);
+  const refreshNotifications = useAppStore((s) => s.refreshNotifications);
+  const markNotificationsSeen = useAppStore((s) => s.markNotificationsSeen);
   const [notifOpen, setNotifOpen] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isComposeExpanded, setIsComposeExpanded] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const data = await fetchApi('/notifications', {}, token);
-        if (active) setNotifications(data || []);
-      } catch (err) {
-        console.error('Failed to load notifications:', err);
-      }
-    };
-    if (token) {
-      load();
-      const interval = setInterval(load, 10000);
-      return () => {
-        active = false;
-        clearInterval(interval);
-      };
-    }
-  }, [token]);
+    if (!token) return;
+    void refreshNotifications();
+    const interval = setInterval(() => void refreshNotifications(), 8000);
+    return () => clearInterval(interval);
+  }, [token, refreshNotifications]);
 
   useEffect(() => {
     if (!croppingImage) {
@@ -315,7 +306,10 @@ export function ProfileTab() {
           <div className={styles.menuWrap}>
             <IconBtn
               variant="soft"
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={() => {
+                setNotifOpen((v) => !v);
+                markNotificationsSeen();
+              }}
               aria-label="Уведомления"
               aria-expanded={notifOpen}
             >
@@ -324,8 +318,10 @@ export function ProfileTab() {
               ) : (
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bell size={18} strokeWidth={iconProps.strokeWidth} />
-                  {notifications.length > 0 && (
-                    <span className={styles.notifBadge}>{notifications.length}</span>
+                  {(notificationsUnread > 0 || notifications.length > 0) && (
+                    <span className={styles.notifBadge}>
+                      {notificationsUnread > 0 ? notificationsUnread : notifications.length}
+                    </span>
                   )}
                 </div>
               )}
@@ -358,7 +354,13 @@ export function ProfileTab() {
                         <Avatar name={n.displayName} id={n.userId} avatarUrl={n.avatarRef} size={28} />
                         <div className={styles.notifText}>
                           <strong>{n.displayName}</strong>{' '}
-                          {n.type === 'like' ? 'поставил(а) лайк' : `коммент: "${n.text}"`}
+                          {n.type === 'like'
+                            ? 'лайк на пост'
+                            : n.type === 'comment_like'
+                              ? 'лайк на комментарий'
+                              : n.type === 'comment_reply'
+                                ? `ответ: «${n.text}»`
+                                : `коммент: «${n.text}»`}
                         </div>
                       </button>
                     ))
@@ -411,6 +413,22 @@ export function ProfileTab() {
                     }}
                   >
                     Оформление
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={async () => {
+                      closeMenu();
+                      try {
+                        await copyShareLink('user', me.id, token);
+                        showToast('Ссылка на профиль скопирована');
+                      } catch (e: any) {
+                        showToast(e.message || 'Ошибка ссылки');
+                      }
+                    }}
+                  >
+                    <Link2 size={15} strokeWidth={iconProps.strokeWidth} />
+                    Ссылка на профиль
                   </button>
                   <button
                     type="button"
@@ -794,7 +812,8 @@ export function ProfileTab() {
         {myPosts.length === 0 ? (
           <p className={styles.empty}>Пока пусто</p>
         ) : (
-          myPosts.map((p, i) => {
+          <div className={styles.postsGrid}>
+          {myPosts.map((p, i) => {
             const mediaPat =
               p.media?.kind === 'pattern'
                 ? p.media.patternId === 'custom' && p.media.items
@@ -843,7 +862,8 @@ export function ProfileTab() {
                 ) : null}
               </motion.article>
             );
-          })
+          })}
+          </div>
         )}
       </section>
 

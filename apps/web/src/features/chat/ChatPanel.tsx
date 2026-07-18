@@ -60,6 +60,7 @@ export function ChatPanel() {
   const setReplyTo = useAppStore((s) => s.setReplyTo);
   const setChatTheme = useAppStore((s) => s.setChatTheme);
   const uploadAttachment = useAppStore((s) => s.uploadAttachment);
+  const setChatInfoOpen = useAppStore((s) => s.setChatInfoOpen);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -333,7 +334,10 @@ export function ChatPanel() {
         <button
           type="button"
           className={styles.headerInfo}
-          onClick={() => chat.peerId && openUserProfile(chat.peerId)}
+          onClick={() => {
+            if (chat.type === 'dm' && chat.peerId) openUserProfile(chat.peerId);
+            else setChatInfoOpen(true);
+          }}
         >
           <Avatar
             name={headerAvatarName}
@@ -350,7 +354,9 @@ export function ChatPanel() {
               ) : chat.online ? (
                 <span className={styles.online}>в сети</span>
               ) : chat.type === 'group' || chat.type === 'channel' ? (
-                chat.type === 'channel' ? 'канал' : 'группа'
+                `${chat.type === 'channel' ? 'канал' : 'группа'}${
+                  chat.memberCount ? ` · ${chat.memberCount}` : ''
+                }`
               ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
                 formatLastSeen(users[chat.peerId].lastSeenAt)
               ) : (
@@ -389,6 +395,18 @@ export function ChatPanel() {
               >
                 <Bookmark size={16} /> Полка{shelfCount > 0 ? ` · ${shelfCount}` : ''}
               </button>
+              {(chat.type === 'group' || chat.type === 'channel') && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setChatInfoOpen(true);
+                    setHeaderMenuOpen(false);
+                  }}
+                >
+                  Инфо
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -737,6 +755,14 @@ export function ChatPanel() {
       )}
 
       <footer className={styles.composer}>
+        {chat.type === 'channel' &&
+        chat.myRole !== 'owner' &&
+        chat.myRole !== 'admin' ? (
+          <div className={styles.channelReadonly}>
+            Только админы публикуют в канале
+          </div>
+        ) : (
+          <>
         <input
           type="file"
           ref={imageInputRef}
@@ -798,6 +824,8 @@ export function ChatPanel() {
               <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
             )}
           </IconBtn>
+        )}
+          </>
         )}
       </footer>
       </div>

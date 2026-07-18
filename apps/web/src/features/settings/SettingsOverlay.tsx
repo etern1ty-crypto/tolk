@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Upload, ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppStore, CHAT_THEMES, REACTION_SET, fetchApi } from '../../store/appStore';
-import { soundEffects } from '../../shared/soundEffects';
 import type { SettingsRoute } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
@@ -254,15 +253,14 @@ export function SettingsOverlay() {
                     <select
                       value={notificationSound}
                       onChange={(e) => {
-                        const val = e.target.value as 'pixel' | 'bubble' | 'silent';
+                        const val = e.target.value as 'pixel' | 'bubble' | 'glass' | 'silent';
                         setNotificationSound(val);
-                        if (val === 'pixel') soundEffects.playPixelPush();
-                        else if (val === 'bubble') soundEffects.playReceivedSoft();
                       }}
                       className={styles.select}
                     >
-                      <option value="pixel">Google Pixel Chime</option>
-                      <option value="bubble">Soft Bubble Pop</option>
+                      <option value="pixel">Pixel Chime</option>
+                      <option value="bubble">Bubble Pop</option>
+                      <option value="glass">Glass Tap</option>
                       <option value="silent">Без звука</option>
                     </select>
                   </div>

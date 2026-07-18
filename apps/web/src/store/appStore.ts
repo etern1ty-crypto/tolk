@@ -193,7 +193,7 @@ function connectWebSocket(token: string, store: any) {
               if (activeChatId === data.chatId) {
                 soundEffects.playReceivedSoft();
               } else {
-                soundEffects.playPixelPush();
+                soundEffects.playTheme(state.notificationSound);
               }
             }
           }
@@ -431,7 +431,20 @@ interface AppState {
   startChatWithUser: (userId: string) => Promise<void>;
   createGroupChat: (title: string, memberIds: string[]) => Promise<void>;
   createChannel: (title: string) => Promise<void>;
+  joinChat: (chatId: string) => Promise<void>;
+  joinByShareSlug: (slug: string) => Promise<void>;
+  leaveChat: (chatId: string) => Promise<void>;
+  updateChatMeta: (
+    chatId: string,
+    patch: { title?: string; description?: string; is_public?: boolean; avatar_ref?: string | null }
+  ) => Promise<void>;
   setNewChatOpen: (v: boolean) => void;
+  chatInfoOpen: boolean;
+  setChatInfoOpen: (v: boolean) => void;
+  notifications: any[];
+  notificationsUnread: number;
+  refreshNotifications: () => Promise<void>;
+  markNotificationsSeen: () => void;
   toggleNavPin: (chatId: string) => void;
 
   setSearchQuery: (q: string) => void;
@@ -499,7 +512,7 @@ interface AppState {
 
   globalChatThemeId: string;
   globalCustomWallpaper: string | null;
-  notificationSound: 'pixel' | 'bubble' | 'silent';
+  notificationSound: 'pixel' | 'bubble' | 'glass' | 'silent';
   soundVolume: number;
   browserNotificationsEnabled: boolean;
   defaultReaction: string;
@@ -511,7 +524,7 @@ interface AppState {
   };
   setGlobalChatTheme: (themeId: string) => void;
   setGlobalCustomWallpaper: (url: string | null) => void;
-  setNotificationSound: (sound: 'pixel' | 'bubble' | 'silent') => void;
+  setNotificationSound: (sound: 'pixel' | 'bubble' | 'glass' | 'silent') => void;
   setSoundVolume: (volume: number) => void;
   setBrowserNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setDefaultReaction: (emoji: string) => void;
@@ -555,6 +568,9 @@ export const useAppStore = create<AppState>()(
       forwardPostId: null,
       shelfOpen: false,
       newChatOpen: false,
+      chatInfoOpen: false,
+      notifications: [],
+      notificationsUnread: 0,
       replyToId: null,
       toast: null,
       wallSeenAt: Date.now() - 1000 * 60 * 60,
@@ -935,7 +951,119 @@ export const useAppStore = create<AppState>()(
 
   setSearchQuery: (q) => set({ searchQuery: q }),
   setNewChatOpen: (v) => set({ newChatOpen: v }),
+  setChatInfoOpen: (v) => set({ chatInfoOpen: v }),
   setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
+
+  joinChat: async (chatId) => {
+    try {
+      const res = await fetchApi(`/chats/${chatId}/join`, { method: 'POST' }, get().token);
+      set((s) => ({
+        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+        activeChatId: res.id,
+        mainTab: 'chats',
+      }));
+      get().showToast('Вы вступили');
+    } catch (err: any) {
+      get().showToast(err.message || 'Не удалось вступить');
+      throw err;
+    }
+  },
+
+  joinByShareSlug: async (slug) => {
+    try {
+      const res = await fetchApi(`/share-links/${slug}/join`, { method: 'POST' }, get().token);
+      if (res.id) {
+        const details = await fetchApi(`/chats`, {}, get().token);
+        set({ chats: details });
+        set({ activeChatId: res.id, mainTab: 'chats' });
+        get().showToast('Вы вступили');
+      }
+    } catch (err: any) {
+      get().showToast(err.message || 'Ссылка недействительна');
+      throw err;
+    }
+  },
+
+  leaveChat: async (chatId) => {
+    try {
+      await fetchApi(`/chats/${chatId}/leave`, { method: 'POST' }, get().token);
+      set((s) => ({
+        chats: s.chats.filter((c) => c.id !== chatId),
+        activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
+      }));
+      get().showToast('Вы вышли');
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка выхода');
+      throw err;
+    }
+  },
+
+  updateChatMeta: async (chatId, patch) => {
+    try {
+      const res = await fetchApi(
+        `/chats/${chatId}`,
+        { method: 'PATCH', body: JSON.stringify(patch) },
+        get().token
+      );
+      set((s) => ({
+        chats: s.chats.map((c) => (c.id === chatId ? { ...c, ...res } : c)),
+      }));
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка сохранения');
+      throw err;
+    }
+  },
+
+  refreshNotifications: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const data = await fetchApi('/notifications', {}, token);
+      const prev = get().notifications?.[0]?.createdAt || 0;
+      const list = data || [];
+      const newest = list[0]?.createdAt || 0;
+      const prefs = get().notifPrefs;
+      if (newest > prev && prev > 0 && list[0]) {
+        const n = list[0];
+        const type = n.type;
+        if (
+          ((type === 'comment' || type === 'comment_reply') && prefs.comments) ||
+          ((type === 'like' || type === 'comment_like') && prefs.likes)
+        ) {
+          get().showToast(
+            type === 'like'
+              ? `${n.displayName} лайкнул пост`
+              : type === 'comment_like'
+                ? `${n.displayName} лайкнул комментарий`
+                : type === 'comment_reply'
+                  ? `${n.displayName} ответил на комментарий`
+                  : `${n.displayName} прокомментировал`
+          );
+          if (get().browserNotificationsEnabled && typeof Notification !== 'undefined') {
+            try {
+              new Notification('Толк.', {
+                body:
+                  type === 'like'
+                    ? `${n.displayName}: лайк`
+                    : `${n.displayName}: ${n.text || 'комментарий'}`,
+                tag: `n-${n.postId}`,
+              });
+            } catch { /* ignore */ }
+          }
+          set((s) => ({
+            notifications: list,
+            notificationsUnread: s.notificationsUnread + 1,
+          }));
+          return;
+        }
+      }
+      set({ notifications: list });
+    } catch (err) {
+      console.error('notifications', err);
+    }
+  },
+
+  markNotificationsSeen: () => set({ notificationsUnread: 0 }),
 
   toggleNavPin: (chatId) => {
     const pins = get().navPins;
@@ -1215,6 +1343,10 @@ export const useAppStore = create<AppState>()(
         chats: chatsList,
         posts: combinedPosts,
       });
+
+      try {
+        await get().refreshNotifications();
+      } catch { /* optional */ }
       
       const activeId = get().activeChatId;
       if (activeId) {
@@ -1642,7 +1774,10 @@ export const useAppStore = create<AppState>()(
 
   setGlobalChatTheme: (themeId) => set({ globalChatThemeId: themeId, globalCustomWallpaper: null }),
   setGlobalCustomWallpaper: (url) => set({ globalCustomWallpaper: url }),
-  setNotificationSound: (sound) => set({ notificationSound: sound }),
+  setNotificationSound: (sound) => {
+    set({ notificationSound: sound });
+    soundEffects.playTheme(sound);
+  },
   setSoundVolume: (volume) => {
     set({ soundVolume: volume });
     soundEffects.volume = volume;

@@ -2,11 +2,13 @@ import { motion } from 'framer-motion';
 import {
   Forward,
   Heart,
+  Link2,
   MessageCircle,
   Repeat2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { copyShareLink } from '../../shared/lib/share';
 import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
@@ -33,6 +35,8 @@ export function WallFeed() {
   const setCommentPostId = useAppStore((s) => s.setCommentPostId);
   const setForwardPostId = useAppStore((s) => s.setForwardPostId);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
+  const token = useAppStore((s) => s.token);
+  const showToast = useAppStore((s) => s.showToast);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const feed = useMemo(
@@ -174,6 +178,23 @@ export function WallFeed() {
                     onClick={() => setForwardPostId(post.id)}
                   >
                     <Forward
+                      size={iconProps.size.sm}
+                      strokeWidth={iconProps.strokeWidth}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    title="Ссылка"
+                    onClick={async () => {
+                      try {
+                        await copyShareLink('post', post.id, token);
+                        showToast('Ссылка на пост скопирована');
+                      } catch (e: any) {
+                        showToast(e.message || 'Ошибка');
+                      }
+                    }}
+                  >
+                    <Link2
                       size={iconProps.size.sm}
                       strokeWidth={iconProps.strokeWidth}
                     />

@@ -9,22 +9,41 @@ import styles from './SearchTab.module.css';
 
 type SearchFilter = 'all' | 'people' | 'posts' | 'channels';
 
+type PublicChannel = {
+  id: string;
+  type: string;
+  title: string;
+  description?: string;
+  avatarRef?: string;
+  memberCount?: number;
+  joined?: boolean;
+};
+
 export function SearchTab() {
-  const users = useAppStore((s) => s.users);
   const token = useAppStore((s) => s.token);
   const posts = useAppStore((s) => s.posts);
   const chats = useAppStore((s) => s.chats);
+  const users = useAppStore((s) => s.users);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
   const startChatWithUser = useAppStore((s) => s.startChatWithUser);
   const setActiveChat = useAppStore((s) => s.setActiveChat);
   const setMainTab = useAppStore((s) => s.setMainTab);
   const setCommentPostId = useAppStore((s) => s.setCommentPostId);
+  const joinChat = useAppStore((s) => s.joinChat);
 
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
   const [people, setPeople] = useState<User[]>([]);
+  const [publicChannels, setPublicChannels] = useState<PublicChannel[]>([]);
 
   const query = q.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!token) return;
+    fetchApi('/channels', {}, token)
+      .then((rows) => setPublicChannels(rows || []))
+      .catch(() => setPublicChannels([]));
+  }, [token]);
 
   useEffect(() => {
     if (!query) {
@@ -48,15 +67,28 @@ export function SearchTab() {
     return list.filter((p) => p.text.toLowerCase().includes(query));
   }, [posts, query]);
 
-  const channels = useMemo(() => {
-    if (!query) return [];
+  const myChannels = useMemo(() => {
     const list = chats.filter((c) => c.type === 'group' || c.type === 'channel');
+    if (!query) return list;
     return list.filter(
       (c) =>
         c.title.toLowerCase().includes(query) ||
-        c.preview.toLowerCase().includes(query)
+        (c.preview || '').toLowerCase().includes(query)
     );
   }, [chats, query]);
+
+  const discoverChannels = useMemo(() => {
+    const joinedIds = new Set(chats.map((c) => c.id));
+    let list = publicChannels.filter((c) => !joinedIds.has(c.id));
+    if (query) {
+      list = list.filter(
+        (c) =>
+          c.title.toLowerCase().includes(query) ||
+          (c.description || '').toLowerCase().includes(query)
+      );
+    }
+    return list;
+  }, [publicChannels, chats, query]);
 
   const showPeople = filter === 'all' || filter === 'people';
   const showPosts = filter === 'all' || filter === 'posts';
@@ -65,7 +97,7 @@ export function SearchTab() {
   const empty =
     (showPeople ? people.length === 0 : true) &&
     (showPosts ? foundPosts.length === 0 : true) &&
-    (showChannels ? channels.length === 0 : true);
+    (showChannels ? myChannels.length === 0 && discoverChannels.length === 0 : true);
 
   return (
     <div className={styles.root}>
@@ -86,7 +118,6 @@ export function SearchTab() {
           placeholder="Друзья, посты, каналы"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          autoFocus
         />
       </div>
 
@@ -115,7 +146,7 @@ export function SearchTab() {
       <div className={styles.body}>
         {empty ? (
           <p className={styles.empty}>
-            {query ? 'Ничего не нашлось' : 'Начните вводить запрос'}
+            {query ? 'Ничего не нашлось' : 'Начните вводить запрос или откройте «Каналы»'}
           </p>
         ) : (
           <>
@@ -159,13 +190,13 @@ export function SearchTab() {
               </section>
             )}
 
-            {showChannels && channels.length > 0 && (
+            {showChannels && (myChannels.length > 0 || discoverChannels.length > 0) && (
               <section className={styles.section}>
                 <h2>
                   <Hash size={14} strokeWidth={iconProps.strokeWidth} />
-                  Каналы
+                  Каналы и группы
                 </h2>
-                {channels.map((c, i) => (
+                {myChannels.map((c, i) => (
                   <motion.button
                     key={c.id}
                     type="button"
@@ -178,9 +209,36 @@ export function SearchTab() {
                     <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
                     <div className={styles.meta}>
                       <span className={styles.name}>{c.title}</span>
-                      <span className={styles.sub}>{c.preview || 'Группа'}</span>
+                      <span className={styles.sub}>
+                        {c.type === 'channel' ? 'канал' : 'группа'}
+                        {c.memberCount ? ` · ${c.memberCount}` : ''}
+                        {c.preview ? ` · ${c.preview}` : ''}
+                      </span>
                     </div>
                   </motion.button>
+                ))}
+                {discoverChannels.map((c, i) => (
+                  <motion.div
+                    key={c.id}
+                    className={styles.row}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.15) }}
+                  >
+                    <button type="button" className={styles.rowMain} onClick={() => joinChat(c.id)}>
+                      <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
+                      <div className={styles.meta}>
+                        <span className={styles.name}>{c.title}</span>
+                        <span className={styles.sub}>
+                          канал · {c.memberCount ?? 0} подп.
+                          {c.description ? ` · ${c.description}` : ''}
+                        </span>
+                      </div>
+                    </button>
+                    <button type="button" className={styles.action} onClick={() => joinChat(c.id)}>
+                      Вступить
+                    </button>
+                  </motion.div>
                 ))}
               </section>
             )}

@@ -197,8 +197,8 @@
 }
 
 .themeCard {
-  height: 64px;
-  border-radius: 12px;
+  height: 88px;
+  border-radius: 14px;
   border: 2px solid transparent;
   display: flex;
   align-items: center;
