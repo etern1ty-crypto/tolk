@@ -13,7 +13,10 @@ import {
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { CHAT_THEMES, useAppStore, fetchApi } from '../../store/appStore';
 import { patternById } from '../../shared/patterns';
+import { formatReplyPreview } from '../../shared/lib/messagePreview';
+import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
+import { MediaLightbox } from '../../shared/ui/MediaLightbox';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
@@ -58,6 +61,13 @@ export function ChatPanel() {
   const uploadAttachment = useAppStore((s) => s.uploadAttachment);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+  const swipeActiveId = useRef<string | null>(null);
+  const swipeDxRef = useRef(0);
+  const [swipeDx, setSwipeDx] = useState(0);
+  const [swipeMsgId, setSwipeMsgId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -101,6 +111,15 @@ export function ChatPanel() {
   );
   const shelfCount = shelfItems.filter((s) => s.chatId === activeChatId).length;
   const replyMsg = replyToId ? messages.find((m) => m.id === replyToId) : null;
+  const replyAuthor = replyMsg
+    ? replyMsg.senderId === me.id
+      ? me
+      : users[replyMsg.senderId]
+    : null;
+  const headerPeer = chat?.peerId ? users[chat.peerId] : null;
+  const headerAvatarName = headerPeer?.displayName || chat?.title || '?';
+  const headerAvatarUrl = headerPeer?.avatarRef || chat?.avatarRef;
+  const headerAvatarId = headerPeer?.id || chat?.id;
 
   useEffect(() => {
     const el = listRef.current;
@@ -314,19 +333,28 @@ export function ChatPanel() {
           className={styles.headerInfo}
           onClick={() => chat.peerId && openUserProfile(chat.peerId)}
         >
-          <div className={styles.headerTitle}>{chat.title}</div>
-          <div className={styles.headerSub}>
-            {typingChatId === activeChatId ? (
-              <span className={styles.typingLive}>печатает…</span>
-            ) : chat.online ? (
-              <span className={styles.online}>в сети</span>
-            ) : chat.type === 'group' ? (
-              'группа'
-            ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
-              formatLastSeen(users[chat.peerId].lastSeenAt)
-            ) : (
-              'был(а) недавно'
-            )}
+          <Avatar
+            name={headerAvatarName}
+            id={headerAvatarId}
+            avatarUrl={headerAvatarUrl}
+            size={36}
+            online={chat.type === 'dm' ? chat.online : undefined}
+          />
+          <div className={styles.headerText}>
+            <div className={styles.headerTitle}>{chat.title}</div>
+            <div className={styles.headerSub}>
+              {typingChatId === activeChatId ? (
+                <span className={styles.typingLive}>печатает…</span>
+              ) : chat.online ? (
+                <span className={styles.online}>в сети</span>
+              ) : chat.type === 'group' || chat.type === 'channel' ? (
+                chat.type === 'channel' ? 'канал' : 'группа'
+              ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
+                formatLastSeen(users[chat.peerId].lastSeenAt)
+              ) : (
+                'был(а) недавно'
+              )}
+            </div>
           </div>
         </button>
         <IconBtn
@@ -413,6 +441,14 @@ export function ChatPanel() {
                   ]
                     .filter(Boolean)
                     .join(' ')}
+                  style={
+                    swipeMsgId === m.id
+                      ? {
+                          transform: `translateX(${Math.min(Math.max(swipeDx, 0), 72)}px)`,
+                          transition: swipeDx === 0 ? 'transform 0.18s ease' : 'none',
+                        }
+                      : undefined
+                  }
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
@@ -426,29 +462,73 @@ export function ChatPanel() {
                   }}
                   onPointerDown={(e) => {
                     if (e.pointerType === 'mouse') return;
+                    swipeStartX.current = e.clientX;
+                    swipeStartY.current = e.clientY;
+                    swipeActiveId.current = m.id;
+                    setSwipeMsgId(m.id);
                     longPressTimer.current = window.setTimeout(() => {
                       setContextMenu({
                         messageId: m.id,
                         x: e.clientX,
                         y: e.clientY,
                       });
+                      swipeActiveId.current = null;
+                      setSwipeMsgId(null);
+                      swipeDxRef.current = 0;
+                      setSwipeDx(0);
                     }, 300);
+                  }}
+                  onPointerMove={(e) => {
+                    if (e.pointerType === 'mouse' || swipeActiveId.current !== m.id) return;
+                    const dx = e.clientX - swipeStartX.current;
+                    const dy = e.clientY - swipeStartY.current;
+                    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+                      if (longPressTimer.current) {
+                        window.clearTimeout(longPressTimer.current);
+                        longPressTimer.current = null;
+                      }
+                      swipeDxRef.current = dx;
+                      setSwipeDx(dx);
+                    }
                   }}
                   onPointerUp={() => {
                     if (longPressTimer.current) {
                       window.clearTimeout(longPressTimer.current);
                       longPressTimer.current = null;
                     }
+                    if (swipeActiveId.current === m.id && swipeDxRef.current > 56) {
+                      setReplyTo(m.id);
+                    }
+                    swipeActiveId.current = null;
+                    setSwipeMsgId(null);
+                    swipeDxRef.current = 0;
+                    setSwipeDx(0);
                   }}
                   onPointerLeave={() => {
                     if (longPressTimer.current) {
                       window.clearTimeout(longPressTimer.current);
                       longPressTimer.current = null;
                     }
+                    swipeActiveId.current = null;
+                    setSwipeMsgId(null);
+                    swipeDxRef.current = 0;
+                    setSwipeDx(0);
+                  }}
+                  onPointerCancel={() => {
+                    if (longPressTimer.current) {
+                      window.clearTimeout(longPressTimer.current);
+                      longPressTimer.current = null;
+                    }
+                    swipeActiveId.current = null;
+                    setSwipeMsgId(null);
+                    swipeDxRef.current = 0;
+                    setSwipeDx(0);
                   }}
                 >
-                  {m.replyPreview && (
-                    <div className={styles.replyQuote}>{m.replyPreview}</div>
+                  {(m.replyPreview || m.replyToId) && (
+                    <div className={styles.replyQuote}>
+                      {m.replyPreview || formatReplyPreview(messages.find((x) => x.id === m.replyToId))}
+                    </div>
                   )}
                   {m.isEcho && <span className={styles.echoTag}>Echo</span>}
                   {m.kind === 'voice' && (
@@ -526,9 +606,14 @@ export function ChatPanel() {
                     )
                   )}
                   {m.kind === 'media' && m.media?.url && (
-                    <div style={{ borderRadius: '8px', overflow: 'hidden', margin: '4px 0', maxHeight: '240px', border: '1px solid var(--border-subtle)' }}>
-                      <img src={m.media.url} alt="Attachment" style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block' }} />
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.mediaThumb}
+                      onClick={() => setLightboxSrc(m.media!.url)}
+                      aria-label="Открыть фото"
+                    >
+                      <img src={m.media.url} alt="Attachment" />
+                    </button>
                   )}
                   {m.kind === 'file' && m.media?.url && (
                     <a 
@@ -620,11 +705,14 @@ export function ChatPanel() {
         )}
       </AnimatePresence>
 
+      <div className={styles.composerStack}>
       {replyMsg && (
         <div className={styles.replyBar}>
-          <div>
-            <strong>Ответ</strong>
-            <span>{replyMsg.text.slice(0, 60)}</span>
+          <div className={styles.replyBarBody}>
+            <strong>
+              Ответ · {replyAuthor?.displayName ?? 'сообщение'}
+            </strong>
+            <span>{formatReplyPreview(replyMsg)}</span>
           </div>
           <IconBtn size="sm" onClick={() => setReplyTo(null)} aria-label="Отменить">
             <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
@@ -696,6 +784,8 @@ export function ChatPanel() {
           </IconBtn>
         )}
       </footer>
+      </div>
+      <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </section>
   );
 }

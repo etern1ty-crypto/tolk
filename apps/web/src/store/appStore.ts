@@ -395,6 +395,8 @@ interface AppState {
   openUserProfile: (userId: string) => Promise<void>;
   closeUserProfile: () => void;
   startChatWithUser: (userId: string) => Promise<void>;
+  createGroupChat: (title: string, memberIds: string[]) => Promise<void>;
+  createChannel: (title: string) => Promise<void>;
   setNewChatOpen: (v: boolean) => void;
   toggleNavPin: (chatId: string) => void;
 
@@ -711,8 +713,10 @@ export const useAppStore = create<AppState>()(
             me: res,
             users: { ...get().users, [res.id]: res }
           });
+          get().showToast('Сохранено');
         } catch (err: any) {
           get().showToast(err.message || 'Ошибка сохранения профиля');
+          throw err;
         }
       },
   setBannerPattern: (id) => get().updateMe({ bannerPatternId: id }),
@@ -808,6 +812,52 @@ export const useAppStore = create<AppState>()(
     }
   },
 
+  createGroupChat: async (title, memberIds) => {
+    try {
+      const res = await fetchApi(
+        '/chats/group',
+        {
+          method: 'POST',
+          body: JSON.stringify({ title, member_ids: memberIds }),
+        },
+        get().token
+      );
+      set((s) => ({
+        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+        activeChatId: res.id,
+        mainTab: 'chats',
+        messages: [],
+      }));
+      get().showToast('Группа создана');
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка создания группы');
+      throw err;
+    }
+  },
+
+  createChannel: async (title) => {
+    try {
+      const res = await fetchApi(
+        '/chats/channel',
+        {
+          method: 'POST',
+          body: JSON.stringify({ title }),
+        },
+        get().token
+      );
+      set((s) => ({
+        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+        activeChatId: res.id,
+        mainTab: 'chats',
+        messages: [],
+      }));
+      get().showToast('Канал создан');
+    } catch (err: any) {
+      get().showToast(err.message || 'Ошибка создания канала');
+      throw err;
+    }
+  },
+
   setSearchQuery: (q) => set({ searchQuery: q }),
   setNewChatOpen: (v) => set({ newChatOpen: v }),
   setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
@@ -872,7 +922,15 @@ export const useAppStore = create<AppState>()(
       reactions: {},
       replyToId: replyMsg?.id,
       replyPreview: replyMsg
-        ? replyMsg.text.slice(0, 80)
+        ? (() => {
+            const t = (replyMsg.text || '').trim();
+            if (t) return t.slice(0, 80);
+            if (replyMsg.kind === 'media') return 'Фото';
+            if (replyMsg.kind === 'voice') return 'Голосовое';
+            if (replyMsg.kind === 'circle') return 'Кружок';
+            if (replyMsg.kind === 'file') return replyMsg.media?.filename || 'Файл';
+            return 'Сообщение';
+          })()
         : undefined,
       media
     };
@@ -1430,8 +1488,24 @@ export const useAppStore = create<AppState>()(
     const post = get().posts.find((p) => p.id === postId);
     if (!post) return;
     const author = get().users[post.authorId]?.displayName ?? '…';
+    const caption = post.text?.trim()
+      ? `↪ ${author}: ${post.text}`
+      : `↪ ${author}`;
     set({ activeChatId: chatId, mainTab: 'chats', forwardPostId: null });
-    get().sendMessage(`↪ ${author}: ${post.text}`);
+
+    if (post.media?.kind === 'image' && post.media.url) {
+      void get().sendMessage(caption, {
+        kind: 'media',
+        media: {
+          url: post.media.url,
+          filename: 'post.jpg',
+          mime: 'image/jpeg',
+        },
+      });
+      return;
+    }
+
+    void get().sendMessage(caption);
   },
 
   deletePost: async (postId) => {

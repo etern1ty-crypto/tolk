@@ -31,7 +31,7 @@ export interface User {
 
 export interface Chat {
   id: Id;
-  type: 'dm' | 'group';
+  type: 'dm' | 'group' | 'channel';
   title: string;
   preview: string;
   unread: number;

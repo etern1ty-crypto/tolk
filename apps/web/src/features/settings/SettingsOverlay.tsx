@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Upload, ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore, CHAT_THEMES, REACTION_SET, fetchApi } from '../../store/appStore';
 import { soundEffects } from '../../shared/soundEffects';
 import type { SettingsRoute } from '../../shared/types';
@@ -9,6 +9,8 @@ import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import styles from './SettingsOverlay.module.css';
 import imageCompression from 'browser-image-compression';
+
+const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 
 type HubRoute = Exclude<NonNullable<SettingsRoute>, 'hub'>;
 
@@ -161,14 +163,7 @@ export function SettingsOverlay() {
                 </>
               )}
 
-              {route === 'account' && (
-                <div className={styles.stack}>
-                  <Row label="Имя" value={me.displayName} />
-                  <Row label="Username" value={`@${me.username}`} />
-                  <Row label="Телефон" value={me.phone ?? '—'} />
-                  <Row label="Био" value={me.bio ?? '—'} />
-                </div>
-              )}
+              {route === 'account' && <AccountEditor />}
 
               {route === 'chats' && (
                 <div className={styles.stack}>
@@ -349,6 +344,152 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className={styles.row}>
       <span className={styles.rowLabel}>{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function AccountEditor() {
+  const me = useAppStore((s) => s.me);
+  const token = useAppStore((s) => s.token);
+  const updateMe = useAppStore((s) => s.updateMe);
+
+  const [displayName, setDisplayName] = useState(me.displayName);
+  const [username, setUsername] = useState(me.username);
+  const [bio, setBio] = useState(me.bio ?? '');
+  const [saving, setSaving] = useState(false);
+  const [availability, setAvailability] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'invalid' | 'self'>('idle');
+
+  useEffect(() => {
+    setDisplayName(me.displayName);
+    setUsername(me.username);
+    setBio(me.bio ?? '');
+  }, [me.id, me.displayName, me.username, me.bio]);
+
+  useEffect(() => {
+    const cleaned = username.trim().toLowerCase();
+    if (cleaned === me.username.toLowerCase()) {
+      setAvailability('self');
+      return;
+    }
+    if (!USERNAME_RE.test(cleaned)) {
+      setAvailability(cleaned.length === 0 ? 'idle' : 'invalid');
+      return;
+    }
+    setAvailability('checking');
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await fetchApi(
+          `/users/username-available?u=${encodeURIComponent(cleaned)}`,
+          {},
+          token
+        );
+        setAvailability(res.available ? 'ok' : res.reason === 'invalid' ? 'invalid' : 'taken');
+      } catch {
+        setAvailability('idle');
+      }
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [username, me.username, token]);
+
+  const usernameOk = availability === 'ok' || availability === 'self';
+  const nameOk = displayName.trim().length >= 1;
+  const dirty =
+    displayName.trim() !== me.displayName ||
+    username.trim().toLowerCase() !== me.username.toLowerCase() ||
+    (bio.trim() || '') !== (me.bio ?? '');
+
+  const save = async () => {
+    if (!nameOk || !usernameOk || !dirty) return;
+    setSaving(true);
+    try {
+      const patch: { displayName?: string; username?: string; bio?: string } = {};
+      if (displayName.trim() !== me.displayName) patch.displayName = displayName.trim();
+      if (username.trim().toLowerCase() !== me.username.toLowerCase()) {
+        patch.username = username.trim().toLowerCase();
+      }
+      if ((bio.trim() || '') !== (me.bio ?? '')) patch.bio = bio.trim();
+      await updateMe(patch);
+    } catch {
+      /* toast from store */
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const availLabel =
+    availability === 'checking'
+      ? 'Проверяем…'
+      : availability === 'ok'
+        ? 'Свободен'
+        : availability === 'taken'
+          ? 'Занят'
+          : availability === 'invalid'
+            ? '3–30: a-z, 0-9, _'
+            : availability === 'self'
+              ? 'Ваш текущий'
+              : '';
+
+  return (
+    <div className={styles.stack}>
+      <label className={styles.field}>
+        <span className={styles.rowLabel}>Имя</span>
+        <input
+          className={styles.fieldInput}
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          maxLength={64}
+          placeholder="Отображаемое имя"
+        />
+      </label>
+      <label className={styles.field}>
+        <span className={styles.rowLabel}>Username</span>
+        <div className={styles.usernameRow}>
+          <span className={styles.at}>@</span>
+          <input
+            className={styles.fieldInput}
+            value={username}
+            onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
+            maxLength={30}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="username"
+          />
+        </div>
+        {availLabel && (
+          <span
+            className={
+              availability === 'ok' || availability === 'self'
+                ? styles.availOk
+                : availability === 'checking'
+                  ? styles.availMuted
+                  : styles.availBad
+            }
+          >
+            {availLabel}
+          </span>
+        )}
+      </label>
+      <label className={styles.field}>
+        <span className={styles.rowLabel}>Био</span>
+        <textarea
+          className={styles.fieldTextarea}
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          maxLength={300}
+          rows={3}
+          placeholder="О себе"
+        />
+      </label>
+      <Row label="Телефон" value={me.phone ?? '—'} />
+      <button
+        type="button"
+        className={styles.saveBtn}
+        disabled={!dirty || !nameOk || !usernameOk || saving}
+        onClick={() => void save()}
+      >
+        {saving ? 'Сохранение…' : 'Сохранить'}
+      </button>
     </div>
   );
 }

@@ -35,10 +35,18 @@
   text-align: left;
   border-radius: 12px;
   padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .headerInfo:hover {
   background: var(--bg-hover);
+}
+
+.headerText {
+  min-width: 0;
+  flex: 1;
 }
 
 .headerTitle {
@@ -284,9 +292,8 @@
   align-items: center;
   gap: 4px;
   padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border-subtle);
-  background: var(--glass-strong);
-  backdrop-filter: blur(16px);
+  border-top: none;
+  background: transparent;
   /* keep inputs above mobile browser chrome */
   padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
 }
@@ -500,25 +507,65 @@
   margin-bottom: 6px;
 }
 
+.composerStack {
+  position: relative;
+  z-index: 3;
+  background: var(--glass, rgba(10, 10, 10, 0.88));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-subtle);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
 .replyBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border-top: 1px solid var(--border-subtle);
+  padding: 10px 12px 6px;
   font-size: 12px;
+  border-left: 3px solid rgba(255, 255, 255, 0.45);
+  margin: 0 10px;
+}
+
+.replyBarBody {
+  min-width: 0;
+  flex: 1;
 }
 
 .replyBar strong {
   display: block;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: 11px;
+  margin-bottom: 2px;
 }
 
 .replyBar span {
   color: var(--text-secondary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mediaThumb {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 4px 0;
+  border: 1px solid var(--border-subtle);
+  padding: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.mediaThumb img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  display: block;
 }
 
 .typing {

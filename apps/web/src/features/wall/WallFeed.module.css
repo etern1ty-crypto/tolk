@@ -207,6 +207,10 @@
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   position: relative;
+  display: block;
+  padding: 0;
+  background: var(--bg-primary);
+  cursor: zoom-in;
 }
 
 .mediaFill {

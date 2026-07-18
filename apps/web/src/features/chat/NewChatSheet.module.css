@@ -88,3 +88,40 @@
   padding: 12px;
   color: var(--text-secondary);
 }
+
+.modeRow {
+  display: flex;
+  gap: 6px;
+}
+
+.modeBtn,
+.modeActive {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 650;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.modeActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.createBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--text-on-accent, #0a0a0a);
+  font-weight: 750;
+  font-size: 14px;
+}
+
+.createBtn:disabled {
+  opacity: 0.4;
+}

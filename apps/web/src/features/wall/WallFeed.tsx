@@ -2,7 +2,6 @@ import { motion } from 'framer-motion';
 import {
   Forward,
   Heart,
-  ImagePlus,
   MessageCircle,
   Repeat2,
 } from 'lucide-react';
@@ -10,8 +9,10 @@ import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
+import { MediaLightbox } from '../../shared/ui/MediaLightbox';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
+import { PostComposer } from './PostComposer';
 import styles from './WallFeed.module.css';
 
 function rel(ts: number) {
@@ -27,15 +28,12 @@ export function WallFeed() {
   const posts = useAppStore((s) => s.posts);
   const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
-  const createPost = useAppStore((s) => s.createPost);
   const toggleLike = useAppStore((s) => s.toggleLike);
   const repostToProfile = useAppStore((s) => s.repostToProfile);
   const setCommentPostId = useAppStore((s) => s.setCommentPostId);
   const setForwardPostId = useAppStore((s) => s.setForwardPostId);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
-
-  const [draft, setDraft] = useState('');
-  const [withMedia, setWithMedia] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const feed = useMemo(
     () =>
@@ -45,53 +43,14 @@ export function WallFeed() {
     [posts]
   );
 
-  const submit = () => {
-    if (!draft.trim() && !withMedia) return;
-    createPost(draft, { from: 'wall', addToWall: true, withMedia });
-    setDraft('');
-    setWithMedia(false);
-  };
-
   return (
     <div className={styles.root}>
       <header className={styles.header}>
         <h1>Стена</h1>
       </header>
 
-      <motion.div
-        className={styles.composer}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <div className={styles.composerTop}>
-          <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={40} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Расскажите о себе…"
-              rows={2}
-            />
-            <div className={styles.composerRow}>
-              <button
-                type="button"
-                className={withMedia ? styles.mediaOn : styles.mediaBtn}
-                onClick={() => setWithMedia((v) => !v)}
-              >
-                <ImagePlus size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-                Фото
-              </button>
-              <button
-                type="button"
-                className={styles.publish}
-                disabled={!draft.trim() && !withMedia}
-                onClick={submit}
-              >
-                Опубликовать
-              </button>
-            </div>
-          </div>
-        </div>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
       </motion.div>
 
       <div className={styles.list}>
@@ -157,12 +116,18 @@ export function WallFeed() {
                   );
                 })()}
                 {post.media?.kind === 'image' && post.media?.url && (
-                  <div className={styles.media} style={post.media.height ? { height: `${post.media.height}px` } : undefined}>
+                  <button
+                    type="button"
+                    className={styles.media}
+                    style={post.media.height ? { height: `${post.media.height}px` } : undefined}
+                    onClick={() => setLightboxSrc(post.media!.url!)}
+                    aria-label="Открыть фото"
+                  >
                     <img src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
-                  </div>
+                  </button>
                 )}
                 {post.text ? (
-                  <p 
+                  <p
                     className={styles.text}
                     style={{
                       fontSize: post.media?.fontSize ? `${post.media.fontSize}px` : undefined,
@@ -198,13 +163,11 @@ export function WallFeed() {
                   <button
                     type="button"
                     onClick={() => repostToProfile(post.id)}
-                    title="Репост в свой профиль"
                   >
                     <Repeat2
                       size={iconProps.size.sm}
                       strokeWidth={iconProps.strokeWidth}
                     />
-                    себе
                   </button>
                   <button
                     type="button"
@@ -221,6 +184,7 @@ export function WallFeed() {
           })
         )}
       </div>
+      <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </div>
   );
 }

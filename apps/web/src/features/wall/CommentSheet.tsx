@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { Avatar } from '../../shared/ui/Avatar';
 import styles from './CommentSheet.module.css';
 
 export function CommentSheet() {
@@ -40,12 +41,24 @@ export function CommentSheet() {
           {post.comments.length === 0 && (
             <li className={styles.empty}>Пока нет комментариев</li>
           )}
-          {post.comments.map((c) => (
-            <li key={c.id}>
-              <strong>{users[c.userId]?.displayName ?? '…'}</strong>
-              <span>{c.text}</span>
-            </li>
-          ))}
+          {post.comments.map((c) => {
+            const user = users[c.userId];
+            const name = user?.displayName ?? '…';
+            return (
+              <li key={c.id} className={styles.commentRow}>
+                <Avatar
+                  name={name}
+                  id={user?.id ?? c.userId}
+                  avatarUrl={user?.avatarRef}
+                  size={32}
+                />
+                <div className={styles.commentBody}>
+                  <strong>{name}</strong>
+                  <span>{c.text}</span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
         <form
           className={styles.form}

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Hash, Search, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { useAppStore } from '../../store/appStore';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchApi, useAppStore } from '../../store/appStore';
+import type { User } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './SearchTab.module.css';
@@ -10,7 +11,7 @@ type SearchFilter = 'all' | 'people' | 'posts' | 'channels';
 
 export function SearchTab() {
   const users = useAppStore((s) => s.users);
-  const me = useAppStore((s) => s.me);
+  const token = useAppStore((s) => s.token);
   const posts = useAppStore((s) => s.posts);
   const chats = useAppStore((s) => s.chats);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
@@ -21,19 +22,25 @@ export function SearchTab() {
 
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
+  const [people, setPeople] = useState<User[]>([]);
 
   const query = q.trim().toLowerCase();
 
-  const people = useMemo(() => {
-    if (!query) return [];
-    const list = Object.values(users).filter((u) => u.id !== me.id);
-    return list.filter(
-      (u) =>
-        u.displayName.toLowerCase().includes(query) ||
-        u.username.toLowerCase().includes(query) ||
-        (u.bio ?? '').toLowerCase().includes(query)
-    );
-  }, [users, me.id, query]);
+  useEffect(() => {
+    if (!query) {
+      setPeople([]);
+      return;
+    }
+    const t = window.setTimeout(async () => {
+      try {
+        const results = await fetchApi(`/users?q=${encodeURIComponent(query)}`, {}, token);
+        setPeople(results || []);
+      } catch {
+        setPeople([]);
+      }
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [query, token]);
 
   const foundPosts = useMemo(() => {
     if (!query) return [];
@@ -43,7 +50,7 @@ export function SearchTab() {
 
   const channels = useMemo(() => {
     if (!query) return [];
-    const list = chats.filter((c) => c.type === 'group');
+    const list = chats.filter((c) => c.type === 'group' || c.type === 'channel');
     return list.filter(
       (c) =>
         c.title.toLowerCase().includes(query) ||
