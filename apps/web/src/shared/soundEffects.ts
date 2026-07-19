@@ -1,6 +1,8 @@
 class SoundEffects {
   private ctx: AudioContext | null = null;
+  /** Master volume 0–1; base gain is intentionally higher so 100% is actually loud */
   public volume = 0.8;
+  private baseGain = 2.4;
 
   private init() {
     if (!this.ctx) {
@@ -26,8 +28,8 @@ class SoundEffects {
       const now = this.ctx.currentTime;
 
       const isBackground = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-      const volumeBoost = isBackground ? 0.35 : 0.15; // Boost from original 0.05
-      const effectiveVolume = volumeBoost * this.volume;
+      const volumeBoost = isBackground ? 0.55 : 0.32;
+      const effectiveVolume = volumeBoost * this.volume * this.baseGain;
 
       // Note 1 (G5, soft chime)
       const osc1 = this.ctx.createOscillator();
@@ -75,7 +77,7 @@ class SoundEffects {
       osc.frequency.setValueAtTime(480, now);
       osc.frequency.exponentialRampToValueAtTime(750, now + 0.08); // gentler sweep
       gain.gain.setValueAtTime(0.0, now);
-      gain.gain.linearRampToValueAtTime(0.035 * this.volume, now + 0.01); // 10ms fade-in
+      gain.gain.linearRampToValueAtTime(0.08 * this.volume * this.baseGain, now + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -101,7 +103,7 @@ class SoundEffects {
       osc.frequency.setValueAtTime(600, now);
       osc.frequency.exponentialRampToValueAtTime(400, now + 0.06); // gentler fall
       gain.gain.setValueAtTime(0.0, now);
-      gain.gain.linearRampToValueAtTime(0.035 * this.volume, now + 0.008); // 8ms fade-in
+      gain.gain.linearRampToValueAtTime(0.08 * this.volume * this.baseGain, now + 0.008);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -118,7 +120,7 @@ class SoundEffects {
       this.init();
       if (!this.ctx) return;
       const now = this.ctx.currentTime;
-      const v = 0.12 * this.volume;
+      const v = 0.18 * this.volume * this.baseGain;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'triangle';

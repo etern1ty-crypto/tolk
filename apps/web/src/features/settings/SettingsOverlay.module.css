@@ -45,21 +45,23 @@
   padding: 16px;
 }
 
-.profile {
+.profile,
+.profileStatic {
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 10px;
+  padding: 10px 4px 14px;
   width: 100%;
   text-align: left;
-  border-radius: 16px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
   margin-bottom: 14px;
 }
 
 .profile:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-hover);
 }
 
 .name {
@@ -152,6 +154,15 @@
   border-radius: 14px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+.sessionKick {
+  align-self: flex-start;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fca5a5;
 }
 
 .rowLabel {
@@ -352,10 +363,11 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  padding: 10px 0 14px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .fieldInput,

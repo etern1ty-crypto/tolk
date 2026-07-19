@@ -109,7 +109,7 @@ export function PostComposer({
     setTextFont('sans');
     setMediaHeight(200);
     setToWall(defaultToWall);
-    if (from === 'profile') setExpanded(false);
+    setExpanded(false);
   };
 
   const canPublish = !!(draft.trim() || withMedia || photoFile);

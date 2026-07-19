@@ -47,8 +47,8 @@ export function PatternBg({
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    // Larger step + scale → more readable glyphs (not a noisy confetti field)
-    const step = density === 'low' ? 32 : density === 'high' ? 14 : 22;
+    // Dense + large glyphs so patterns read as texture, not sparse dust
+    const step = density === 'low' ? 22 : density === 'high' ? 10 : 14;
     
     for (let yCoord = -step; yCoord < 120; yCoord += step) {
       const row = Math.round((yCoord + step) / step);
@@ -69,16 +69,16 @@ export function PatternBg({
           x: finalX,
           y: finalY,
           rotate,
-          scale: 1.05 + rng() * 0.45,
-          opacity: 0.28 + rng() * 0.18,
+          scale: 1.35 + rng() * 0.55,
+          opacity: 0.38 + rng() * 0.22,
         });
       }
     }
     return out;
   }, [pattern, seed, density]);
 
-  const baseFontSize = (pattern.size ?? 18) * 1.15;
-  const baseOpacity = Math.min(0.72, (pattern.opacity ?? 0.45) + 0.12);
+  const baseFontSize = (pattern.size ?? 18) * 1.55;
+  const baseOpacity = Math.min(0.85, (pattern.opacity ?? 0.45) + 0.22);
 
   return (
     <div

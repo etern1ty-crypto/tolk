@@ -44,9 +44,15 @@ export function ProfileTab() {
 
   const notifications = useAppStore((s) => s.notifications);
   const notificationsUnread = useAppStore((s) => s.notificationsUnread);
+  const seenNotificationKeys = useAppStore((s) => s.seenNotificationKeys);
   const refreshNotifications = useAppStore((s) => s.refreshNotifications);
   const markNotificationsSeen = useAppStore((s) => s.markNotificationsSeen);
+  const clearNotifications = useAppStore((s) => s.clearNotifications);
   const [notifOpen, setNotifOpen] = useState(false);
+
+  const notifKey = (n: any) => `${n.type}-${n.postId}-${n.userId}-${n.createdAt}`;
+  const newNotifs = notifications.filter((n) => !seenNotificationKeys.includes(notifKey(n)));
+  const seenNotifs = notifications.filter((n) => seenNotificationKeys.includes(notifKey(n)));
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isComposeExpanded, setIsComposeExpanded] = useState(false);
 
@@ -318,9 +324,9 @@ export function ProfileTab() {
               ) : (
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bell size={18} strokeWidth={iconProps.strokeWidth} />
-                  {(notificationsUnread > 0 || notifications.length > 0) && (
+                  {notificationsUnread > 0 && (
                     <span className={styles.notifBadge}>
-                      {notificationsUnread > 0 ? notificationsUnread : notifications.length}
+                      {notificationsUnread > 9 ? '9+' : notificationsUnread}
                     </span>
                   )}
                 </div>
@@ -330,40 +336,100 @@ export function ProfileTab() {
               {notifOpen && (
                 <motion.div
                   className={styles.menu}
-                  style={{ left: 0, right: 'auto', minWidth: '260px', maxHeight: '300px', overflowY: 'auto' }}
+                  style={{ left: 0, right: 'auto', minWidth: '280px', maxHeight: '360px', overflowY: 'auto' }}
                   role="menu"
                   initial={{ opacity: 0, y: -6, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <div className={styles.notifTitle}>Уведомления</div>
-                  {notifications.length === 0 ? (
-                    <div className={styles.notifEmpty}>Нет новых уведомлений</div>
-                  ) : (
-                    notifications.map((n, idx) => (
+                  <div className={styles.notifTitleRow}>
+                    <div className={styles.notifTitle}>Уведомления</div>
+                    <div className={styles.notifTitleActions}>
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          className={styles.notifClear}
+                          onClick={() => clearNotifications()}
+                        >
+                          Очистить
+                        </button>
+                      )}
                       <button
-                        key={`${n.postId}-${n.userId}-${n.type}-${idx}`}
                         type="button"
-                        className={styles.notifItem}
+                        className={styles.notifClose}
+                        aria-label="Закрыть"
                         onClick={() => {
-                          setSelectedPostId(n.postId);
+                          markNotificationsSeen();
                           setNotifOpen(false);
                         }}
                       >
-                        <Avatar name={n.displayName} id={n.userId} avatarUrl={n.avatarRef} size={28} />
-                        <div className={styles.notifText}>
-                          <strong>{n.displayName}</strong>{' '}
-                          {n.type === 'like'
-                            ? 'лайк на пост'
-                            : n.type === 'comment_like'
-                              ? 'лайк на комментарий'
-                              : n.type === 'comment_reply'
-                                ? `ответ: «${n.text}»`
-                                : `коммент: «${n.text}»`}
-                        </div>
+                        <X size={16} />
                       </button>
-                    ))
+                    </div>
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div className={styles.notifEmpty}>Нет уведомлений</div>
+                  ) : (
+                    <>
+                      {newNotifs.length > 0 && (
+                        <>
+                          <div className={styles.notifSection}>Новые</div>
+                          {newNotifs.map((n, idx) => (
+                            <button
+                              key={`n-${notifKey(n)}-${idx}`}
+                              type="button"
+                              className={`${styles.notifItem} ${styles.notifItemNew}`}
+                              onClick={() => {
+                                setSelectedPostId(n.postId);
+                                markNotificationsSeen();
+                                setNotifOpen(false);
+                              }}
+                            >
+                              <Avatar name={n.displayName} id={n.userId} avatarUrl={n.avatarRef} size={28} />
+                              <div className={styles.notifText}>
+                                <strong>{n.displayName}</strong>{' '}
+                                {n.type === 'like'
+                                  ? 'лайк на пост'
+                                  : n.type === 'comment_like'
+                                    ? 'лайк на комментарий'
+                                    : n.type === 'comment_reply'
+                                      ? `ответ: «${n.text}»`
+                                      : `коммент: «${n.text}»`}
+                              </div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {seenNotifs.length > 0 && (
+                        <>
+                          <div className={styles.notifSection}>Просмотренные</div>
+                          {seenNotifs.map((n, idx) => (
+                            <button
+                              key={`s-${notifKey(n)}-${idx}`}
+                              type="button"
+                              className={styles.notifItem}
+                              onClick={() => {
+                                setSelectedPostId(n.postId);
+                                setNotifOpen(false);
+                              }}
+                            >
+                              <Avatar name={n.displayName} id={n.userId} avatarUrl={n.avatarRef} size={28} />
+                              <div className={styles.notifText}>
+                                <strong>{n.displayName}</strong>{' '}
+                                {n.type === 'like'
+                                  ? 'лайк на пост'
+                                  : n.type === 'comment_like'
+                                    ? 'лайк на комментарий'
+                                    : n.type === 'comment_reply'
+                                      ? `ответ: «${n.text}»`
+                                      : `коммент: «${n.text}»`}
+                              </div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </>
                   )}
                 </motion.div>
               )}

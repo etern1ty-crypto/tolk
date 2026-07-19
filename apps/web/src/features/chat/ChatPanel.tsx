@@ -71,11 +71,39 @@ export function ChatPanel() {
   const [swipeDx, setSwipeDx] = useState(0);
   const [swipeMsgId, setSwipeMsgId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<{
+    file: File;
+    preview: string;
+  } | null>(null);
+  const [pendingCaption, setPendingCaption] = useState('');
+  const [sendingImage, setSendingImage] = useState(false);
+
+  const queueImage = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      void uploadAttachment(file, 'file');
+      return;
+    }
+    if (pendingImage?.preview) URL.revokeObjectURL(pendingImage.preview);
+    setPendingImage({ file, preview: URL.createObjectURL(file) });
+    setPendingCaption('');
+  };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      uploadAttachment(file, 'media');
+    if (file) queueImage(file);
+    e.target.value = '';
+  };
+
+  const confirmPendingImage = async () => {
+    if (!pendingImage || sendingImage) return;
+    setSendingImage(true);
+    try {
+      await uploadAttachment(pendingImage.file, 'media', pendingCaption);
+      URL.revokeObjectURL(pendingImage.preview);
+      setPendingImage(null);
+      setPendingCaption('');
+    } finally {
+      setSendingImage(false);
     }
   };
 
@@ -136,6 +164,27 @@ export function ChatPanel() {
       .getElementById(`msg-${highlightMessageId}`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightMessageId]);
+
+  // Paste image from clipboard (desktop)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!activeChatId) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            queueImage(file);
+          }
+          break;
+        }
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [activeChatId, pendingImage]);
 
   if (!activeChatId || !chat) {
     return (
@@ -334,9 +383,13 @@ export function ChatPanel() {
         <button
           type="button"
           className={styles.headerInfo}
-          onClick={() => {
-            if (chat.type === 'dm' && chat.peerId) openUserProfile(chat.peerId);
-            else setChatInfoOpen(true);
+          onClick={(e) => {
+            e.preventDefault();
+            if (chat.type === 'dm' && chat.peerId) {
+              openUserProfile(chat.peerId);
+              return;
+            }
+            window.setTimeout(() => setChatInfoOpen(true), 0);
           }}
         >
           <Avatar
@@ -399,9 +452,12 @@ export function ChatPanel() {
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
-                    setChatInfoOpen(true);
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     setHeaderMenuOpen(false);
+                    // defer so menu unmount doesn't swallow the open
+                    window.setTimeout(() => setChatInfoOpen(true), 0);
                   }}
                 >
                   Инфо
@@ -677,12 +733,16 @@ export function ChatPanel() {
                   )}
                   <div className={styles.bubbleMeta}>
                     <span>{formatMsgTime(m.createdAt)}</span>
-                    {mine && m.status === 'pending' && <span className={styles.checkmarks}>…</span>}
+                    {mine && m.status === 'pending' && <span className={styles.checkmarks}>·</span>}
                     {mine && m.status !== 'pending' && m.status !== 'failed' && (
                       (chat && m.seq !== undefined && m.seq <= (chat.peerLastReadSeq || 0)) ? (
-                        <span className={styles.checkmarks} title="Прочитано">✓✓</span>
+                        <span className={`${styles.checkmarks} ${styles.read}`} title="Прочитано" aria-label="Прочитано">
+                          <i /><i />
+                        </span>
                       ) : (
-                        <span className={styles.checkmarks} title="Отправлено">✓</span>
+                        <span className={styles.checkmarks} title="Отправлено" aria-label="Отправлено">
+                          <i />
+                        </span>
                       )
                     )}
                     {mine && m.status === 'failed' && (
@@ -751,6 +811,41 @@ export function ChatPanel() {
           <IconBtn size="sm" onClick={() => setReplyTo(null)} aria-label="Отменить">
             <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
+        </div>
+      )}
+
+      {pendingImage && (
+        <div className={styles.pendingMedia}>
+          <img src={pendingImage.preview} alt="Превью" />
+          <div className={styles.pendingBody}>
+            <input
+              className={styles.pendingCaption}
+              value={pendingCaption}
+              onChange={(e) => setPendingCaption(e.target.value)}
+              placeholder="Подпись (необязательно)"
+              autoFocus
+            />
+            <div className={styles.pendingActions}>
+              <button
+                type="button"
+                onClick={() => {
+                  URL.revokeObjectURL(pendingImage.preview);
+                  setPendingImage(null);
+                  setPendingCaption('');
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className={styles.pendingSend}
+                disabled={sendingImage}
+                onClick={() => void confirmPendingImage()}
+              >
+                {sendingImage ? '…' : 'Отправить'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

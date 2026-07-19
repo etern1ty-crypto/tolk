@@ -443,8 +443,10 @@ interface AppState {
   setChatInfoOpen: (v: boolean) => void;
   notifications: any[];
   notificationsUnread: number;
+  seenNotificationKeys: string[];
   refreshNotifications: () => Promise<void>;
   markNotificationsSeen: () => void;
+  clearNotifications: () => void;
   toggleNavPin: (chatId: string) => void;
 
   setSearchQuery: (q: string) => void;
@@ -455,7 +457,7 @@ interface AppState {
       media?: { url: string; filename?: string; mime?: string; size?: number; durationSec?: number };
     }
   ) => Promise<void>;
-  uploadAttachment: (file: File, kind: 'media' | 'file') => Promise<void>;
+  uploadAttachment: (file: File, kind: 'media' | 'file', caption?: string) => Promise<void>;
   sendVoiceMock: () => void;
   sendCircleMock: () => void;
   retryMessage: (id: string) => void;
@@ -465,6 +467,7 @@ interface AppState {
   setReactionPicker: (v: AppState['reactionPicker']) => void;
   setContextMenu: (v: AppState['contextMenu']) => void;
   pinToShelf: (messageId: string) => void;
+  removeFromShelf: (shelfId: string) => void;
   setShelfOpen: (v: boolean) => void;
 
   setEchoMode: (v: boolean) => void;
@@ -571,6 +574,7 @@ export const useAppStore = create<AppState>()(
       chatInfoOpen: false,
       notifications: [],
       notificationsUnread: 0,
+      seenNotificationKeys: [],
       replyToId: null,
       toast: null,
       wallSeenAt: Date.now() - 1000 * 60 * 60,
@@ -811,16 +815,29 @@ export const useAppStore = create<AppState>()(
       contextMenu: null,
       reactionPicker: null,
       replyToId: null,
+      chatInfoOpen: false,
       chats: get().chats.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
     });
     if (id) {
       try {
-        const msgs = await fetchApi(`/chats/${id}/messages`, {}, get().token);
-        set({ messages: msgs });
+        const msgs = await fetchApi(
+          `/chats/${id}/messages?limit=100`,
+          {},
+          get().token
+        );
+        const list = Array.isArray(msgs) ? msgs : [];
+        // Replace only this chat's messages; keep others
+        set((s) => ({
+          messages: [
+            ...s.messages.filter((m) => m.chatId !== id),
+            ...list,
+          ],
+        }));
         await fetchApi(`/chats/${id}/read`, { method: 'POST' }, get().token);
       } catch (err) {
         console.error('Failed to fetch messages or mark read:', err);
         get().showToast('Не удалось загрузить сообщения');
+        // do not wipe existing local messages for this chat
       }
     }
   },
@@ -1063,7 +1080,20 @@ export const useAppStore = create<AppState>()(
     }
   },
 
-  markNotificationsSeen: () => set({ notificationsUnread: 0 }),
+  markNotificationsSeen: () => {
+    const keys = (get().notifications || []).map(
+      (n: any) => `${n.type}-${n.postId}-${n.userId}-${n.createdAt}`
+    );
+    set((s) => ({
+      notificationsUnread: 0,
+      seenNotificationKeys: Array.from(new Set([...s.seenNotificationKeys, ...keys])),
+    }));
+  },
+  clearNotifications: () =>
+    set({
+      notifications: [],
+      notificationsUnread: 0,
+    }),
 
   toggleNavPin: (chatId) => {
     const pins = get().navPins;
@@ -1102,7 +1132,10 @@ export const useAppStore = create<AppState>()(
     const kind = opts?.kind || 'text';
     const media = opts?.media;
 
-    if ((kind === 'text' && !t) || !chatId) return;
+    if (!chatId) return;
+    // text-only needs body; media/voice/etc. need media or body
+    if (kind === 'text' && !t) return;
+    if (kind !== 'text' && !media?.url && !t) return;
 
     const id = uid('m');
     const createdAt = Date.now();
@@ -1229,13 +1262,13 @@ export const useAppStore = create<AppState>()(
     }
   },
 
-  uploadAttachment: async (file, kind) => {
+  uploadAttachment: async (file, kind, caption?: string) => {
     const token = get().token;
     const chatId = get().activeChatId;
     if (!chatId) return;
 
     try {
-      get().showToast('Загрузка вложения...');
+      get().showToast('Загрузка…');
       
       let processedFile = file;
       if (file.type.startsWith('image/') && kind === 'media') {
@@ -1282,7 +1315,13 @@ export const useAppStore = create<AppState>()(
         throw uploadErr;
       }
 
-      await get().sendMessage(file.name, {
+      // Caption optional — never auto-fill filename as message text for images
+      const text =
+        kind === 'media'
+          ? (caption || '').trim()
+          : (caption || file.name || '').trim() || file.name;
+
+      await get().sendMessage(text, {
         kind,
         media: {
           url: publicUrl,
@@ -1292,7 +1331,7 @@ export const useAppStore = create<AppState>()(
         }
       });
 
-      get().showToast('Вложение отправлено');
+      get().showToast('Отправлено');
     } catch (err: any) {
       console.error('Failed to upload attachment:', err);
       get().showToast(err.message || 'Ошибка загрузки вложения');
@@ -1478,6 +1517,14 @@ export const useAppStore = create<AppState>()(
       set({ contextMenu: null });
       return;
     }
+    const preview =
+      msg.kind === 'media'
+        ? msg.text?.trim() || 'Фото'
+        : msg.kind === 'voice'
+          ? 'Голосовое'
+          : msg.kind === 'circle'
+            ? 'Кружок'
+            : msg.text || 'Сообщение';
     set((s) => ({
       shelfItems: [
         {
@@ -1486,7 +1533,9 @@ export const useAppStore = create<AppState>()(
           messageId: msg.id,
           pinnedBy: get().me.id,
           pinnedAt: Date.now(),
-          text: msg.text,
+          text: preview,
+          mediaUrl: msg.media?.url,
+          kind: msg.kind,
         },
         ...s.shelfItems,
       ],
@@ -1494,6 +1543,10 @@ export const useAppStore = create<AppState>()(
       shelfOpen: true,
     }));
   },
+  removeFromShelf: (shelfId) =>
+    set((s) => ({
+      shelfItems: s.shelfItems.filter((x) => x.id !== shelfId),
+    })),
   setShelfOpen: (v) => set({ shelfOpen: v }),
 
   setEchoMode: (v) => set({ echoMode: v }),
@@ -1820,6 +1873,7 @@ export const useAppStore = create<AppState>()(
         browserNotificationsEnabled: state.browserNotificationsEnabled,
         defaultReaction: state.defaultReaction,
         notifPrefs: state.notifPrefs,
+        seenNotificationKeys: state.seenNotificationKeys,
       }),
     }
   )

@@ -8,10 +8,9 @@
   background: var(--bg-surface);
 }
 
-/* BottomNav already occupies dock space — avoid double stripe/padding gap */
 @media (max-width: 1023px) {
-  .root {
-    padding-bottom: 0;
+  .list {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 }
 

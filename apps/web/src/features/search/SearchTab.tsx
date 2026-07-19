@@ -40,10 +40,16 @@ export function SearchTab() {
 
   useEffect(() => {
     if (!token) return;
-    fetchApi('/channels', {}, token)
-      .then((rows) => setPublicChannels(rows || []))
-      .catch(() => setPublicChannels([]));
-  }, [token]);
+    const t = window.setTimeout(() => {
+      const path = query
+        ? `/channels?q=${encodeURIComponent(query)}`
+        : '/channels';
+      fetchApi(path, {}, token)
+        .then((rows) => setPublicChannels(rows || []))
+        .catch(() => setPublicChannels([]));
+    }, query ? 250 : 0);
+    return () => window.clearTimeout(t);
+  }, [token, query]);
 
   useEffect(() => {
     if (!query) {
@@ -78,26 +84,19 @@ export function SearchTab() {
   }, [chats, query]);
 
   const discoverChannels = useMemo(() => {
-    const joinedIds = new Set(chats.map((c) => c.id));
-    let list = publicChannels.filter((c) => !joinedIds.has(c.id));
-    if (query) {
-      list = list.filter(
-        (c) =>
-          c.title.toLowerCase().includes(query) ||
-          (c.description || '').toLowerCase().includes(query)
-      );
-    }
-    return list;
-  }, [publicChannels, chats, query]);
+    // API already filtered by q; show joined + not joined
+    return publicChannels;
+  }, [publicChannels]);
 
   const showPeople = filter === 'all' || filter === 'people';
   const showPosts = filter === 'all' || filter === 'posts';
   const showChannels = filter === 'all' || filter === 'channels';
 
-  const empty =
-    (showPeople ? people.length === 0 : true) &&
-    (showPosts ? foundPosts.length === 0 : true) &&
-    (showChannels ? myChannels.length === 0 && discoverChannels.length === 0 : true);
+  const hasPeople = showPeople && query && people.length > 0;
+  const hasPosts = showPosts && query && foundPosts.length > 0;
+  const hasChannels =
+    showChannels && (myChannels.length > 0 || discoverChannels.length > 0);
+  const empty = !hasPeople && !hasPosts && !hasChannels;
 
   return (
     <div className={styles.root}>
@@ -146,11 +145,15 @@ export function SearchTab() {
       <div className={styles.body}>
         {empty ? (
           <p className={styles.empty}>
-            {query ? 'Ничего не нашлось' : 'Начните вводить запрос или откройте «Каналы»'}
+            {query
+              ? 'Ничего не нашлось'
+              : filter === 'channels'
+                ? 'Пока нет каналов'
+                : 'Начните вводить запрос или откройте «Каналы»'}
           </p>
         ) : (
           <>
-            {showPeople && people.length > 0 && (
+            {hasPeople && (
               <section className={styles.section}>
                 <h2>
                   <Users size={14} strokeWidth={iconProps.strokeWidth} />
@@ -190,7 +193,7 @@ export function SearchTab() {
               </section>
             )}
 
-            {showChannels && (myChannels.length > 0 || discoverChannels.length > 0) && (
+            {hasChannels && (
               <section className={styles.section}>
                 <h2>
                   <Hash size={14} strokeWidth={iconProps.strokeWidth} />
@@ -243,7 +246,7 @@ export function SearchTab() {
               </section>
             )}
 
-            {showPosts && foundPosts.length > 0 && (
+            {hasPosts && (
               <section className={styles.section}>
                 <h2>
                   <Search size={14} strokeWidth={iconProps.strokeWidth} />

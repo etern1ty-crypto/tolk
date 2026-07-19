@@ -9,11 +9,17 @@
 
 @media (max-width: 1023px) {
   .root {
-    padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+    /* only scroll padding so last rows clear BottomNav — no solid bar */
+    padding-bottom: 0;
+  }
+
+  .list {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
   .fab {
-    bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    /* sit just above BottomNav (~56px), not floating too high */
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 

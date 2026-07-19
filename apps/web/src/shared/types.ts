@@ -127,4 +127,6 @@ export interface ShelfItem {
   pinnedBy: Id;
   pinnedAt: number;
   text: string;
+  mediaUrl?: string;
+  kind?: string;
 }

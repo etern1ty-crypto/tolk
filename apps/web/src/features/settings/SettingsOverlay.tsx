@@ -38,7 +38,6 @@ export function SettingsOverlay() {
   const me = useAppStore((s) => s.me);
   const closeSettings = useAppStore((s) => s.closeSettings);
   const navigateSettings = useAppStore((s) => s.navigateSettings);
-  const setMainTab = useAppStore((s) => s.setMainTab);
   const logout = useAppStore((s) => s.logout);
 
   // Customization selectors & actions
@@ -115,22 +114,15 @@ export function SettingsOverlay() {
             <div className={styles.body}>
               {route === 'hub' && (
                 <>
-                  <button
-                    type="button"
-                    className={styles.profile}
-                    onClick={() => {
-                      closeSettings();
-                      setMainTab('profile');
-                    }}
-                  >
+                  <div className={styles.profileStatic}>
                     <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={52} />
                     <div>
                       <div className={styles.name}>{me.displayName}</div>
                       <div className={styles.uname}>
-                        @{me.username} · профиль
+                        {me.username ? `@${me.username}` : 'без username'}
                       </div>
                     </div>
-                  </button>
+                  </div>
                   <nav className={styles.nav}>
                     {HUB_ITEMS.map((item) => (
                       <button
@@ -326,28 +318,7 @@ export function SettingsOverlay() {
                 </div>
               )}
 
-              {route === 'sessions' && (
-                <div className={styles.stack}>
-                  <div className={styles.session}>
-                    <strong>Этот браузер</strong>
-                    <span className={styles.navSub}>Активна · web · текущая сессия</span>
-                  </div>
-                  <p className={styles.note}>
-                    Завершить другие устройства можно будет после синка списка сессий с API.
-                    Сейчас выход из аккаунта сбрасывает только этот клиент.
-                  </p>
-                  <button
-                    type="button"
-                    className={styles.logout}
-                    onClick={() => {
-                      if (window.confirm('Выйти из аккаунта на этом устройстве?')) logout();
-                    }}
-                  >
-                    <LogOut size={16} />
-                    Выйти здесь
-                  </button>
-                </div>
-              )}
+              {route === 'sessions' && <SessionsPanel />}
 
               {route === 'appearance' && (
                 <div className={styles.stack}>
@@ -422,6 +393,79 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className={styles.row}>
       <span className={styles.rowLabel}>{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+function SessionsPanel() {
+  const token = useAppStore((s) => s.token);
+  const logout = useAppStore((s) => s.logout);
+  const showToast = useAppStore((s) => s.showToast);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const rows = await fetchApi('/sessions', {}, token);
+        if (active) setSessions(rows || []);
+      } catch {
+        if (active) setSessions([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  return (
+    <div className={styles.stack}>
+      {loading && <p className={styles.note}>Загрузка…</p>}
+      {!loading && sessions.length === 0 && (
+        <div className={styles.session}>
+          <strong>Этот браузер</strong>
+          <span className={styles.navSub}>Активна · web</span>
+        </div>
+      )}
+      {sessions.map((s) => (
+        <div key={s.id} className={styles.session}>
+          <strong>{s.deviceName || s.platform || 'Устройство'}</strong>
+          <span className={styles.navSub}>
+            {s.platform || 'web'}
+            {s.lastActive
+              ? ` · ${new Date(s.lastActive).toLocaleString('ru-RU')}`
+              : ''}
+          </span>
+          <button
+            type="button"
+            className={styles.sessionKick}
+            onClick={async () => {
+              try {
+                await fetchApi(`/sessions/${s.id}`, { method: 'DELETE' }, token);
+                setSessions((prev) => prev.filter((x) => x.id !== s.id));
+                showToast('Сессия завершена');
+              } catch (e: any) {
+                showToast(e.message || 'Ошибка');
+              }
+            }}
+          >
+            Завершить
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className={styles.logout}
+        onClick={() => {
+          if (window.confirm('Выйти из аккаунта на этом устройстве?')) logout();
+        }}
+      >
+        <LogOut size={16} />
+        Выйти здесь
+      </button>
     </div>
   );
 }
