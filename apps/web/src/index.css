@@ -1,53 +1,63 @@
-/* Tolk — dark UI on patterned canvas, not a black void */
+/* Tolk — dark monochrome design system (Visual_Language 2026-07-15) */
 
 :root {
-  --bg-deep: #12141c;
-  --bg-primary: #161820;
-  --bg-surface: #1a1c26;
-  --bg-elevated: #22242e;
-  --bg-sheet: #1e202a;
+  /* Surfaces */
+  --bg-deep: #000000;
+  --bg-primary: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-elevated: #111111;
+  --bg-sheet: #0f0f0f;
   --bg-hover: rgba(255, 255, 255, 0.06);
   --bg-active: rgba(255, 255, 255, 0.09);
-  --glass: rgba(22, 24, 32, 0.88);
-  --glass-strong: rgba(18, 20, 28, 0.94);
+  --bg-input: rgba(255, 255, 255, 0.06);
 
-  --accent: #f4f4f5;
+  /* Glass — headers / sheets only */
+  --glass: rgba(10, 10, 10, 0.88);
+  --glass-strong: rgba(0, 0, 0, 0.94);
+
+  /* Accent = white CTA */
+  --accent: #f5f5f5;
   --accent-dim: rgba(255, 255, 255, 0.1);
   --accent-glow: rgba(255, 255, 255, 0.12);
-  --accent-mint: #e8e8ec;
+  /* legacy aliases (no mint/ice chrome) */
+  --accent-mint: #f5f5f5;
   --accent-mint-dim: rgba(255, 255, 255, 0.08);
   --accent-mint-glow: rgba(255, 255, 255, 0.1);
-  --accent-ice: #a8b0c0;
+  --accent-ice: #a3a3a3;
   --accent-ice-dim: rgba(255, 255, 255, 0.06);
-  --accent-danger: #f87171;
-  --accent-danger-dim: rgba(248, 113, 113, 0.12);
+  --accent-danger: #f5f5f5;
+  --accent-danger-dim: rgba(255, 255, 255, 0.08);
 
-  --text-primary: #fafafa;
-  --text-secondary: #a8aebc;
-  --text-tertiary: #7a8194;
-  --text-disabled: #4a5060;
-  --text-on-accent: #12141c;
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-tertiary: #737373;
+  --text-disabled: #525252;
+  --text-on-accent: #0a0a0a;
 
   --border-subtle: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.16);
-  --border-mint: rgba(255, 255, 255, 0.28);
+  --border-mint: rgba(255, 255, 255, 0.2);
 
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
   --radius-bubble: 18px;
+  --radius-media: 16px;
   --radius-sheet: 20px;
   --radius-pill: 9999px;
 
-  --shell-max: 1080px;
-  --sidebar-width: 188px;
-  --chat-list-width: 320px;
-  --list-width: 320px;
+  --shell-max: 1440px;
+  --sidebar-width: 64px;
+  --sidebar-width-expanded: 200px;
+  --chat-list-width: 360px;
+  --list-width: 360px;
+  --wall-col-width: 320px;
+  --bubble-max: 600px;
 
   --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04);
-  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.65);
   --shadow-mint: none;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -57,9 +67,19 @@
   --dur-slow: 360ms;
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-meta: 12px;
+  --font-body: 15px;
+  --font-title: 18px;
+  --font-title-lg: 22px;
+
   --icon-stroke: 1.75;
   --header-height: 56px;
   --touch-min: 44px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
   color-scheme: dark;
 }
 
@@ -70,6 +90,7 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -93,7 +114,8 @@ html {
 
 body {
   font-family: var(--font);
-  background: var(--bg-deep);
+  font-size: var(--font-body);
+  background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -137,6 +159,14 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
 input,
 textarea {
   border: none;
@@ -163,15 +193,4 @@ a {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
 }

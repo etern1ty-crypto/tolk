@@ -88,7 +88,7 @@
 }
 
 .commentActions .liked {
-  color: #f87171;
+  color: var(--text-secondary);
 }
 
 .nested {
@@ -137,8 +137,8 @@
 .form button {
   width: 44px;
   border-radius: 12px;
-  background: #f4f4f5;
-  color: #0a0a0b;
+  background: var(--accent);
+  color: var(--text-on-accent);
   font-weight: 700;
   font-size: 18px;
 }

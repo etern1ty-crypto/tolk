@@ -1,15 +1,17 @@
-/* Minimal left rail — no green pill boxes */
+/* Thin icon rail — desktop only */
 
 .root {
   display: none;
-  width: var(--sidebar-width, 188px);
+  width: var(--sidebar-width, 64px);
   flex-shrink: 0;
   height: 100%;
   flex-direction: column;
-  padding: 14px 10px 12px;
+  align-items: center;
+  padding: 12px 0 10px;
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-surface);
   z-index: 5;
+  gap: 4px;
 }
 
 @media (min-width: 1024px) {
@@ -19,12 +21,13 @@
 }
 
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px 20px;
-  cursor: pointer;
-  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 .brand:hover {
@@ -40,186 +43,90 @@
   font-weight: 800;
   font-size: 15px;
   color: var(--text-on-accent);
-  background: #f4f4f5;
-}
-
-.brandName {
-  font-size: 17px;
-  font-weight: 750;
-  letter-spacing: -0.03em;
+  background: var(--accent);
 }
 
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-}
-
-.pins {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 0;
-}
-
-.pinsLabel {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary);
-}
-
-.pinsEmpty {
-  margin: 0;
-  padding: 4px 12px 8px;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  line-height: 1.35;
-}
-
-.pin,
-.pinActive {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
-  border-radius: 10px;
-  text-align: left;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 550;
-}
-
-.pin:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.pinActive {
-  color: var(--text-primary);
-  font-weight: 700;
-  background: var(--bg-active, rgba(255, 255, 255, 0.06));
-}
-
-.pinTitle {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pinBadge {
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: var(--text-primary);
-  color: var(--text-on-accent);
-  font-size: 10px;
-  font-weight: 750;
-  display: grid;
-  place-items: center;
+  overflow-y: auto;
+  padding: 0 8px;
 }
 
 .item,
 .itemActive {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 15px;
-  font-weight: 550;
-  text-align: left;
   position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
 .item:hover {
-  background: var(--bg-hover);
   color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
-/* X-like: weight + left mark, no colored block */
 .itemActive {
   color: var(--text-primary);
-  font-weight: 700;
-  background: transparent;
+  background: var(--bg-active);
 }
 
 .itemActive::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
+  left: -8px;
+  top: 12px;
+  bottom: 12px;
   width: 2px;
   border-radius: 2px;
   background: var(--text-primary);
 }
 
-.itemLabel {
-  flex: 1;
-}
-
 .badge {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   border-radius: 999px;
-  background: var(--text-primary);
+  background: var(--accent);
   color: var(--text-on-accent);
   font-size: 10px;
   font-weight: 750;
   display: grid;
   place-items: center;
+  line-height: 1;
 }
 
-.user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px;
+.user,
+.userActive {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
-  text-align: left;
-  margin-top: 8px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
-.user:hover {
+.user:hover,
+.userActive:hover {
   background: var(--bg-hover);
 }
 
-.userMeta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.userName {
-  font-size: 13px;
-  font-weight: 650;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.userHandle {
-  font-size: 11px;
-  color: var(--text-tertiary);
+.userActive {
+  background: var(--bg-active);
+  box-shadow: 0 0 0 1px var(--border-strong);
 }

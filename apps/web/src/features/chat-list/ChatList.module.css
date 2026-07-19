@@ -7,40 +7,66 @@
   min-width: 0;
 }
 
-@media (max-width: 1023px) {
-  .root {
-    /* only scroll padding so last rows clear BottomNav — no solid bar */
-    padding-bottom: 0;
-  }
-
-  .list {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-
-  .fab {
-    /* sit just above BottomNav (~56px), not floating too high */
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  }
-}
-
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 14px 8px;
+  gap: 10px;
+  padding: calc(12px + var(--safe-top)) 14px 8px;
+  min-height: var(--header-height);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.meBtn {
+  display: grid;
+  place-items: center;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.meBtn:hover {
+  background: var(--bg-hover);
 }
 
 .title {
   flex: 1;
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-title);
   font-weight: 750;
   letter-spacing: -0.03em;
+  min-width: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.iconAction {
+  display: grid;
+  place-items: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+}
+
+.iconAction:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .searchWrap {
   position: relative;
   padding: 4px 14px 10px;
+  flex-shrink: 0;
 }
 
 .searchIcon {
@@ -56,9 +82,10 @@
   width: 100%;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 10px 12px 10px 36px;
   font-size: 14px;
+  min-height: 40px;
 }
 
 .search:focus {
@@ -68,14 +95,33 @@
 .list {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0 72px;
+  padding: 0 0 calc(16px + var(--safe-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+.empty {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-secondary);
+}
+
+.emptySub {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
 }
 
 .row {
   display: flex;
   gap: 2px;
   align-items: center;
-  padding: 2px 8px;
+  padding: 0 6px;
   border-radius: 0;
 }
 
@@ -83,13 +129,16 @@
   background: var(--bg-hover);
 }
 
-/* no green square — simple highlight */
 .rowActive {
   background: var(--bg-active);
 }
 
 .avatarBtn {
   padding: 6px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: grid;
+  place-items: center;
 }
 
 .rowMain {
@@ -97,6 +146,7 @@
   min-width: 0;
   text-align: left;
   padding: 10px 8px 10px 2px;
+  min-height: var(--touch-min);
 }
 
 .meta {
@@ -126,19 +176,22 @@
   gap: 6px;
 }
 
-.pin,
+.pinIcon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
 .muted {
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
-  background: none;
-  padding: 0;
+  flex-shrink: 0;
 }
 
 .time {
-  font-size: 12px;
+  font-size: var(--font-meta);
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
@@ -157,29 +210,26 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--text-primary);
+  background: var(--accent);
   color: var(--text-on-accent);
   font-size: 11px;
   font-weight: 750;
   display: grid;
   place-items: center;
+  flex-shrink: 0;
 }
 
-.fab {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #f4f4f5;
-  color: #0a0a0b;
-  display: grid;
-  place-items: center;
-  z-index: 5;
-  box-shadow: var(--shadow-md);
-}
+/* Desktop denser rows */
+@media (min-width: 1024px) {
+  .header {
+    padding: 14px 14px 8px;
+  }
 
-.fab:hover {
-  background: #fff;
+  .rowMain {
+    padding: 8px 8px 8px 2px;
+  }
+
+  .name {
+    font-size: 14px;
+  }
 }

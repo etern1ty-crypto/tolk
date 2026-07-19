@@ -23,6 +23,7 @@
   gap: 6px;
   min-height: var(--header-height);
   padding: 8px 10px;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
   border-bottom: 1px solid var(--border-subtle);
   background: var(--glass);
   backdrop-filter: blur(16px);
@@ -52,6 +53,9 @@
 .headerActions {
   position: relative;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .headerMenu {
@@ -112,8 +116,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 8px 11px;
-  border-radius: 999px;
+  min-height: var(--touch-min);
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   font-size: 12px;
@@ -125,6 +130,22 @@
   border-color: var(--border-strong);
   color: var(--text-primary);
   background: var(--bg-hover);
+}
+
+.shelfLabel {
+  white-space: nowrap;
+}
+
+@media (max-width: 420px) {
+  .shelfLabel {
+    display: none;
+  }
+
+  .shelfBtn {
+    width: var(--touch-min);
+    justify-content: center;
+    padding: 8px;
+  }
 }
 
 .themeBar {
@@ -211,6 +232,13 @@
   gap: 6px;
 }
 
+@media (min-width: 1024px) {
+  .messages {
+    padding-left: max(14px, calc(50% - var(--bubble-max) / 2 - 40px));
+    padding-right: max(14px, calc(50% - var(--bubble-max) / 2 - 40px));
+  }
+}
+
 .placeholder {
   margin: auto;
   text-align: center;
@@ -249,17 +277,16 @@
 }
 
 .bubble {
-  max-width: min(78%, 440px);
+  max-width: min(82%, var(--bubble-max, 600px));
   padding: 10px 12px 7px;
   border-radius: var(--radius-bubble);
-  background: rgba(28, 28, 32, 0.88);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  backdrop-filter: blur(8px);
   user-select: text;
 }
 
 .mine .bubble {
-  background: rgba(244, 244, 245, 0.12);
+  background: rgba(245, 245, 245, 0.12);
   border-color: rgba(255, 255, 255, 0.12);
 }
 

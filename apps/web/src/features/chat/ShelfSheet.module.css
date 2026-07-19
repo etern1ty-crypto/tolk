@@ -2,64 +2,138 @@
   position: fixed;
   inset: 0;
   z-index: 55;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
 }
 
-.sheet {
-  width: min(100%, 440px);
-  max-height: 60vh;
-  overflow-y: auto;
-  background: var(--bg-sheet);
-  border-radius: 24px 24px 0 0;
-  padding: 16px;
+@media (min-width: 1024px) {
+  .overlay {
+    align-items: stretch;
+    justify-content: flex-end;
+    background: rgba(0, 0, 0, 0.4);
+  }
 }
 
-.sheet h3 {
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 auto 12px;
+}
+
+.sheet {
+  width: min(100%, 440px);
+  max-height: min(72vh, 560px);
+  overflow-y: auto;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  box-shadow: var(--shadow-lg);
+}
+
+.desktopSheet {
+  width: min(100%, var(--wall-col-width, 320px));
+  height: 100%;
+  max-height: none;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
+  padding: 14px 16px;
+}
+
+/* Docked into MainShell wallCol */
+.panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-surface);
+  padding: 14px 14px 12px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.head h3 {
   margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .hint {
-  margin: 4px 0 12px;
-  font-size: 12px;
+  margin: 4px 0 0;
+  font-size: var(--font-meta);
   color: var(--text-tertiary);
 }
 
 .empty {
   color: var(--text-tertiary);
   font-size: 14px;
+  margin: 8px 0;
+  line-height: 1.4;
 }
 
-.sheet ul {
+.list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
-.sheet li {
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-subtle);
+.list li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  /* hairline list, not cards */
 }
 
-.sheet li p {
+.list li p {
   margin: 0 0 8px;
   font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-primary);
 }
 
 .thumb {
   width: 100%;
   max-height: 140px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: var(--radius-media);
   margin-bottom: 8px;
   display: block;
+  border: 1px solid var(--border-subtle);
 }
 
 .actions {
@@ -68,19 +142,31 @@
   gap: 10px;
 }
 
-.sheet li button {
+.list li button {
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
+  min-height: 36px;
+  padding: 6px 4px;
+}
+
+.list li button:hover {
+  color: var(--text-secondary);
 }
 
 .remove {
   margin-left: auto;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   color: var(--text-tertiary) !important;
-  background: rgba(255, 255, 255, 0.06);
+  background: transparent;
+  padding: 0 !important;
+}
+
+.remove:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
 }

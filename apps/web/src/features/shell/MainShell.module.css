@@ -1,4 +1,4 @@
-/* Constrained app body: side rail + full-width feed (no empty gutters inside) */
+/* Spatial shell: mobile stack · desktop rail + columns */
 
 .root {
   height: 100%;
@@ -6,6 +6,8 @@
   display: flex;
   flex-direction: row;
   background: transparent;
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
 }
 
 .workspace {
@@ -17,14 +19,12 @@
   height: 100%;
 }
 
-/* Wall / Profile fill the shell — no second nested max-width */
 .pageCol {
   flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  /* No extra stripe above BottomNav — tabs pad their own scroll areas */
   padding-bottom: 0;
 }
 
@@ -44,6 +44,35 @@
 
 .paperProfile {
   overflow: hidden;
+}
+
+/* Mobile: back bar for search / wall / profile */
+.mobilePageBar {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: calc(8px + var(--safe-top)) 12px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  flex-shrink: 0;
+}
+
+.backBtn {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.backBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 .chatsLayout {
@@ -70,6 +99,18 @@
   background: var(--bg-elevated);
 }
 
+.wallCol {
+  display: none;
+  width: 0;
+  flex-shrink: 0;
+  height: 100%;
+  border-left: none;
+  background: var(--bg-surface);
+  overflow: hidden;
+  transition: width var(--dur) var(--ease-out);
+}
+
+/* ── Desktop (≥ tablet) ── */
 @media (min-width: 1024px) {
   .listCol {
     width: var(--chat-list-width);
@@ -79,8 +120,22 @@
   .chatCol {
     display: block;
   }
+
+  .wallCol {
+    display: block;
+  }
+
+  .wallCol[data-open] {
+    width: var(--wall-col-width);
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .mobilePageBar {
+    display: none;
+  }
 }
 
+/* ── Mobile ── */
 @media (max-width: 1023px) {
   .root {
     flex-direction: column;
@@ -111,5 +166,9 @@
 
   .root[data-chat-open] .workspace {
     height: 100%;
+  }
+
+  .listCol {
+    border-right: none;
   }
 }

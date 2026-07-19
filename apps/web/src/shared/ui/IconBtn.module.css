@@ -28,6 +28,8 @@
 .lg {
   width: 44px;
   height: 44px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
 }
 
 .soft {
@@ -39,22 +41,24 @@
   background: rgba(255, 255, 255, 0.09);
 }
 
+/* white CTA — kept as .mint for API compat */
 .mint {
-  background: #f4f4f5;
-  color: #0a0a0b;
+  background: var(--accent);
+  color: var(--text-on-accent);
   box-shadow: none;
 }
 
 .mint:hover:not(:disabled) {
   background: #fff;
-  color: #0a0a0b;
+  color: var(--text-on-accent);
   filter: none;
 }
 
 .danger {
-  color: var(--accent-danger);
+  color: var(--text-secondary);
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--accent-danger-dim);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }

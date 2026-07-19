@@ -1,14 +1,13 @@
 .banner {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 107, 107, 0.16),
-    rgba(255, 107, 107, 0.08)
-  );
-  color: #ff9b96;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
   text-align: center;
   font-size: 12px;
-  font-weight: 700;
-  padding: 7px 10px;
-  border-bottom: 1px solid rgba(255, 107, 107, 0.22);
+  font-weight: 650;
+  padding: 8px 10px;
+  padding-top: max(8px, env(safe-area-inset-top, 0px));
+  border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  position: relative;
+  z-index: 30;
 }

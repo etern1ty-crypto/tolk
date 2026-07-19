@@ -2,7 +2,8 @@
   min-height: 100%;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: calc(24px + env(safe-area-inset-top, 0px)) 24px
+    calc(24px + env(safe-area-inset-bottom, 0px));
   position: relative;
   overflow: hidden;
   background: transparent;
@@ -15,10 +16,11 @@
 .card {
   position: relative;
   width: min(100%, 380px);
-  background: var(--bg-surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
+  border-radius: var(--radius-sheet);
   padding: 32px 26px 26px;
+  box-shadow: var(--shadow-md);
 }
 
 .brand {
@@ -35,8 +37,8 @@
   place-items: center;
   font-weight: 800;
   font-size: 20px;
-  color: #0a0a0b;
-  background: #f4f4f5;
+  color: var(--text-on-accent);
+  background: var(--accent);
 }
 
 .brand h1 {
@@ -44,6 +46,7 @@
   font-size: 26px;
   font-weight: 750;
   letter-spacing: -0.04em;
+  color: var(--text-primary);
 }
 
 .tagline {
@@ -52,13 +55,12 @@
   font-size: 14px;
 }
 
-/* ── toggle ───────────────────────────────────────────────── */
 .toggle {
   display: flex;
   gap: 4px;
-  background: var(--bg-deep);
+  background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   padding: 4px;
   margin-bottom: 22px;
 }
@@ -66,17 +68,20 @@
 .toggleActive,
 .toggleInactive {
   flex: 1;
-  padding: 9px 0;
-  border-radius: 9px;
+  padding: 10px 0;
+  border-radius: var(--radius-pill);
   font-size: 14px;
   font-weight: 650;
-  transition: background 0.18s, color 0.18s;
+  min-height: 40px;
+  transition:
+    background 0.18s,
+    color 0.18s;
 }
 
 .toggleActive {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: 1px solid transparent;
 }
 
 .toggleInactive {
@@ -89,7 +94,6 @@
   color: var(--text-secondary);
 }
 
-/* ── form ─────────────────────────────────────────────────── */
 .form {
   display: flex;
   flex-direction: column;
@@ -108,13 +112,14 @@
 
 .input {
   width: 100%;
-  background: var(--bg-deep);
+  background: var(--bg-primary);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   padding: 14px 16px;
   font-size: 15px;
   transition: border-color 0.15s;
   box-sizing: border-box;
+  min-height: 48px;
 }
 
 .input:focus {
@@ -123,7 +128,6 @@
   outline: none;
 }
 
-/* password wrapper */
 .pwWrap {
   position: relative;
 }
@@ -145,21 +149,26 @@
   border: none;
   cursor: pointer;
   padding: 0;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 .eyeBtn:hover {
   opacity: 0.9;
 }
 
-/* ── primary button ───────────────────────────────────────── */
 .primary {
-  background: #f4f4f5;
-  color: #0a0a0b;
+  background: var(--accent);
+  color: var(--text-on-accent);
   font-weight: 700;
   font-size: 15px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 14px 16px;
-  transition: background 0.15s, opacity 0.15s;
+  min-height: 48px;
+  margin-top: 8px;
+  transition:
+    background 0.15s,
+    opacity 0.15s;
 }
 
 .primary:hover:not(:disabled) {

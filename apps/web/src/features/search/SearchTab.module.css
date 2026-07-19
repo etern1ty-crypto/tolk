@@ -8,7 +8,7 @@
 
 @media (max-width: 1023px) {
   .body {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -87,8 +87,8 @@
 }
 
 .chipActive {
-  color: #0a0a0b;
-  background: #f4f4f5;
+  color: var(--text-on-accent);
+  background: var(--accent);
   border-color: transparent;
 }
 
@@ -167,8 +167,8 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: #f4f4f5;
-  color: #0a0a0b;
+  background: var(--accent);
+  color: var(--text-on-accent);
 }
 
 .action:hover {

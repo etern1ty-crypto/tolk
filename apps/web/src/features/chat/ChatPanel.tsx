@@ -165,6 +165,39 @@ export function ChatPanel() {
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [highlightMessageId]);
 
+  /* Mobile: swipe from right edge → Chat Wall (полка) */
+  useEffect(() => {
+    if (!activeChatId) return;
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      if (t.clientX < window.innerWidth - 28) return;
+      startX = t.clientX;
+      startY = t.clientY;
+      tracking = true;
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!tracking) return;
+      tracking = false;
+      const t = e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      if (dx < -56 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        setShelfOpen(true);
+      }
+    };
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [activeChatId, setShelfOpen]);
+
   // Paste image from clipboard (desktop)
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -194,9 +227,7 @@ export function ChatPanel() {
             <SendHorizontal size={iconProps.size.xl} strokeWidth={iconProps.strokeWidth} />
           </div>
           <p>Выберите чат</p>
-          <p className={styles.placeholderSub}>
-            Войсы, кружки и реакции — в диалоге
-          </p>
+          <p className={styles.placeholderSub}>Список слева</p>
         </div>
       </section>
     );
@@ -419,6 +450,18 @@ export function ChatPanel() {
           </div>
         </button>
         <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.shelfBtn}
+            onClick={() => setShelfOpen(true)}
+            aria-label="На стену"
+            title="Полка этого чата"
+          >
+            <Bookmark size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+            <span className={styles.shelfLabel}>
+              На стену{shelfCount > 0 ? ` · ${shelfCount}` : ''}
+            </span>
+          </button>
           <IconBtn
             aria-label="Ещё"
             title="Ещё"
@@ -438,16 +481,6 @@ export function ChatPanel() {
               >
                 <Palette size={16} /> Оформление
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setShelfOpen(true);
-                  setHeaderMenuOpen(false);
-                }}
-              >
-                <Bookmark size={16} /> Полка{shelfCount > 0 ? ` · ${shelfCount}` : ''}
-              </button>
               {(chat.type === 'group' || chat.type === 'channel') && (
                 <button
                   type="button"
@@ -456,7 +489,6 @@ export function ChatPanel() {
                     e.preventDefault();
                     e.stopPropagation();
                     setHeaderMenuOpen(false);
-                    // defer so menu unmount doesn't swallow the open
                     window.setTimeout(() => setChatInfoOpen(true), 0);
                   }}
                 >

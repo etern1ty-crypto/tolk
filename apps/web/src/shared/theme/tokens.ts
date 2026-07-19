@@ -1,4 +1,4 @@
-/** Monochrome design tokens */
+/** Tolk design tokens — dark monochrome (Visual_Language 2026-07-15) */
 export const colors = {
   bg: {
     primary: '#000000',
@@ -29,6 +29,28 @@ export const breakpoints = {
 } as const;
 
 export const layout = {
+  /** Desktop chat list column */
   listWidth: 360,
-  wallWidth: 340,
+  /** Chat wall / shelf column when open */
+  wallWidth: 320,
+  /** Thin icon rail */
+  sideRail: 64,
+  /** Max bubble width on wide screens */
+  bubbleMax: 600,
+} as const;
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  media: 16,
+  bubble: 18,
+  sheet: 20,
+  pill: 9999,
+} as const;
+
+export const type = {
+  meta: 12,
+  body: 15,
+  title: 18,
+  titleLg: 22,
 } as const;

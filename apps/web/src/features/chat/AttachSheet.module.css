@@ -11,11 +11,25 @@
 .sheet {
   width: min(100%, 420px);
   background: var(--bg-sheet);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  padding: 16px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+@media (min-width: 768px) {
+  .overlay {
+    align-items: center;
+  }
+
+  .sheet {
+    border-radius: var(--radius-sheet);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 16px;
+  }
 }
 
 .title {
