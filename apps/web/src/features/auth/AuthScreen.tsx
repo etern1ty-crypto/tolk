@@ -314,39 +314,36 @@ export function AuthScreen() {
           )}
         </form>
 
-        {!isSocialProfile && (
+        {!isSocialProfile &&
+          (oauthConfigured('yandex') || oauthConfigured('vk')) && (
           <>
             <div className={styles.divider}>
               <span>или</span>
             </div>
 
             <div className={styles.oauthButtons}>
-              <button
-                type="button"
-                className={styles.yandexBtn}
-                onClick={startYandex}
-                disabled={loading || oauthBusy}
-                title={
-                  oauthConfigured('yandex')
-                    ? 'Войти через Яндекс ID'
-                    : 'Нужен VITE_YANDEX_CLIENT_ID'
-                }
-              >
-                <span className={styles.yandexIcon}>Я</span>
-                Войти через Яндекс
-              </button>
-              <button
-                type="button"
-                className={styles.vkBtn}
-                onClick={startVK}
-                disabled={loading || oauthBusy}
-                title={
-                  oauthConfigured('vk') ? 'Войти через VK ID' : 'Нужен VITE_VK_CLIENT_ID'
-                }
-              >
-                <span className={styles.vkIcon}>VK</span>
-                Войти через VK
-              </button>
+              {oauthConfigured('yandex') && (
+                <button
+                  type="button"
+                  className={styles.yandexBtn}
+                  onClick={startYandex}
+                  disabled={loading || oauthBusy}
+                >
+                  <span className={styles.yandexIcon}>Я</span>
+                  Войти через Яндекс
+                </button>
+              )}
+              {oauthConfigured('vk') && (
+                <button
+                  type="button"
+                  className={styles.vkBtn}
+                  onClick={startVK}
+                  disabled={loading || oauthBusy}
+                >
+                  <span className={styles.vkIcon}>VK</span>
+                  Войти через VK
+                </button>
+              )}
             </div>
           </>
         )}
