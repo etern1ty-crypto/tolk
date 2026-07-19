@@ -147,10 +147,11 @@ export function CircleSheet() {
           try {
             showToast('Отправка кружка...');
             
+            const circleMime = (file.type || 'video/webm').split(';')[0] || 'video/webm';
             const uploadRes = await fetchApi('/media/uploads', {
               method: 'POST',
               body: JSON.stringify({
-                mime: file.type || 'video/webm',
+                mime: circleMime,
                 size: file.size,
                 kind: 'circle'
               })
@@ -160,7 +161,7 @@ export function CircleSheet() {
               method: 'PUT',
               body: file,
               headers: {
-                'Content-Type': file.type || 'video/webm',
+                'Content-Type': circleMime,
                 Authorization: `Bearer ${token}`,
               }
             });

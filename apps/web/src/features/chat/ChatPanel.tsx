@@ -383,10 +383,11 @@ export function ChatPanel() {
               // @ts-ignore
               useAppStore.getState().showToast('Отправка голосового...');
               
+              const voiceMime = (file.type || 'audio/webm').split(';')[0] || 'audio/webm';
               const uploadRes = await fetchApi('/media/uploads', {
                 method: 'POST',
                 body: JSON.stringify({
-                  mime: file.type || 'audio/webm',
+                  mime: voiceMime,
                   size: file.size,
                   kind: 'voice'
                 })
@@ -396,7 +397,7 @@ export function ChatPanel() {
                 method: 'PUT',
                 body: file,
                 headers: {
-                  'Content-Type': file.type || 'audio/webm',
+                  'Content-Type': voiceMime,
                   Authorization: `Bearer ${token}`,
                 }
               });
