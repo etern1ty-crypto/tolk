@@ -1,23 +1,62 @@
-/* Minimal PWA service worker — cache shell + show notifications when pushed/posted */
-const CACHE = 'tolk-shell-v1';
-const ASSETS = ['/', '/manifest.webmanifest', '/favicon.svg'];
+/* Tolk SW — network-first for HTML so deploys are visible; cache static assets only */
+const CACHE = 'tolk-static-v3';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE)
+            .map((k) => caches.delete(k))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-  event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req).catch(() => cached))
-  );
+
+  const url = new URL(req.url);
+  // Same-origin navigations / HTML → always network first (no stale index.html)
+  const isHTML =
+    req.mode === 'navigate' ||
+    req.destination === 'document' ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('.html');
+
+  if (isHTML) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => res)
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Hashed assets under /assets/ — cache-first (immutable names)
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) cache.put(req, res.clone());
+        return res;
+      })
+    );
+    return;
+  }
+
+  // Default: network
+  event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -37,7 +76,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Allow page to show notification via SW when document is backgrounded (mobile PWA)
 self.addEventListener('message', (event) => {
   const data = event.data;
   if (!data || data.type !== 'SHOW_NOTIFICATION') return;
