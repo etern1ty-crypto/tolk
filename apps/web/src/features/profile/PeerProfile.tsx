@@ -80,6 +80,21 @@ export function PeerProfile() {
           <IconBtn className={styles.close} onClick={closeUserProfile} aria-label="Назад">
             <ArrowLeft size={18} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
+          <IconBtn
+            className={styles.share}
+            aria-label="Поделиться"
+            title="Поделиться"
+            onClick={async () => {
+              try {
+                await copyShareLink('user', user.id, token);
+                showToast('Ссылка скопирована');
+              } catch (e: any) {
+                showToast(e.message || 'Ошибка');
+              }
+            }}
+          >
+            <Link2 size={18} strokeWidth={iconProps.strokeWidth} />
+          </IconBtn>
         </div>
         <div className={styles.avatarWrap}>
           <Avatar name={user.displayName} id={user.id} avatarUrl={user.avatarRef} size={84} online={user.online} />
@@ -118,22 +133,6 @@ export function PeerProfile() {
               Написать
             </button>
           )}
-          <button
-            type="button"
-            className={styles.cta}
-            style={{ marginTop: 8, background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
-            onClick={async () => {
-              try {
-                await copyShareLink('user', user.id, token);
-                showToast('Ссылка скопирована');
-              } catch (e: any) {
-                showToast(e.message || 'Ошибка');
-              }
-            }}
-          >
-            <Link2 size={16} />
-            Поделиться
-          </button>
           <h2>Посты</h2>
           {list.length === 0 ? (
             <p className={styles.empty}>Пока тихо.</p>

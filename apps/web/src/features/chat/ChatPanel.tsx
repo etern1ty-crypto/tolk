@@ -74,6 +74,43 @@ export function ChatPanel() {
   const uploadAttachment = useAppStore((s) => s.uploadAttachment);
   const setChatInfoOpen = useAppStore((s) => s.setChatInfoOpen);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+  const themeBarRef = useRef<HTMLDivElement>(null);
+
+  const closeChatOverlays = useCallback(() => {
+    setHeaderMenuOpen(false);
+    setThemeOpen(false);
+  }, []);
+
+  // Close ⋯ menu / theme bar on outside click or Escape
+  useEffect(() => {
+    if (!headerMenuOpen && !themeOpen) return;
+    const onPointer = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (headerMenuRef.current?.contains(t)) return;
+      if (themeBarRef.current?.contains(t)) return;
+      setHeaderMenuOpen(false);
+      setThemeOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeChatOverlays();
+    };
+    const id = window.setTimeout(() => {
+      document.addEventListener('pointerdown', onPointer, true);
+      document.addEventListener('keydown', onKey);
+    }, 0);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener('pointerdown', onPointer, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [headerMenuOpen, themeOpen, closeChatOverlays]);
+
+  // Reset overlays when switching chats
+  useEffect(() => {
+    closeChatOverlays();
+  }, [activeChatId, closeChatOverlays]);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const swipeStartX = useRef(0);
@@ -120,7 +157,6 @@ export function ChatPanel() {
   };
 
   const [text, setText] = useState('');
-  const [themeOpen, setThemeOpen] = useState(false);
   /** TG-style: mic button toggles voice ↔ circle */
   const [recordMode, setRecordMode] = useState<'voice' | 'circle'>('voice');
   /** Windowed render — only last N messages in DOM */
@@ -527,11 +563,14 @@ export function ChatPanel() {
             </div>
           </div>
         </button>
-        <div className={styles.headerActions}>
+        <div className={styles.headerActions} ref={headerMenuRef}>
           <IconBtn
             aria-label="Ещё"
             title="Ещё"
-            onClick={() => setHeaderMenuOpen((v) => !v)}
+            onClick={() => {
+              setThemeOpen(false);
+              setHeaderMenuOpen((v) => !v);
+            }}
           >
             <MoreVertical size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
@@ -541,8 +580,8 @@ export function ChatPanel() {
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  setThemeOpen((v) => !v);
                   setHeaderMenuOpen(false);
+                  setThemeOpen(true);
                 }}
               >
                 <Palette size={16} /> Оформление
@@ -552,8 +591,9 @@ export function ChatPanel() {
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setShelfOpen(true);
                     setHeaderMenuOpen(false);
+                    setThemeOpen(false);
+                    setShelfOpen(true);
                   }}
                 >
                   <Bookmark size={16} /> Избранное
@@ -568,6 +608,7 @@ export function ChatPanel() {
                     e.preventDefault();
                     e.stopPropagation();
                     setHeaderMenuOpen(false);
+                    setThemeOpen(false);
                     window.setTimeout(() => setChatInfoOpen(true), 0);
                   }}
                 >
@@ -580,8 +621,16 @@ export function ChatPanel() {
       </header>
 
       {themeOpen && (
-        <div className={styles.themeBar}>
-          <span className={styles.themeLabel}>Фон чата</span>
+        <div className={styles.themeBar} ref={themeBarRef}>
+          <div className={styles.themeBarHead}>
+            <span className={styles.themeLabel}>Фон чата</span>
+            <IconBtn
+              aria-label="Закрыть оформление"
+              onClick={() => setThemeOpen(false)}
+            >
+              <X size={16} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+          </div>
           <ChatThemePicker
             compact
             value={chat.themeId || globalChatThemeId}
@@ -968,7 +1017,9 @@ export function ChatPanel() {
           <input
             className={styles.input}
             value={text}
+            onFocus={() => closeChatOverlays()}
             onChange={(e) => {
+              closeChatOverlays();
               setText(e.target.value);
               useAppStore.getState().sendTypingPresence();
             }}

@@ -423,6 +423,21 @@ export function ProfileTab() {
           </div>
         </div>
         <div className={styles.bannerActions}>
+          <IconBtn
+            variant="soft"
+            aria-label="Поделиться"
+            title="Ссылка на профиль"
+            onClick={async () => {
+              try {
+                await copyShareLink('user', me.id, token);
+                showToast('Ссылка на профиль скопирована');
+              } catch (e: any) {
+                showToast(e.message || 'Ошибка ссылки');
+              }
+            }}
+          >
+            <Link2 size={18} strokeWidth={iconProps.strokeWidth} />
+          </IconBtn>
           <div className={styles.menuWrap}>
             <IconBtn
               variant="soft"
@@ -460,22 +475,6 @@ export function ProfileTab() {
                     }}
                   >
                     Оформление
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={async () => {
-                      closeMenu();
-                      try {
-                        await copyShareLink('user', me.id, token);
-                        showToast('Ссылка на профиль скопирована');
-                      } catch (e: any) {
-                        showToast(e.message || 'Ошибка ссылки');
-                      }
-                    }}
-                  >
-                    <Link2 size={15} strokeWidth={iconProps.strokeWidth} />
-                    Ссылка на профиль
                   </button>
                   <button
                     type="button"

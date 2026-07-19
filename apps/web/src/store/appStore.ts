@@ -36,6 +36,52 @@ const getApiUrl = () => {
 };
 const API_URL = getApiUrl();
 
+/** Merge author/commenter cards from feed payloads into users map */
+export function mergeUsersFromPosts(
+  posts: any[],
+  base: Record<string, User> = {}
+): Record<string, User> {
+  const users = { ...base };
+  const put = (u: Partial<User> & { id: string }) => {
+    if (!u.id) return;
+    const prev = users[u.id];
+    users[u.id] = {
+      id: u.id,
+      username: u.username ?? prev?.username ?? '',
+      displayName: u.displayName || prev?.displayName || '…',
+      bio: u.bio ?? prev?.bio,
+      online: u.online ?? prev?.online,
+      lastSeenAt: u.lastSeenAt ?? prev?.lastSeenAt,
+      bannerPatternId: u.bannerPatternId || prev?.bannerPatternId || 'mint_wave',
+      avatarRef: u.avatarRef ?? prev?.avatarRef,
+      bannerRef: u.bannerRef ?? prev?.bannerRef,
+    };
+  };
+
+  for (const p of posts || []) {
+    if (p.authorId) {
+      put({
+        id: p.authorId,
+        displayName: p.authorDisplayName,
+        username: p.authorUsername,
+        avatarRef: p.authorAvatarRef,
+        bannerPatternId: p.authorBannerPatternId,
+      });
+    }
+    for (const c of p.comments || []) {
+      if (c.userId) {
+        put({
+          id: c.userId,
+          displayName: c.displayName,
+          username: c.username,
+          avatarRef: c.avatarRef,
+        });
+      }
+    }
+  }
+  return users;
+}
+
 export async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
   const headers = new Headers(options.headers || {});
   if (options.body) {
@@ -1057,7 +1103,10 @@ export const useAppStore = create<AppState>()(
       set((s) => {
         const otherPosts = s.posts.filter((p) => p.authorId !== userId);
         const combined = [...otherPosts, ...userPosts].sort((a, b) => b.createdAt - a.createdAt);
-        return { posts: combined };
+        return {
+          posts: combined,
+          users: mergeUsersFromPosts(userPosts, s.users),
+        };
       });
     } catch (err) {
       console.error('Failed to fetch user posts:', err);
@@ -1632,6 +1681,7 @@ export const useAppStore = create<AppState>()(
         postsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
         myPostsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
         combinedPosts = Array.from(combinedPostsMap.values()).sort((a: any, b: any) => b.createdAt - a.createdAt) as Post[];
+        Object.assign(usersMap, mergeUsersFromPosts(combinedPosts, usersMap));
       } catch (err) {
         console.error('Failed to fetch posts in initApi:', err);
       }
@@ -1925,7 +1975,8 @@ export const useAppStore = create<AppState>()(
       }, token);
 
       set((s) => ({
-        posts: [res, ...s.posts]
+        posts: [res, ...s.posts],
+        users: mergeUsersFromPosts([res], s.users),
       }));
 
       get().showToast(
@@ -1966,15 +2017,31 @@ export const useAppStore = create<AppState>()(
         method: 'POST',
         body: JSON.stringify({ text: t, parent_id: parentId || undefined })
       }, token);
-      set((s) => ({
-        posts: s.posts.map((p) => {
-          if (p.id !== postId) return p;
-          return {
-            ...p,
-            comments: [...p.comments, { ...res, likedBy: res.likedBy || [] }]
+      set((s) => {
+        const comment = { ...res, likedBy: res.likedBy || [] };
+        const users = { ...s.users };
+        if (comment.userId) {
+          users[comment.userId] = {
+            ...(users[comment.userId] || {
+              id: comment.userId,
+              username: '',
+              bannerPatternId: 'mint_wave',
+            }),
+            id: comment.userId,
+            displayName:
+              comment.displayName || users[comment.userId]?.displayName || get().me.displayName,
+            username: comment.username || users[comment.userId]?.username || '',
+            avatarRef: comment.avatarRef ?? users[comment.userId]?.avatarRef,
           };
-        })
-      }));
+        }
+        return {
+          users,
+          posts: s.posts.map((p) => {
+            if (p.id !== postId) return p;
+            return { ...p, comments: [...p.comments, comment] };
+          }),
+        };
+      });
     } catch (err: any) {
       console.error('Failed to add comment:', err);
       get().showToast(err.message || 'Ошибка комментария');

@@ -33,6 +33,11 @@ interface ScatteredItem {
   opacity: number;
 }
 
+/**
+ * Patterns are drawn in a 100×100 viewBox.
+ * Font sizes are large enough to read; spacing grows with glyph size
+ * so words/emoji don't collide when scaled up ~2.5×.
+ */
 export function PatternBg({
   pattern,
   seed = pattern.id,
@@ -40,6 +45,8 @@ export function PatternBg({
   density = 'mid',
   children,
 }: Props) {
+  const isWords = pattern.kind === 'words' || pattern.items.some((t) => t.length > 2);
+
   const scattered = useMemo(() => {
     if (!pattern.items.length) return [] as ScatteredItem[];
 
@@ -47,41 +54,48 @@ export function PatternBg({
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    // Sparse scatter — high density was hundreds of DOM nodes and killed scroll FPS
-    const step = density === 'low' ? 36 : density === 'high' ? 20 : 28;
+    // Larger step = more air between glyphs (was ~20–36, now ~40–64)
+    const stepBase = density === 'low' ? 58 : density === 'high' ? 40 : 48;
+    const step = isWords ? stepBase + 10 : stepBase;
+    // Skip more cells when words so long labels don't stack
+    const skipChance = isWords ? 0.42 : 0.28;
 
     for (let yCoord = -step; yCoord < 120; yCoord += step) {
       const row = Math.round((yCoord + step) / step);
       const shift = (row % 2) * (step / 2);
 
       for (let xCoord = -step; xCoord < 120; xCoord += step) {
-        // skip ~35% for less overdraw
-        if (rng() < 0.35) continue;
+        if (rng() < skipChance) continue;
 
-        const jitterX = (rng() - 0.5) * (step * 0.3);
-        const jitterY = (rng() - 0.5) * (step * 0.3);
+        const jitterX = (rng() - 0.5) * (step * 0.22);
+        const jitterY = (rng() - 0.5) * (step * 0.22);
 
         const finalX = xCoord + shift + jitterX;
         const finalY = yCoord + jitterY;
 
         const idx = Math.floor(rng() * pattern.items.length);
-        const rotate = -24 + (rng() - 0.5) * 12;
+        const rotate = isWords
+          ? -14 + (rng() - 0.5) * 10
+          : -20 + (rng() - 0.5) * 14;
 
         out.push({
           text: pattern.items[idx]!,
           x: finalX,
           y: finalY,
           rotate,
-          scale: 1.2 + rng() * 0.4,
-          opacity: 0.22 + rng() * 0.18,
+          scale: 1.05 + rng() * 0.35,
+          opacity: 0.32 + rng() * 0.28,
         });
       }
     }
     return out;
-  }, [pattern, seed, density]);
+  }, [pattern, seed, density, isWords]);
 
-  const baseFontSize = (pattern.size ?? 18) * 1.55;
-  const baseOpacity = Math.min(0.85, (pattern.opacity ?? 0.45) + 0.22);
+  // ~2.5× previous visual size: was (size * 1.55 * 0.06) ≈ size * 0.093
+  // now ≈ size * 0.24 for emoji, slightly smaller for multi-letter words
+  const sizeMul = isWords ? 0.18 : 0.26;
+  const baseFontSize = (pattern.size ?? 18) * sizeMul;
+  const baseOpacity = Math.min(0.95, (pattern.opacity ?? 0.45) + 0.28);
 
   return (
     <div
@@ -101,7 +115,7 @@ export function PatternBg({
               key={`${item.text}-${i}`}
               x={item.x}
               y={item.y}
-              fontSize={baseFontSize * item.scale * 0.06}
+              fontSize={baseFontSize * item.scale}
               fill={pattern.ink || 'currentColor'}
               opacity={item.opacity}
               textAnchor="middle"

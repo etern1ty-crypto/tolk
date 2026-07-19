@@ -18,11 +18,11 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  /* lighter veil so emoji/words stay readable */
+  /* very light veil — glyphs must stay readable at larger scale */
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.05) 0%,
-    rgba(0, 0, 0, 0.18) 100%
+    rgba(0, 0, 0, 0.02) 0%,
+    rgba(0, 0, 0, 0.12) 100%
   );
   pointer-events: none;
 }
