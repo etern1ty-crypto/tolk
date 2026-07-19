@@ -12,9 +12,7 @@ type Props = {
   children?: ReactNode;
 };
 
-/**
- * Seeded PRNG — simple mulberry32
- */
+/** Seeded PRNG — mulberry32 */
 function mulberry32(a: number) {
   return () => {
     let t = (a += 0x6d2b79f5);
@@ -34,9 +32,8 @@ interface ScatteredItem {
 }
 
 /**
- * Patterns are drawn in a 100×100 viewBox.
- * Font sizes are large enough to read; spacing grows with glyph size
- * so words/emoji don't collide when scaled up ~2.5×.
+ * Large readable glyphs + dense enough scatter so the field is filled
+ * (not a single floating label in empty space).
  */
 export function PatternBg({
   pattern,
@@ -45,7 +42,8 @@ export function PatternBg({
   density = 'mid',
   children,
 }: Props) {
-  const isWords = pattern.kind === 'words' || pattern.items.some((t) => t.length > 2);
+  const isWords =
+    pattern.kind === 'words' || pattern.items.some((t) => t.length > 2);
 
   const scattered = useMemo(() => {
     if (!pattern.items.length) return [] as ScatteredItem[];
@@ -54,48 +52,45 @@ export function PatternBg({
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    // Larger step = more air between glyphs (was ~20–36, now ~40–64)
-    const stepBase = density === 'low' ? 58 : density === 'high' ? 40 : 48;
-    const step = isWords ? stepBase + 10 : stepBase;
-    // Skip more cells when words so long labels don't stack
-    const skipChance = isWords ? 0.42 : 0.28;
+    // Tight grid in 100×100 viewBox — ~5–8 cells per axis after skips
+    // (earlier 40–64 left only 1–2 visible items)
+    const stepBase = density === 'low' ? 26 : density === 'high' ? 15 : 19;
+    const step = isWords ? stepBase + 5 : stepBase;
+    const skipChance = isWords ? 0.18 : 0.12;
 
-    for (let yCoord = -step; yCoord < 120; yCoord += step) {
+    for (let yCoord = -step * 0.5; yCoord < 105; yCoord += step) {
       const row = Math.round((yCoord + step) / step);
-      const shift = (row % 2) * (step / 2);
+      const shift = (row % 2) * (step * 0.45);
 
-      for (let xCoord = -step; xCoord < 120; xCoord += step) {
+      for (let xCoord = -step * 0.5; xCoord < 105; xCoord += step) {
         if (rng() < skipChance) continue;
 
-        const jitterX = (rng() - 0.5) * (step * 0.22);
-        const jitterY = (rng() - 0.5) * (step * 0.22);
-
-        const finalX = xCoord + shift + jitterX;
-        const finalY = yCoord + jitterY;
+        const jitterX = (rng() - 0.5) * (step * 0.28);
+        const jitterY = (rng() - 0.5) * (step * 0.28);
 
         const idx = Math.floor(rng() * pattern.items.length);
         const rotate = isWords
-          ? -14 + (rng() - 0.5) * 10
-          : -20 + (rng() - 0.5) * 14;
+          ? -12 + (rng() - 0.5) * 8
+          : -18 + (rng() - 0.5) * 12;
 
         out.push({
           text: pattern.items[idx]!,
-          x: finalX,
-          y: finalY,
+          x: xCoord + shift + jitterX,
+          y: yCoord + jitterY,
           rotate,
-          scale: 1.05 + rng() * 0.35,
-          opacity: 0.32 + rng() * 0.28,
+          scale: 0.95 + rng() * 0.35,
+          opacity: 0.28 + rng() * 0.32,
         });
       }
     }
     return out;
   }, [pattern, seed, density, isWords]);
 
-  // ~2.5× previous visual size: was (size * 1.55 * 0.06) ≈ size * 0.093
-  // now ≈ size * 0.24 for emoji, slightly smaller for multi-letter words
-  const sizeMul = isWords ? 0.18 : 0.26;
+  // ~2× old size, but with dense grid so many items remain visible
+  // old: size * 1.55 * 0.06 ≈ size * 0.093
+  const sizeMul = isWords ? 0.145 : 0.2;
   const baseFontSize = (pattern.size ?? 18) * sizeMul;
-  const baseOpacity = Math.min(0.95, (pattern.opacity ?? 0.45) + 0.28);
+  const baseOpacity = Math.min(0.95, (pattern.opacity ?? 0.45) + 0.25);
 
   return (
     <div
