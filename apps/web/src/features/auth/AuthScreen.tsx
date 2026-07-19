@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import styles from './AuthScreen.module.css';
 
@@ -13,11 +13,54 @@ export function AuthScreen() {
   const setDraftPassword = useAppStore((s) => s.setDraftPassword);
   const register = useAppStore((s) => s.registerWithPassword);
   const login = useAppStore((s) => s.loginWithPassword);
+  const loginWithYandex = useAppStore((s) => s.loginWithYandex);
+  const loginWithVK = useAppStore((s) => s.loginWithVK);
 
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
 
   const isRegister = authMode === 'register';
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      if (accessToken) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        const hasUserId = params.has('user_id');
+        if (hasUserId) {
+          loginWithVK(accessToken);
+        } else {
+          loginWithYandex(accessToken);
+        }
+      }
+    }
+  }, [loginWithVK, loginWithYandex]);
+
+  const handleYandexLogin = () => {
+    const clientId = import.meta.env.VITE_YANDEX_CLIENT_ID;
+    if (!clientId) {
+      const mockToken = `mock_yandex_${Math.random().toString(36).substring(2, 10)}`;
+      loginWithYandex(mockToken);
+    } else {
+      const redirectUri = window.location.origin;
+      const url = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      window.location.href = url;
+    }
+  };
+
+  const handleVKLogin = () => {
+    const clientId = import.meta.env.VITE_VK_CLIENT_ID;
+    if (!clientId) {
+      const mockToken = `mock_vk_${Math.random().toString(36).substring(2, 10)}`;
+      loginWithVK(mockToken);
+    } else {
+      const redirectUri = window.location.origin;
+      const url = `https://oauth.vk.com/authorize?client_id=${clientId}&display=page&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&v=5.131`;
+      window.location.href = url;
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +173,31 @@ export function AuthScreen() {
                 : 'Войти'}
           </button>
         </form>
+
+        <div className={styles.divider}>
+          <span>или</span>
+        </div>
+
+        <div className={styles.oauthButtons}>
+          <button
+            type="button"
+            className={styles.yandexBtn}
+            onClick={handleYandexLogin}
+            disabled={loading}
+          >
+            <span className={styles.yandexIcon}>Я</span>
+            Войти через Яндекс ID
+          </button>
+          <button
+            type="button"
+            className={styles.vkBtn}
+            onClick={handleVKLogin}
+            disabled={loading}
+          >
+            <span className={styles.vkIcon}>VK</span>
+            Войти через VK ID
+          </button>
+        </div>
       </div>
     </div>
   );

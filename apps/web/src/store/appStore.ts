@@ -417,6 +417,8 @@ interface AppState {
   setAuthMode: (m: 'login' | 'register') => void;
   registerWithPassword: () => Promise<void>;
   loginWithPassword: () => Promise<void>;
+  loginWithYandex: (token: string) => Promise<void>;
+  loginWithVK: (token: string) => Promise<void>;
   submitPhone: () => Promise<void>;
   submitOtp: (code: string) => Promise<void>;
   bypassOtp: (phone: string) => Promise<void>;
@@ -685,6 +687,47 @@ export const useAppStore = create<AppState>()(
           get().showToast(err.message || 'Неверные данные');
         }
       },
+
+      loginWithYandex: async (socialToken: string) => {
+        get().showToast('Авторизация через Яндекс...');
+        try {
+          const res = await fetchApi('/auth/yandex', {
+            method: 'POST',
+            body: JSON.stringify({ access_token: socialToken }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'done',
+            isAuthenticated: true,
+            mainTab: 'chats',
+          });
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка авторизации Яндекс');
+        }
+      },
+
+      loginWithVK: async (socialToken: string) => {
+        get().showToast('Авторизация через VK...');
+        try {
+          const res = await fetchApi('/auth/vk', {
+            method: 'POST',
+            body: JSON.stringify({ access_token: socialToken }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'done',
+            isAuthenticated: true,
+            mainTab: 'chats',
+          });
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка авторизации VK');
+        }
+      },
+
 
       submitPhone: async () => {
         const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
