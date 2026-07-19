@@ -407,7 +407,8 @@
 }
 
 .mine .bubbleMeta {
-  color: var(--bubble-mine-meta);
+  /* was ~0.45 black — too faint for ticks */
+  color: rgba(10, 10, 10, 0.72);
 }
 
 /* Compact read receipts — two tight ticks, not "✓✓" text */
@@ -416,15 +417,16 @@
   align-items: center;
   gap: 1px;
   margin-left: 2px;
-  opacity: 0.75;
+  opacity: 0.92;
+  color: rgba(10, 10, 10, 0.72);
 }
 
 .checkmarks i {
   display: block;
-  width: 7px;
-  height: 4px;
-  border-left: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  width: 8px;
+  height: 4.5px;
+  border-left: 1.75px solid currentColor;
+  border-bottom: 1.75px solid currentColor;
   transform: rotate(-45deg);
   margin-top: -1px;
 }
@@ -435,10 +437,15 @@
 
 .checkmarks.read {
   opacity: 1;
+  color: rgba(10, 10, 10, 0.92);
+}
+
+.mine .checkmarks {
+  color: rgba(10, 10, 10, 0.78);
 }
 
 .mine .checkmarks.read {
-  color: rgba(10, 10, 10, 0.75);
+  color: rgba(10, 10, 10, 0.95);
 }
 
 .retry {

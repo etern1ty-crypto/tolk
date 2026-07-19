@@ -38,70 +38,93 @@ export function GlobalMediaPlayer() {
 
   useEffect(() => {
     if (!activeMediaId) {
-       mediaRef.current?.pause();
-       mediaRef.current = null;
-       setPlaying(false);
-       return;
-    }
-
-    const media = document.querySelector(`[data-media-id="${activeMediaId}"]`) as HTMLMediaElement;
-    if (!media) {
-      setActiveMediaId(null);
+      mediaRef.current?.pause();
+      mediaRef.current = null;
+      setPlaying(false);
       return;
     }
-    
-    mediaRef.current = media;
-    
-    // Auto-play when active
-    media.play().catch(() => {});
-    setPlaying(!media.paused);
-    setDuration(media.duration || 0);
 
-    const updateLoop = () => {
-      setCurrentTime(media.currentTime);
-      setProgress(media.duration ? media.currentTime / media.duration : 0);
-      frameRef.current = requestAnimationFrame(updateLoop);
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    const bind = (el: HTMLMediaElement) => {
+      mediaRef.current = el;
+      if (el.paused) el.play().catch(() => {});
+      setPlaying(!el.paused);
+      setDuration(el.duration || 0);
+
+      const updateLoop = () => {
+        const m = mediaRef.current;
+        if (!m) return;
+        setCurrentTime(m.currentTime);
+        setProgress(m.duration ? m.currentTime / m.duration : 0);
+        frameRef.current = requestAnimationFrame(updateLoop);
+      };
+
+      const onEnded = () => {
+        setPlaying(false);
+        setProgress(0);
+        setCurrentTime(0);
+        if (currentIndex < mediaMessages.length - 1 && currentIndex !== -1) {
+          const next = mediaMessages[currentIndex + 1];
+          if (next) setActiveMediaId(next.id);
+        }
+      };
+      const onPlay = () => {
+        setPlaying(true);
+        frameRef.current = requestAnimationFrame(updateLoop);
+      };
+      const onPause = () => {
+        setPlaying(false);
+        if (frameRef.current) cancelAnimationFrame(frameRef.current);
+      };
+      const onDuration = () => setDuration(el.duration || 0);
+
+      el.addEventListener('ended', onEnded);
+      el.addEventListener('play', onPlay);
+      el.addEventListener('pause', onPause);
+      el.addEventListener('durationchange', onDuration);
+
+      if (!el.paused) frameRef.current = requestAnimationFrame(updateLoop);
+
+      return () => {
+        if (frameRef.current) cancelAnimationFrame(frameRef.current);
+        el.removeEventListener('ended', onEnded);
+        el.removeEventListener('play', onPlay);
+        el.removeEventListener('pause', onPause);
+        el.removeEventListener('durationchange', onDuration);
+      };
     };
 
-    const onEnded = () => {
-      setPlaying(false);
-      setProgress(0);
-      setCurrentTime(0);
-      // Auto-advance to next media if exists!
-      if (currentIndex < mediaMessages.length - 1 && currentIndex !== -1) {
-        const next = mediaMessages[currentIndex + 1];
-        setActiveMediaId(next.id);
-      }
-    };
-    const onPlay = () => {
-      setPlaying(true);
-      frameRef.current = requestAnimationFrame(updateLoop);
-    };
-    const onPause = () => {
-      setPlaying(false);
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-    const onDuration = () => setDuration(media.duration);
+    const found = document.querySelector(
+      `[data-media-id="${activeMediaId}"]`
+    ) as HTMLMediaElement | null;
 
-    media.addEventListener('ended', onEnded);
-    media.addEventListener('play', onPlay);
-    media.addEventListener('pause', onPause);
-    media.addEventListener('durationchange', onDuration);
-
-    if (!media.paused) {
-      frameRef.current = requestAnimationFrame(updateLoop);
+    if (found) {
+      cleanup = bind(found);
     } else {
-      updateLoop(); // run once to init
-      cancelAnimationFrame(frameRef.current!);
+      // Voice audio may mount a tick later
+      const t = window.setTimeout(() => {
+        if (cancelled) return;
+        const later = document.querySelector(
+          `[data-media-id="${activeMediaId}"]`
+        ) as HTMLMediaElement | null;
+        if (!later) {
+          setActiveMediaId(null);
+          return;
+        }
+        cleanup = bind(later);
+      }, 50);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(t);
+        cleanup?.();
+      };
     }
 
     return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-      media.removeEventListener('ended', onEnded);
-      media.removeEventListener('play', onPlay);
-      media.removeEventListener('pause', onPause);
-      media.removeEventListener('durationchange', onDuration);
-      media.pause(); // Stop when unmounted/swapped
+      cancelled = true;
+      cleanup?.();
     };
   }, [activeMediaId, setActiveMediaId, currentIndex, mediaMessages]);
 

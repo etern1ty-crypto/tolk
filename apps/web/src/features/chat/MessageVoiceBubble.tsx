@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
+import { useAppStore } from '../../store/appStore';
 import styles from './MessageVoiceBubble.module.css';
 import { iconProps } from '../../shared/ui/icons';
 
 interface VoicePlayerProps {
   src: string;
   durationSec?: number;
-  /** seed for deterministic Tolk waveform (message id) */
   seed?: string;
+  messageId?: string;
+  /** mine bubble = light bg → dark ink */
+  mine?: boolean;
 }
 
 function formatTime(sec: number) {
@@ -16,7 +19,6 @@ function formatTime(sec: number) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** Deterministic PRNG for unique-but-stable wave shapes per message */
 function mulberry32(a: number) {
   return () => {
     let t = (a += 0x6d2b79f5);
@@ -35,12 +37,17 @@ function hashSeed(s: string) {
   return h >>> 0;
 }
 
-/**
- * Tolk voice bubble — monochrome “ink bars” waveform (not Telegram-style).
- * Bars breathe while playing; progress lights bars left→right.
- */
-export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerProps) {
+/** Tolk voice — ink bars; contrast-safe for mine/theirs bubbles */
+export function VoicePlayer({
+  src,
+  durationSec = 0,
+  seed = src,
+  messageId,
+  mine = false,
+}: VoicePlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const setActiveMediaId = useAppStore((s) => s.setActiveMediaId);
+  const activeMediaId = useAppStore((s) => s.activeMediaId);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(durationSec);
@@ -51,7 +58,6 @@ export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerPro
     const n = 36;
     const out: number[] = [];
     for (let i = 0; i < n; i++) {
-      // Envelope: quieter at ends, richer mid — “ink stroke”
       const t = i / (n - 1);
       const envelope = 0.35 + 0.65 * Math.sin(Math.PI * t);
       const noise = 0.45 + rng() * 0.55;
@@ -71,9 +77,7 @@ export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerPro
       }
     };
     const onDurationChange = () => {
-      if (audio.duration && isFinite(audio.duration)) {
-        setDuration(audio.duration);
-      }
+      if (audio.duration && isFinite(audio.duration)) setDuration(audio.duration);
     };
     const onEnded = () => {
       setPlaying(false);
@@ -98,19 +102,29 @@ export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerPro
     };
   }, []);
 
+  // Pause when another media becomes global active
+  useEffect(() => {
+    if (!messageId || !activeMediaId || activeMediaId === messageId) return;
+    const audio = audioRef.current;
+    if (audio && !audio.paused) audio.pause();
+  }, [activeMediaId, messageId]);
+
   const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio) return;
-    if (playing) audio.pause();
-    else void audio.play();
+    if (!audio || !src) return;
+    if (playing) {
+      audio.pause();
+    } else {
+      if (messageId) setActiveMediaId(messageId);
+      void audio.play();
+    }
   };
 
-  const onScrub = (e: React.MouseEvent<HTMLDivElement> | React.PointerEvent<HTMLDivElement>) => {
+  const onScrub = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const clientX = 'clientX' in e ? e.clientX : 0;
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     audio.currentTime = ratio * audio.duration;
     setProgress(ratio);
   };
@@ -118,8 +132,17 @@ export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerPro
   const displayDuration = playing || current > 0 ? current : duration;
 
   return (
-    <div className={`${styles.player} ${playing ? styles.playing : ''}`}>
-      {src ? <audio ref={audioRef} src={src} preload="metadata" /> : null}
+    <div
+      className={`${styles.player} ${playing ? styles.playing : ''} ${mine ? styles.mine : styles.theirs}`}
+    >
+      {src ? (
+        <audio
+          ref={audioRef}
+          src={src}
+          preload="metadata"
+          data-media-id={messageId || undefined}
+        />
+      ) : null}
 
       <button
         type="button"
@@ -135,7 +158,12 @@ export function VoicePlayer({ src, durationSec = 0, seed = src }: VoicePlayerPro
         )}
       </button>
 
-      <div className={styles.track} onClick={onScrub} role="slider" aria-valuenow={Math.round(progress * 100)}>
+      <div
+        className={styles.track}
+        onClick={onScrub}
+        role="slider"
+        aria-valuenow={Math.round(progress * 100)}
+      >
         <div className={styles.bars} aria-hidden>
           {bars.map((h, i) => {
             const filled = progress > 0 && i / bars.length <= progress;

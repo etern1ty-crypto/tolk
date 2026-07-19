@@ -773,16 +773,15 @@ export function ChatPanel() {
                     </div>
                   )}
                   {m.isEcho && <span className={styles.echoTag}>Echo</span>}
-                  {m.kind === 'voice' &&
-                    (m.media?.url ? (
-                      <VoicePlayer
-                        src={m.media.url}
-                        durationSec={m.media.durationSec ?? m.durationSec}
-                        seed={m.id}
-                      />
-                    ) : (
-                      <VoicePlayer src="" durationSec={m.durationSec} seed={m.id} />
-                    ))}
+                  {m.kind === 'voice' && (
+                    <VoicePlayer
+                      src={m.media?.url || ''}
+                      durationSec={m.media?.durationSec ?? m.durationSec}
+                      seed={m.id}
+                      messageId={m.id}
+                      mine={mine}
+                    />
+                  )}
                   {m.kind === 'circle' && (
                     m.media?.url ? (
                       <div
