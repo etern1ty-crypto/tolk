@@ -388,7 +388,7 @@ export function ChatPanel() {
                 body: JSON.stringify({
                   mime: file.type || 'audio/webm',
                   size: file.size,
-                  kind: 'file'
+                  kind: 'voice'
                 })
               }, token);
 
@@ -396,7 +396,8 @@ export function ChatPanel() {
                 method: 'PUT',
                 body: file,
                 headers: {
-                  'Content-Type': file.type || 'audio/webm'
+                  'Content-Type': file.type || 'audio/webm',
+                  Authorization: `Bearer ${token}`,
                 }
               });
 

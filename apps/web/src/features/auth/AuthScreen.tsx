@@ -261,12 +261,12 @@ export function AuthScreen() {
                   id="password"
                   className={`${styles.input} ${styles.pwInput}`}
                   type={showPw ? 'text' : 'password'}
-                  placeholder={isRegister ? 'Минимум 6 символов' : '••••••'}
+                  placeholder={isRegister ? 'Минимум 8 символов' : '••••••'}
                   value={draftPassword}
                   onChange={(e) => setDraftPassword(e.target.value)}
                   autoComplete={isRegister ? 'new-password' : 'current-password'}
                   required
-                  minLength={isRegister ? 6 : 1}
+                  minLength={isRegister ? 8 : 1}
                 />
                 <button
                   type="button"

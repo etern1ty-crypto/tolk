@@ -138,7 +138,8 @@ export function ProfileTab() {
           method: 'PUT',
           body: file,
           headers: {
-            'Content-Type': file.type || 'image/jpeg'
+            'Content-Type': file.type || 'image/jpeg',
+            Authorization: `Bearer ${token}`,
           }
         });
 
@@ -594,7 +595,10 @@ export function ProfileTab() {
                     const put = await fetch(uploadRes.upload_url, {
                       method: 'PUT',
                       body: file,
-                      headers: { 'Content-Type': file.type || 'image/jpeg' },
+                      headers: {
+                        'Content-Type': file.type || 'image/jpeg',
+                        Authorization: `Bearer ${token}`,
+                      },
                     });
                     if (!put.ok) throw new Error('upload failed');
                     await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);

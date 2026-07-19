@@ -708,8 +708,8 @@ export const useAppStore = create<AppState>()(
           get().showToast('Username: 3–30, латиница, цифры, _');
           return;
         }
-        if (password.length < 6) {
-          get().showToast('Пароль не короче 6 символов');
+        if (password.length < 8) {
+          get().showToast('Пароль не короче 8 символов');
           return;
         }
         try {
@@ -1596,7 +1596,13 @@ export const useAppStore = create<AppState>()(
           body: JSON.stringify({
             mime: processedFile.type || 'application/octet-stream',
             size: processedFile.size,
-            kind: kind === 'media' ? 'image' : 'file'
+            kind: processedFile.type.startsWith('image/')
+              ? 'image'
+              : processedFile.type.startsWith('audio/')
+                ? 'voice'
+                : processedFile.type.startsWith('video/')
+                  ? 'circle'
+                  : 'file',
           })
         }, token);
 
@@ -1604,7 +1610,8 @@ export const useAppStore = create<AppState>()(
           method: 'PUT',
           body: processedFile,
           headers: {
-            'Content-Type': processedFile.type || 'application/octet-stream'
+            'Content-Type': processedFile.type || 'application/octet-stream',
+            Authorization: `Bearer ${token}`,
           }
         });
 
@@ -1914,7 +1921,8 @@ export const useAppStore = create<AppState>()(
           method: 'PUT',
           body: opts.photoFile,
           headers: {
-            'Content-Type': opts.photoFile.type
+            'Content-Type': opts.photoFile.type,
+            Authorization: `Bearer ${token}`,
           }
         });
 

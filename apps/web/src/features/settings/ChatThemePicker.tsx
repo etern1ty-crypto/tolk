@@ -68,7 +68,10 @@ export function ChatThemePicker({
         await fetch(uploadRes.upload_url, {
           method: 'PUT',
           body: compressed,
-          headers: { 'Content-Type': 'image/webp' },
+          headers: {
+            'Content-Type': 'image/webp',
+            Authorization: `Bearer ${token}`,
+          },
         });
         await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
         setGlobalCustomWallpaper(uploadRes.public_url);

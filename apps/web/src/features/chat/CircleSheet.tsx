@@ -152,7 +152,7 @@ export function CircleSheet() {
               body: JSON.stringify({
                 mime: file.type || 'video/webm',
                 size: file.size,
-                kind: 'file'
+                kind: 'circle'
               })
             }, token);
 
@@ -160,7 +160,8 @@ export function CircleSheet() {
               method: 'PUT',
               body: file,
               headers: {
-                'Content-Type': file.type || 'video/webm'
+                'Content-Type': file.type || 'video/webm',
+                Authorization: `Bearer ${token}`,
               }
             });
 
