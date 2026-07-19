@@ -413,12 +413,21 @@ interface AppState {
   setDraftPassword: (v: string) => void;
   draftUsername: string;
   draftPassword: string;
-  authMode: 'login' | 'register';
-  setAuthMode: (m: 'login' | 'register') => void;
+  authMode: 'login' | 'register' | 'social_profile';
+  setAuthMode: (m: 'login' | 'register' | 'social_profile') => void;
+  socialPending: {
+    claim: string;
+    provider: 'yandex' | 'vk';
+    suggestedDisplayName: string;
+    suggestedUsername: string;
+    avatarRef?: string;
+  } | null;
   registerWithPassword: () => Promise<void>;
   loginWithPassword: () => Promise<void>;
   loginWithYandex: (token: string) => Promise<void>;
   loginWithVK: (token: string) => Promise<void>;
+  completeSocialProfile: () => Promise<void>;
+  cancelSocialProfile: () => void;
   submitPhone: () => Promise<void>;
   submitOtp: (code: string) => Promise<void>;
   bypassOtp: (phone: string) => Promise<void>;
@@ -614,6 +623,7 @@ export const useAppStore = create<AppState>()(
       draftUsername: '',
       draftPassword: '',
       authMode: 'login' as const,
+      socialPending: null,
 
       reactionEmojis: REACTION_SET,
 
@@ -634,16 +644,28 @@ export const useAppStore = create<AppState>()(
       setDraftName: (v) => set({ draftName: v }),
       setDraftUsername: (v) => set({ draftUsername: v }),
       setDraftPassword: (v) => set({ draftPassword: v }),
-      setAuthMode: (m) => set({ authMode: m }),
+      setAuthMode: (m) =>
+        set({
+          authMode: m,
+          socialPending: m === 'social_profile' ? get().socialPending : null,
+        }),
+
       registerWithPassword: async () => {
-        const username = get().draftUsername.trim();
+        const username = get().draftUsername.trim().toLowerCase();
         const firstName = get().draftName.trim();
-        const password = get().draftPassword.trim();
+        const password = get().draftPassword;
         if (!username || !firstName || !password) {
           get().showToast('Заполните все поля');
           return;
         }
-        get().showToast('Создаём аккаунт...');
+        if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+          get().showToast('Username: 3–30, латиница, цифры, _');
+          return;
+        }
+        if (password.length < 6) {
+          get().showToast('Пароль не короче 6 символов');
+          return;
+        }
         try {
           const res = await fetchApi('/auth/register', {
             method: 'POST',
@@ -655,21 +677,23 @@ export const useAppStore = create<AppState>()(
             authStep: 'done',
             isAuthenticated: true,
             mainTab: 'chats',
+            socialPending: null,
+            draftPassword: '',
           });
           await get().initApi();
         } catch (err: any) {
           get().showToast(err.message || 'Ошибка регистрации');
+          throw err;
         }
       },
 
       loginWithPassword: async () => {
-        const username = get().draftUsername.trim();
-        const password = get().draftPassword.trim();
+        const username = get().draftUsername.trim().toLowerCase();
+        const password = get().draftPassword;
         if (!username || !password) {
           get().showToast('Введите имя пользователя и пароль');
           return;
         }
-        get().showToast('Входим...');
         try {
           const res = await fetchApi('/auth/login', {
             method: 'POST',
@@ -681,53 +705,151 @@ export const useAppStore = create<AppState>()(
             authStep: 'done',
             isAuthenticated: true,
             mainTab: 'chats',
+            socialPending: null,
+            draftPassword: '',
           });
           await get().initApi();
         } catch (err: any) {
           get().showToast(err.message || 'Неверные данные');
+          throw err;
         }
       },
 
       loginWithYandex: async (socialToken: string) => {
-        get().showToast('Авторизация через Яндекс...');
         try {
           const res = await fetchApi('/auth/yandex', {
             method: 'POST',
             body: JSON.stringify({ access_token: socialToken }),
           });
+          if (res?.status === 'needs_profile' && res.claim) {
+            set({
+              authMode: 'social_profile',
+              socialPending: {
+                claim: res.claim,
+                provider: 'yandex',
+                suggestedDisplayName: res.suggestedDisplayName || '',
+                suggestedUsername: res.suggestedUsername || '',
+                avatarRef: res.avatarRef,
+              },
+              draftName: res.suggestedDisplayName || '',
+              draftUsername: res.suggestedUsername || '',
+              draftPassword: '',
+            });
+            get().showToast('Выберите имя и username');
+            return;
+          }
+          if (!res?.access_token || !res?.user) {
+            throw new Error('Некорректный ответ сервера');
+          }
           set({
             token: res.access_token,
             me: res.user,
             authStep: 'done',
             isAuthenticated: true,
             mainTab: 'chats',
+            socialPending: null,
+            authMode: 'login',
           });
           await get().initApi();
         } catch (err: any) {
-          get().showToast(err.message || 'Ошибка авторизации Яндекс');
+          get().showToast(err.message || 'Ошибка входа через Яндекс');
+          throw err;
         }
       },
 
       loginWithVK: async (socialToken: string) => {
-        get().showToast('Авторизация через VK...');
         try {
           const res = await fetchApi('/auth/vk', {
             method: 'POST',
             body: JSON.stringify({ access_token: socialToken }),
           });
+          if (res?.status === 'needs_profile' && res.claim) {
+            set({
+              authMode: 'social_profile',
+              socialPending: {
+                claim: res.claim,
+                provider: 'vk',
+                suggestedDisplayName: res.suggestedDisplayName || '',
+                suggestedUsername: res.suggestedUsername || '',
+                avatarRef: res.avatarRef,
+              },
+              draftName: res.suggestedDisplayName || '',
+              draftUsername: res.suggestedUsername || '',
+              draftPassword: '',
+            });
+            get().showToast('Выберите имя и username');
+            return;
+          }
+          if (!res?.access_token || !res?.user) {
+            throw new Error('Некорректный ответ сервера');
+          }
           set({
             token: res.access_token,
             me: res.user,
             authStep: 'done',
             isAuthenticated: true,
             mainTab: 'chats',
+            socialPending: null,
+            authMode: 'login',
           });
           await get().initApi();
         } catch (err: any) {
-          get().showToast(err.message || 'Ошибка авторизации VK');
+          get().showToast(err.message || 'Ошибка входа через VK');
+          throw err;
         }
       },
 
+      completeSocialProfile: async () => {
+        const pending = get().socialPending;
+        if (!pending?.claim) {
+          get().showToast('Сессия входа не найдена — войдите снова');
+          set({ authMode: 'login', socialPending: null });
+          return;
+        }
+        const username = get().draftUsername.trim().toLowerCase();
+        const displayName = get().draftName.trim();
+        if (!displayName) {
+          get().showToast('Укажите, как вас зовут');
+          return;
+        }
+        if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+          get().showToast('Username: 3–30, латиница, цифры, _');
+          return;
+        }
+        try {
+          const res = await fetchApi('/auth/social/complete', {
+            method: 'POST',
+            body: JSON.stringify({
+              claim: pending.claim,
+              username,
+              displayName,
+            }),
+          });
+          set({
+            token: res.access_token,
+            me: res.user,
+            authStep: 'done',
+            isAuthenticated: true,
+            mainTab: 'chats',
+            socialPending: null,
+            authMode: 'login',
+            draftPassword: '',
+          });
+          await get().initApi();
+        } catch (err: any) {
+          get().showToast(err.message || 'Не удалось создать аккаунт');
+          throw err;
+        }
+      },
+
+      cancelSocialProfile: () => {
+        set({
+          authMode: 'login',
+          socialPending: null,
+          draftName: '',
+          draftUsername: '',
+        });
+      },
 
       submitPhone: async () => {
         const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
@@ -824,8 +946,12 @@ export const useAppStore = create<AppState>()(
           token: null,
           isAuthenticated: false,
           authStep: 'phone',
+          authMode: 'login',
+          socialPending: null,
           draftPhone: '',
           draftName: '',
+          draftUsername: '',
+          draftPassword: '',
           activeChatId: null,
           mainTab: 'chats',
           settingsRoute: null,
