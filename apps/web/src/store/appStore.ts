@@ -6,7 +6,12 @@ import {
   ME,
   USERS,
 } from '../mocks/fixtures';
-import { BANNER_PATTERNS, CHAT_THEMES } from '../shared/patterns';
+import {
+  BANNER_PATTERNS,
+  CHAT_THEMES,
+  DEFAULT_CHAT_THEME_ID,
+  resolveChatThemeId,
+} from '../shared/patterns';
 import { soundEffects } from '../shared/soundEffects';
 import type {
   AuthStep,
@@ -434,6 +439,20 @@ interface AppState {
   joinChat: (chatId: string) => Promise<void>;
   joinByShareSlug: (slug: string) => Promise<void>;
   leaveChat: (chatId: string) => Promise<void>;
+  /** View public channel without adding to chat list until subscribe */
+  openChannelPreview: (chatId: string) => Promise<void>;
+  /** Ephemeral channel card while browsing before subscribe — not in list */
+  previewChat: Chat | null;
+  privacyPrefs: {
+    showLastSeen: boolean;
+    showOnline: boolean;
+    wallPublic: boolean;
+    allowMessagesFrom: 'everyone' | 'contacts';
+  };
+  setPrivacyPref: <K extends keyof AppState['privacyPrefs']>(
+    key: K,
+    value: AppState['privacyPrefs'][K]
+  ) => void;
   updateChatMeta: (
     chatId: string,
     patch: { title?: string; description?: string; is_public?: boolean; avatar_ref?: string | null }
@@ -572,9 +591,16 @@ export const useAppStore = create<AppState>()(
       shelfOpen: false,
       newChatOpen: false,
       chatInfoOpen: false,
+      previewChat: null,
       notifications: [],
       notificationsUnread: 0,
       seenNotificationKeys: [],
+      privacyPrefs: {
+        showLastSeen: true,
+        showOnline: true,
+        wallPublic: true,
+        allowMessagesFrom: 'everyone',
+      },
       replyToId: null,
       toast: null,
       wallSeenAt: Date.now() - 1000 * 60 * 60,
@@ -589,7 +615,7 @@ export const useAppStore = create<AppState>()(
 
       reactionEmojis: REACTION_SET,
 
-      globalChatThemeId: 'chat_dots',
+      globalChatThemeId: DEFAULT_CHAT_THEME_ID,
       globalCustomWallpaper: null,
       notificationSound: 'pixel',
       soundVolume: 0.8,
@@ -816,6 +842,9 @@ export const useAppStore = create<AppState>()(
       reactionPicker: null,
       replyToId: null,
       chatInfoOpen: false,
+      // leaving a subscribed chat clears ephemeral preview
+      previewChat:
+        id && get().previewChat?.id === id ? get().previewChat : null,
       chats: get().chats.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
     });
     if (id) {
@@ -971,6 +1000,57 @@ export const useAppStore = create<AppState>()(
   setChatInfoOpen: (v) => set({ chatInfoOpen: v }),
   setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
 
+  openChannelPreview: async (chatId) => {
+    try {
+      const preview = await fetchApi(`/chats/${chatId}/preview`, {}, get().token);
+      if (preview.joined) {
+        set({ previewChat: null });
+        if (!get().chats.some((c) => c.id === preview.id)) {
+          set((s) => ({ chats: [preview, ...s.chats] }));
+        }
+        await get().setActiveChat(chatId);
+        return;
+      }
+      const card: Chat = {
+        id: preview.id,
+        type: preview.type || 'channel',
+        title: preview.title || 'Канал',
+        description: preview.description,
+        isPublic: preview.isPublic,
+        memberCount: preview.memberCount,
+        avatarRef: preview.avatarRef,
+        preview: 'Предпросмотр',
+        unread: 0,
+        timeLabel: '',
+      };
+      set({
+        mainTab: 'chats',
+        activeChatId: chatId,
+        previewChat: card,
+        chatInfoOpen: false,
+      });
+      try {
+        const msgs = await fetchApi(
+          `/chats/${chatId}/messages?limit=100`,
+          {},
+          get().token
+        );
+        const list = Array.isArray(msgs) ? msgs : [];
+        set((s) => ({
+          messages: [
+            ...s.messages.filter((m) => m.chatId !== chatId),
+            ...list,
+          ],
+        }));
+      } catch {
+        /* empty ok */
+      }
+    } catch (err: any) {
+      get().showToast(err.message || 'Не удалось открыть канал');
+      throw err;
+    }
+  },
+
   joinChat: async (chatId) => {
     try {
       const res = await fetchApi(`/chats/${chatId}/join`, { method: 'POST' }, get().token);
@@ -978,22 +1058,26 @@ export const useAppStore = create<AppState>()(
         chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
         activeChatId: res.id,
         mainTab: 'chats',
+        previewChat: null,
       }));
-      get().showToast('Вы вступили');
+      get().showToast('Подписка оформлена');
+      await get().setActiveChat(chatId);
     } catch (err: any) {
-      get().showToast(err.message || 'Не удалось вступить');
+      get().showToast(err.message || 'Не удалось подписаться');
       throw err;
     }
   },
 
   joinByShareSlug: async (slug) => {
     try {
-      const res = await fetchApi(`/share-links/${slug}/join`, { method: 'POST' }, get().token);
-      if (res.id) {
-        const details = await fetchApi(`/chats`, {}, get().token);
-        set({ chats: details });
-        set({ activeChatId: res.id, mainTab: 'chats' });
-        get().showToast('Вы вступили');
+      const link = await fetchApi(`/share-links/${slug}`, {}, get().token);
+      if (link.kind === 'channel' || link.kind === 'group') {
+        await get().openChannelPreview(link.targetId);
+        return;
+      }
+      if (link.kind === 'user') {
+        await get().openUserProfile(link.targetId);
+        return;
       }
     } catch (err: any) {
       get().showToast(err.message || 'Ссылка недействительна');
@@ -1006,14 +1090,20 @@ export const useAppStore = create<AppState>()(
       await fetchApi(`/chats/${chatId}/leave`, { method: 'POST' }, get().token);
       set((s) => ({
         chats: s.chats.filter((c) => c.id !== chatId),
+        previewChat: s.previewChat?.id === chatId ? null : s.previewChat,
         activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
       }));
-      get().showToast('Вы вышли');
+      get().showToast('Вы отписались');
     } catch (err: any) {
-      get().showToast(err.message || 'Ошибка выхода');
+      get().showToast(err.message || 'Ошибка');
       throw err;
     }
   },
+
+  setPrivacyPref: (key, value) =>
+    set((s) => ({
+      privacyPrefs: { ...s.privacyPrefs, [key]: value },
+    })),
 
   updateChatMeta: async (chatId, patch) => {
     try {
@@ -1874,7 +1964,26 @@ export const useAppStore = create<AppState>()(
         defaultReaction: state.defaultReaction,
         notifPrefs: state.notifPrefs,
         seenNotificationKeys: state.seenNotificationKeys,
+        privacyPrefs: state.privacyPrefs,
       }),
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<typeof current>;
+        const chats = Array.isArray(p.chats)
+          ? p.chats.map((c) =>
+              c?.themeId
+                ? { ...c, themeId: resolveChatThemeId(c.themeId) }
+                : c
+            )
+          : current.chats;
+        return {
+          ...current,
+          ...p,
+          chats,
+          globalChatThemeId: resolveChatThemeId(
+            p.globalChatThemeId ?? current.globalChatThemeId
+          ),
+        };
+      },
     }
   )
 );
@@ -1889,4 +1998,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { BANNER_PATTERNS, CHAT_THEMES, REACTION_SET };
+export { BANNER_PATTERNS, CHAT_THEMES, DEFAULT_CHAT_THEME_ID, REACTION_SET };

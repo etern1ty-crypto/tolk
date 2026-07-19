@@ -67,12 +67,16 @@ export function PeerProfile() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className={styles.banner}>
-          <PatternBg
-            pattern={banner}
-            seed={user.id}
-            density="low"
-            className={styles.bannerFill}
-          />
+          {user.bannerRef ? (
+            <img src={user.bannerRef} alt="" className={styles.bannerPhoto} />
+          ) : (
+            <PatternBg
+              pattern={banner}
+              seed={user.id}
+              density="low"
+              className={styles.bannerFill}
+            />
+          )}
           <IconBtn className={styles.close} onClick={closeUserProfile} aria-label="Назад">
             <ArrowLeft size={18} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>

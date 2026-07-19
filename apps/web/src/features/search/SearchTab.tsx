@@ -29,6 +29,7 @@ export function SearchTab() {
   const setMainTab = useAppStore((s) => s.setMainTab);
   const setCommentPostId = useAppStore((s) => s.setCommentPostId);
   const joinChat = useAppStore((s) => s.joinChat);
+  const openChannelPreview = useAppStore((s) => s.openChannelPreview);
 
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
@@ -212,19 +213,33 @@ export function SearchTab() {
                 ))}
                 {discoverChannels.map((c) => (
                   <div key={c.id} className={styles.row}>
-                    <button type="button" className={styles.rowMain} onClick={() => joinChat(c.id)}>
+                    <button
+                      type="button"
+                      className={styles.rowMain}
+                      onClick={() =>
+                        c.joined
+                          ? setActiveChat(c.id)
+                          : void openChannelPreview(c.id)
+                      }
+                    >
                       <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
                       <div className={styles.meta}>
                         <span className={styles.name}>{c.title}</span>
                         <span className={styles.sub}>
-                          канал · {c.memberCount ?? 0} подп.
+                          {c.type === 'group' ? 'группа' : 'канал'} · {c.memberCount ?? 0} подп.
                           {c.description ? ` · ${c.description}` : ''}
                         </span>
                       </div>
                     </button>
-                    <button type="button" className={styles.action} onClick={() => joinChat(c.id)}>
-                      Вступить
-                    </button>
+                    {!c.joined && (
+                      <button
+                        type="button"
+                        className={styles.action}
+                        onClick={() => void joinChat(c.id)}
+                      >
+                        Подписаться
+                      </button>
+                    )}
                   </div>
                 ))}
               </section>

@@ -23,7 +23,6 @@ export function ProfileTab() {
   const posts = useAppStore((s) => s.posts);
   const createPost = useAppStore((s) => s.createPost);
   const deletePost = useAppStore((s) => s.deletePost);
-  const setBannerPattern = useAppStore((s) => s.setBannerPattern);
   const updateMe = useAppStore((s) => s.updateMe);
   const openSettings = useAppStore((s) => s.openSettings);
   const token = useAppStore((s) => s.token);
@@ -37,6 +36,7 @@ export function ProfileTab() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
   const showToast = useAppStore((s) => s.showToast);
@@ -306,7 +306,11 @@ export function ProfileTab() {
   return (
     <div className={styles.root}>
       <div className={styles.banner}>
-        <PatternBg pattern={banner} seed={me.id} density="high" className={styles.bannerFill} />
+        {me.bannerRef ? (
+          <img src={me.bannerRef} alt="" className={styles.bannerPhoto} />
+        ) : (
+          <PatternBg pattern={banner} seed={me.id} density="high" className={styles.bannerFill} />
+        )}
         <div className={styles.bannerLeftActions}>
           <div className={styles.menuWrap}>
             <IconBtn
@@ -349,17 +353,6 @@ export function ProfileTab() {
                           Очистить
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className={styles.notifClose}
-                        aria-label="Закрыть"
-                        onClick={() => {
-                          markNotificationsSeen();
-                          setNotifOpen(false);
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
                     </div>
                   </div>
                   {notifications.length === 0 ? (
@@ -559,15 +552,75 @@ export function ProfileTab() {
                 Готово
               </button>
             </div>
+            <div className={styles.bannerUploadRow}>
+              <button
+                type="button"
+                className={styles.bannerUploadBtn}
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                <ImagePlus size={16} /> Фото на фон
+              </button>
+              {me.bannerRef && (
+                <button
+                  type="button"
+                  className={styles.bannerUploadBtn}
+                  onClick={() => void updateMe({ bannerRef: null as any })}
+                >
+                  Убрать фото
+                </button>
+              )}
+              <input
+                ref={bannerInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  try {
+                    showToast('Загрузка фона…');
+                    const uploadRes = await fetchApi(
+                      '/media/uploads',
+                      {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          mime: file.type || 'image/jpeg',
+                          size: file.size,
+                          kind: 'image',
+                        }),
+                      },
+                      token
+                    );
+                    const put = await fetch(uploadRes.upload_url, {
+                      method: 'PUT',
+                      body: file,
+                      headers: { 'Content-Type': file.type || 'image/jpeg' },
+                    });
+                    if (!put.ok) throw new Error('upload failed');
+                    await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
+                    await updateMe({ bannerRef: uploadRes.public_url });
+                    showToast('Фон обновлён');
+                  } catch (err: any) {
+                    showToast(err.message || 'Ошибка загрузки фона');
+                  }
+                }}
+              />
+            </div>
+            <p className={styles.bannerHint}>или паттерн:</p>
             <div className={styles.swatches}>
               {BANNER_PATTERNS.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   className={
-                    me.bannerPatternId === p.id ? styles.swatchActive : styles.swatch
+                    !me.bannerRef && me.bannerPatternId === p.id
+                      ? styles.swatchActive
+                      : styles.swatch
                   }
-                  onClick={() => setBannerPattern(p.id)}
+                  onClick={() => {
+                    void updateMe({ bannerRef: null as any, bannerPatternId: p.id });
+                  }}
                   aria-label={p.label}
                   title={p.label}
                 >

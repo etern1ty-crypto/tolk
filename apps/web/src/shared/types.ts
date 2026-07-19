@@ -27,6 +27,8 @@ export interface User {
   /** id from BANNER_PATTERNS */
   bannerPatternId: string;
   avatarRef?: string;
+  /** Custom banner photo URL above avatar */
+  bannerRef?: string;
 }
 
 export interface Chat {

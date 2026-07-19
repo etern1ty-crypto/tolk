@@ -55,7 +55,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: '10:42',
     online: true,
     peerId: 'u_2',
-    themeId: 'chat_hearts',
+    themeId: 'ash',
   },
   {
     id: 'c_2',
@@ -66,7 +66,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: 'Вчера',
     pinned: true,
     peerId: 'u_3',
-    themeId: 'chat_mint',
+    themeId: 'ink',
   },
   {
     id: 'c_3',
@@ -77,7 +77,7 @@ export const INITIAL_CHATS: Chat[] = [
     timeLabel: 'Пн',
     muted: true,
     peerId: 'u_4',
-    themeId: 'chat_stars',
+    themeId: 'mono',
   },
 ];
 

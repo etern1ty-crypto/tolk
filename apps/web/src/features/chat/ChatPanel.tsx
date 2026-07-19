@@ -27,6 +27,7 @@ import { IconBtn } from '../../shared/ui/IconBtn';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
+import { ChatThemePicker } from '../settings/ChatThemePicker';
 import styles from './ChatPanel.module.css';
 import { GlobalMediaPlayer } from './GlobalMediaPlayer';
 import { formatLastSeen } from '../profile/PeerProfile';
@@ -137,7 +138,13 @@ export function ChatPanel() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordStartTimeRef = useRef<number>(0);
 
-  const chat = chats.find((c) => c.id === activeChatId);
+  const previewChat = useAppStore((s) => s.previewChat);
+  const joinChat = useAppStore((s) => s.joinChat);
+  const isPreview =
+    !!previewChat &&
+    previewChat.id === activeChatId &&
+    !chats.some((c) => c.id === activeChatId);
+  const chat = chats.find((c) => c.id === activeChatId) || (isPreview ? previewChat : undefined);
   const theme = patternById(CHAT_THEMES, chat?.themeId || globalChatThemeId, CHAT_THEMES[0]!);
   const globalCustomWallpaper = useAppStore((s) => s.globalCustomWallpaper);
   const customWp = chat?.customWallpaperRef || globalCustomWallpaper;
@@ -521,18 +528,6 @@ export function ChatPanel() {
           </div>
         </button>
         <div className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.shelfBtn}
-            onClick={() => setShelfOpen(true)}
-            aria-label="На стену"
-            title="Полка этого чата"
-          >
-            <Bookmark size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-            <span className={styles.shelfLabel}>
-              На стену{shelfCount > 0 ? ` · ${shelfCount}` : ''}
-            </span>
-          </button>
           <IconBtn
             aria-label="Ещё"
             title="Ещё"
@@ -552,6 +547,19 @@ export function ChatPanel() {
               >
                 <Palette size={16} /> Оформление
               </button>
+              {!isPreview && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShelfOpen(true);
+                    setHeaderMenuOpen(false);
+                  }}
+                >
+                  <Bookmark size={16} /> Избранное
+                  {shelfCount > 0 ? ` · ${shelfCount}` : ''}
+                </button>
+              )}
               {(chat.type === 'group' || chat.type === 'channel') && (
                 <button
                   type="button"
@@ -574,27 +582,14 @@ export function ChatPanel() {
       {themeOpen && (
         <div className={styles.themeBar}>
           <span className={styles.themeLabel}>Фон чата</span>
-          <div className={styles.themeRow}>
-            {CHAT_THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={
-                  chat.themeId === t.id || (!chat.themeId && t.id === 'chat_dots')
-                    ? styles.themeActive
-                    : styles.themeChip
-                }
-                onClick={() => {
-                  setChatTheme(chat.id, t.id);
-                  setThemeOpen(false);
-                }}
-                title={t.label}
-              >
-                <PatternBg pattern={t} seed={t.id} density="low" className={styles.themePreview} />
-                <span>{t.label}</span>
-              </button>
-            ))}
-          </div>
+          <ChatThemePicker
+            compact
+            value={chat.themeId || globalChatThemeId}
+            onSelect={(id) => {
+              setChatTheme(chat.id, id);
+              setThemeOpen(false);
+            }}
+          />
         </div>
       )}
 
@@ -942,80 +937,85 @@ export function ChatPanel() {
         </div>
       )}
 
-      <footer className={styles.composer}>
-        {chat.type === 'channel' &&
+      {/* Preview: only Subscribe. Subscribed channel members (non-admin): no footer at all. */}
+      {isPreview ? (
+        <footer className={styles.composer}>
+          <button
+            type="button"
+            className={styles.subscribeBtn}
+            onClick={() => void joinChat(chat.id)}
+          >
+            Подписаться
+          </button>
+        </footer>
+      ) : chat.type === 'channel' &&
         chat.myRole !== 'owner' &&
-        chat.myRole !== 'admin' ? (
-          <div className={styles.channelReadonly}>
-            Только админы публикуют в канале
-          </div>
-        ) : (
-          <>
-        <input
-          type="file"
-          ref={imageInputRef}
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleImageSelect}
-        />
-        <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Галерея">
-          <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-        </IconBtn>
-        <IconBtn onClick={() => setAttachSheetOpen(true)} aria-label="Вложение">
-          <Paperclip size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-        </IconBtn>
-        <input
-          className={styles.input}
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            useAppStore.getState().sendTypingPresence();
-          }}
-          placeholder={replyMsg ? 'Ответ…' : 'Сообщение'}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-        />
-        {text.trim() ? (
-          <IconBtn
-            variant="mint"
-            className={styles.send}
-            onClick={submit}
-            aria-label="Отправить"
-          >
-            <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+        chat.myRole !== 'admin' ? null : (
+        <footer className={styles.composer}>
+          <input
+            type="file"
+            ref={imageInputRef}
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleImageSelect}
+          />
+          <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Галерея">
+            <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
-        ) : (
-          <IconBtn
-            variant="soft"
-            className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''}`}
-            aria-label={
-              recordMode === 'voice'
-                ? 'Голосовое. Нажмите — кружок'
-                : 'Кружок. Нажмите — голосовое'
-            }
-            title={
-              recordMode === 'voice'
-                ? 'Тап — кружок · Удержание — войс'
-                : 'Тап — войс · Удержание — кружок'
-            }
-            onPointerDown={onRecordPointerDown}
-            onPointerUp={onRecordPointerUp}
-            onPointerCancel={onRecordPointerCancel}
-          >
-            {recordMode === 'voice' ? (
-              <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-            ) : (
-              <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-            )}
+          <IconBtn onClick={() => setAttachSheetOpen(true)} aria-label="Вложение">
+            <Paperclip size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
-        )}
-          </>
-        )}
-      </footer>
+          <input
+            className={styles.input}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              useAppStore.getState().sendTypingPresence();
+            }}
+            placeholder={replyMsg ? 'Ответ…' : 'Сообщение'}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+          />
+          {text.trim() ? (
+            <IconBtn
+              variant="mint"
+              className={styles.send}
+              onClick={submit}
+              aria-label="Отправить"
+            >
+              <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+          ) : (
+            <IconBtn
+              variant="soft"
+              className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''}`}
+              aria-label={
+                recordMode === 'voice'
+                  ? 'Голосовое. Нажмите — кружок'
+                  : 'Кружок. Нажмите — голосовое'
+              }
+              title={
+                recordMode === 'voice'
+                  ? 'Тап — кружок · Удержание — войс'
+                  : 'Тап — войс · Удержание — кружок'
+              }
+              onPointerDown={onRecordPointerDown}
+              onPointerUp={onRecordPointerUp}
+              onPointerCancel={onRecordPointerCancel}
+            >
+              {recordMode === 'voice' ? (
+                <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+              ) : (
+                <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+              )}
+            </IconBtn>
+          )}
+        </footer>
+      )}
       </div>
       <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </section>

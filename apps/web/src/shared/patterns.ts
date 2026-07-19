@@ -101,98 +101,133 @@ export const BANNER_PATTERNS: DecorPattern[] = [
   },
 ];
 
+/**
+ * Chat wallpapers — dark monochrome only (Visual Language 2026-07-15).
+ * No mint / neon / colored gradients.
+ */
+export const DEFAULT_CHAT_THEME_ID = 'void';
+
+/** Map pre-redesign ids so old localStorage / fixtures still resolve */
+const LEGACY_CHAT_THEME: Record<string, string> = {
+  chat_dots: 'graphite',
+  chat_mint: 'ink',
+  chat_hearts: 'ash',
+  chat_words: 'tape',
+  chat_stars: 'mono',
+  chat_none: 'void',
+  chat_geo: 'signal',
+  chat_outline: 'mono',
+  chat_minimalist: 'mesh',
+};
+
 export const CHAT_THEMES: DecorPattern[] = [
   {
-    id: 'chat_dots',
-    label: 'Точки',
+    id: 'void',
+    label: 'Пустота',
     kind: 'emoji',
-    base: 'linear-gradient(180deg, #14161c 0%, #1a1e28 100%)',
-    items: ['·', '✦', '·', '∘', '·', '✧'],
-    opacity: 0.35,
-    size: 16,
-    gap: 14,
-  },
-  {
-    id: 'chat_mint',
-    label: 'Мята',
-    kind: 'emoji',
-    base: 'linear-gradient(180deg, #101a16 0%, #162820 100%)',
-    items: ['🌿', '·', '✦', '·', '🍃'],
-    opacity: 0.28,
-    size: 18,
-    gap: 14,
-  },
-  {
-    id: 'chat_hearts',
-    label: 'Сердца',
-    kind: 'emoji',
-    base: 'linear-gradient(180deg, #1a1218 0%, #241820 100%)',
-    items: ['♡', '·', '♡', '·', '✦'],
-    opacity: 0.28,
-    size: 16,
-    gap: 14,
-  },
-  {
-    id: 'chat_words',
-    label: 'Текст',
-    kind: 'words',
-    base: 'linear-gradient(180deg, #141418 0%, #1a1a22 100%)',
-    items: ['привет', 'ок', 'lol', 'да', 'ща', 'толк'],
-    ink: 'rgba(255,255,255,0.1)',
-    size: 12,
-    rotate: -16,
-    gap: 16,
-  },
-  {
-    id: 'chat_stars',
-    label: 'Звёзды',
-    kind: 'emoji',
-    base: 'linear-gradient(180deg, #10121c 0%, #181e32 100%)',
-    items: ['✦', '·', '✧', '·', '⋆', '·'],
-    opacity: 0.32,
-    size: 14,
-    gap: 12,
-  },
-  {
-    id: 'chat_none',
-    label: 'Чисто',
-    kind: 'emoji',
-    base: '#12141a',
+    base: '#000000',
     items: [],
     opacity: 0,
   },
   {
-    id: 'chat_geo',
-    label: 'Геом',
+    id: 'graphite',
+    label: 'Графит',
     kind: 'emoji',
-    base: 'linear-gradient(180deg, #111318 0%, #1c1e28 100%)',
-    items: ['△', '○', '□', '◇', '⬡', '⏣'],
-    ink: 'rgba(255,255,255,0.08)',
-    opacity: 0.6,
-    size: 20,
-    gap: 14,
+    base: 'linear-gradient(180deg, #000000 0%, #0a0a0a 55%, #111111 100%)',
+    items: ['·', '·', '∘', '·'],
+    ink: 'rgba(255,255,255,0.055)',
+    opacity: 0.45,
+    size: 11,
+    gap: 20,
   },
   {
-    id: 'chat_outline',
-    label: 'Контур',
+    id: 'mesh',
+    label: 'Сетка',
     kind: 'emoji',
-    base: 'linear-gradient(180deg, #0e1014 0%, #181c24 100%)',
-    items: ['◠', '◯', '▽', '◁', '▷', '⟡', '⊡'],
-    ink: 'rgba(180,190,255,0.1)',
-    opacity: 0.7,
-    size: 18,
-    gap: 12,
+    base: '#050505',
+    items: ['·', '·', '·', '·', '·'],
+    ink: 'rgba(245,245,245,0.045)',
+    opacity: 0.55,
+    size: 8,
+    gap: 11,
   },
   {
-    id: 'chat_minimalist',
-    label: 'Минимал',
+    id: 'ink',
+    label: 'Чернила',
+    kind: 'words',
+    base: 'linear-gradient(165deg, #000000 0%, #0c0c0c 100%)',
+    items: ['толк', 'echo', '·', 'чисто', 'ok', '·'],
+    ink: 'rgba(245,245,245,0.055)',
+    size: 11,
+    rotate: -14,
+    gap: 18,
+  },
+  {
+    id: 'ash',
+    label: 'Пепел',
     kind: 'emoji',
-    base: 'linear-gradient(180deg, #121316 0%, #17181c 100%)',
-    items: ['✦', '✧', '◇', '◈', '❖', '⋆', '✳', '·'],
-    ink: 'rgba(255,255,255,0.06)',
-    opacity: 0.5,
+    base: 'linear-gradient(180deg, #0a0a0a 0%, #141414 100%)',
+    items: ['·', '—', '·', '·'],
+    ink: 'rgba(255,255,255,0.065)',
+    opacity: 0.42,
+    size: 12,
+    gap: 17,
+  },
+  {
+    id: 'signal',
+    label: 'Сигнал',
+    kind: 'emoji',
+    base: '#000000',
+    items: ['│', '·', '─', '·', '│', '·'],
+    ink: 'rgba(245,245,245,0.065)',
+    opacity: 0.48,
+    size: 13,
+    gap: 22,
+  },
+  {
+    id: 'mono',
+    label: 'Моно',
+    kind: 'emoji',
+    base: 'linear-gradient(160deg, #000000 0%, #111111 100%)',
+    items: ['○', '·', '□', '·', '◇'],
+    ink: 'rgba(255,255,255,0.07)',
+    opacity: 0.42,
+    size: 13,
+    gap: 16,
+  },
+  {
+    id: 'tape',
+    label: 'Лента',
+    kind: 'words',
+    base: '#080808',
+    items: ['написать', '·', 'слушать', '·', 'тихо', '·'],
+    ink: 'rgba(163,163,163,0.11)',
+    size: 11,
+    rotate: -8,
+    gap: 20,
+  },
+  {
+    id: 'lift',
+    label: 'Лифт',
+    kind: 'emoji',
+    base: 'linear-gradient(180deg, #111111 0%, #0a0a0a 45%, #000000 100%)',
+    items: ['·', '·', '∘'],
+    ink: 'rgba(255,255,255,0.04)',
+    opacity: 0.35,
+    size: 11,
+    gap: 24,
+  },
+  {
+    id: 'slash',
+    label: 'Штрих',
+    kind: 'emoji',
+    base: 'linear-gradient(145deg, #000000 0%, #0d0d0d 100%)',
+    items: ['/', '·', '/', '·', '·'],
+    ink: 'rgba(245,245,245,0.05)',
+    opacity: 0.4,
     size: 14,
-    gap: 12,
+    rotate: -28,
+    gap: 18,
   },
 ];
 
@@ -240,41 +275,42 @@ export const MEDIA_PATTERNS: DecorPattern[] = [
   },
 ];
 
-/** Full-page ambient behind shell */
+/** Full-page ambient behind shell (auth) — monochrome */
 export const AMBIENT_PATTERN: DecorPattern = {
   id: 'ambient',
   label: 'ambient',
   kind: 'mixed',
-  base: 'linear-gradient(165deg, #0e1018 0%, #151a28 40%, #1a2238 100%)',
-  items: [
-    'толк',
-    '✦',
-    'свой',
-    '·',
-    'echo',
-    '💬',
-    'чисто',
-    '·',
-    'стена',
-    '✨',
-    'ok',
-    '·',
-    'быстро',
-    '∘',
-  ],
-  ink: 'rgba(255,255,255,0.09)',
+  base: 'linear-gradient(165deg, #000000 0%, #0a0a0a 50%, #111111 100%)',
+  items: ['толк', '·', 'echo', '·', 'чисто', '·', 'ok', '∘'],
+  ink: 'rgba(245,245,245,0.06)',
   opacity: 1,
-  size: 15,
+  size: 14,
   rotate: -12,
-  gap: 20,
+  gap: 22,
 };
+
+export function resolveChatThemeId(id: string | undefined): string {
+  if (!id) return DEFAULT_CHAT_THEME_ID;
+  if (LEGACY_CHAT_THEME[id]) return LEGACY_CHAT_THEME[id]!;
+  if (CHAT_THEMES.some((t) => t.id === id)) return id;
+  return DEFAULT_CHAT_THEME_ID;
+}
 
 export function patternById(
   list: DecorPattern[],
   id: string | undefined,
   fallback = list[0]!
 ): DecorPattern {
-  return list.find((p) => p.id === id) ?? fallback;
+  if (id) {
+    const direct = list.find((p) => p.id === id);
+    if (direct) return direct;
+    const legacy = LEGACY_CHAT_THEME[id];
+    if (legacy) {
+      const mapped = list.find((p) => p.id === legacy);
+      if (mapped) return mapped;
+    }
+  }
+  return fallback;
 }
 
 export function seedHash(s: string): number {

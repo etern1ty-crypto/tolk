@@ -365,6 +365,32 @@
   border: none;
 }
 
+.segRow {
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.seg,
+.segActive {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text-secondary);
+  text-align: center;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.segActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
 .reactionRow {
   display: flex;
   gap: 8px;

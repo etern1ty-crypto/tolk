@@ -1,12 +1,11 @@
-import { Upload, ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
+import { ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useAppStore, CHAT_THEMES, REACTION_SET, fetchApi } from '../../store/appStore';
+import { useAppStore, REACTION_SET, fetchApi } from '../../store/appStore';
 import type { SettingsRoute } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
-import { PatternBg } from '../../shared/ui/PatternBg';
+import { ChatThemePicker } from './ChatThemePicker';
 import styles from './SettingsOverlay.module.css';
-import imageCompression from 'browser-image-compression';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 
@@ -53,6 +52,8 @@ export function SettingsOverlay() {
   const setDefaultReaction = useAppStore((s) => s.setDefaultReaction);
   const notifPrefs = useAppStore((s) => s.notifPrefs);
   const setNotifPref = useAppStore((s) => s.setNotifPref);
+  const privacyPrefs = useAppStore((s) => s.privacyPrefs);
+  const setPrivacyPref = useAppStore((s) => s.setPrivacyPref);
 
   useEffect(() => {
     if (!route) return;
@@ -153,64 +154,14 @@ export function SettingsOverlay() {
               {route === 'chats' && (
                 <div className={styles.stack}>
                   <div className={styles.sectionTitle}>Фон чата по умолчанию</div>
-                  <div className={styles.themeGrid}>
-                    {CHAT_THEMES.map((theme) => (
-                      <button
-                        key={theme.id}
-                        type="button"
-                        className={`${styles.themeCard} ${globalChatThemeId === theme.id ? styles.themeCardActive : ''}`}
-                        onClick={() => setGlobalChatTheme(theme.id)}
-                      >
-                        <PatternBg pattern={theme} seed={theme.id} density="low" className={styles.themePreviewBg} />
-                        <span className={styles.themeLabel}>{theme.label}</span>
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className={`${styles.themeCard} ${useAppStore.getState().globalCustomWallpaper ? styles.themeCardActive : ''}`}
-                      onClick={() => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = 'image/*';
-                        input.onchange = async (e: any) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          try {
-                            const compressed = await imageCompression(file, {
-                              maxSizeMB: 0.5,
-                              maxWidthOrHeight: 1920,
-                              fileType: 'image/webp',
-                              initialQuality: 0.8,
-                            });
-                            const token = useAppStore.getState().token;
-                            const uploadRes = await fetchApi('/media/uploads', {
-                              method: 'POST',
-                              body: JSON.stringify({
-                                mime: 'image/webp',
-                                size: compressed.size,
-                                kind: 'image',
-                              }),
-                            }, token);
-                            await fetch(uploadRes.upload_url, {
-                              method: 'PUT',
-                              body: compressed,
-                              headers: { 'Content-Type': 'image/webp' },
-                            });
-                            await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
-                            useAppStore.getState().setGlobalCustomWallpaper(uploadRes.public_url);
-                          } catch (err) {
-                            useAppStore.getState().showToast('Ошибка загрузки обоев');
-                          }
-                        };
-                        input.click();
-                      }}
-                    >
-                      <div className={styles.themePreviewBg} style={{ background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Upload size={20} />
-                      </div>
-                      <span className={styles.themeLabel}>Своё</span>
-                    </button>
-                  </div>
+                  <p className={styles.note}>
+                    Тёмный monochrome. Можно переопределить в чате: ⋯ → Оформление.
+                  </p>
+                  <ChatThemePicker
+                    value={globalChatThemeId}
+                    onSelect={setGlobalChatTheme}
+                    allowCustom
+                  />
 
                   <div className={styles.divider} />
 
@@ -315,11 +266,18 @@ export function SettingsOverlay() {
               {route === 'appearance' && (
                 <div className={styles.stack}>
                   <div className={styles.sectionTitle}>Тема</div>
-                  <Row label="Режим" value="Тёмная (системная для Толк.)" />
+                  <Row label="Режим" value="Тёмная monochrome" />
+                  <div className={styles.sectionTitle}>Фон чата</div>
                   <p className={styles.note}>
-                    Фон профиля и баннер — на вкладке <strong>Профиль</strong>. Фон чата — в
-                    «Чаты» / ⋯ → Оформление внутри диалога.
+                    По умолчанию для всех диалогов. В чате: ⋯ → Оформление — только этот
+                    диалог. Баннер профиля — во вкладке Профиль.
                   </p>
+                  <ChatThemePicker
+                    value={globalChatThemeId}
+                    onSelect={setGlobalChatTheme}
+                    allowCustom
+                  />
+                  <div className={styles.divider} />
                   <div className={styles.sectionTitle}>Интерфейс</div>
                   <Row label="Иконки" value="lucide · stroke 1.75" />
                   <Row label="Шрифт" value="Inter / system" />
@@ -329,12 +287,61 @@ export function SettingsOverlay() {
               {route === 'privacy' && (
                 <div className={styles.stack}>
                   <div className={styles.sectionTitle}>Видимость</div>
-                  <Row label="Стена" value="Видна подписчикам / в ленте (MVP)" />
-                  <Row label="Last seen" value="Показывается контактам" />
-                  <Row label="Онлайн" value="Зелёная точка в аватаре" />
+                  {(
+                    [
+                      ['wallPublic', 'Стена видна всем'],
+                      ['showLastSeen', 'Показывать last seen'],
+                      ['showOnline', 'Показывать «в сети»'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <div key={key} className={styles.rowFlex}>
+                      <span
+                        className={styles.rowLabel}
+                        style={{
+                          textTransform: 'none',
+                          fontSize: '13px',
+                          color: 'var(--text-primary)',
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={privacyPrefs?.[key] ?? true}
+                          onChange={(e) => setPrivacyPref(key, e.target.checked)}
+                        />
+                        <span className={styles.slider} />
+                      </label>
+                    </div>
+                  ))}
+
+                  <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Кто может писать</div>
+                  <div className={styles.segRow} role="group" aria-label="Кто может писать">
+                    {(
+                      [
+                        ['everyone', 'Все'],
+                        ['contacts', 'Контакты'],
+                      ] as const
+                    ).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={
+                          privacyPrefs?.allowMessagesFrom === val
+                            ? styles.segActive
+                            : styles.seg
+                        }
+                        onClick={() => setPrivacyPref('allowMessagesFrom', val)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <p className={styles.note}>
-                    Гранулярные правила «кто видит last seen / стену» — следующие итерации.
-                    Блокировка и жалобы — через профиль пира (скоро).
+                    Настройки сохраняются на этом устройстве. Блокировка и жалобы — через
+                    профиль собеседника.
                   </p>
                 </div>
               )}

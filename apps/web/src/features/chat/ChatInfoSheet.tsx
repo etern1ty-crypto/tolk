@@ -159,13 +159,15 @@ export function ChatInfoSheet() {
           type="button"
           className={styles.danger}
           onClick={async () => {
-            if (!window.confirm('Покинуть?')) return;
+            const label = chat.type === 'channel' ? 'Отписаться от канала?' : 'Покинуть группу?';
+            if (!window.confirm(label)) return;
             await leaveChat(chat.id);
             setChatInfoOpen(false);
             setActiveChat(null);
           }}
         >
-          <LogOut size={16} /> Выйти
+          <LogOut size={16} />{' '}
+          {chat.type === 'channel' ? 'Отписаться' : 'Выйти'}
         </button>
       </div>
     </div>
