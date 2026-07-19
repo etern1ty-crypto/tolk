@@ -7,12 +7,10 @@ type Props = {
   pattern: DecorPattern;
   seed?: string;
   className?: string;
-  /** denser grid for large banners */
   density?: 'low' | 'mid' | 'high';
   children?: ReactNode;
 };
 
-/** Seeded PRNG — mulberry32 */
 function mulberry32(a: number) {
   return () => {
     let t = (a += 0x6d2b79f5);
@@ -32,8 +30,7 @@ interface ScatteredItem {
 }
 
 /**
- * Large readable glyphs + dense enough scatter so the field is filled
- * (not a single floating label in empty space).
+ * Dense scatter of large glyphs — fills the surface (chat wallpaper / banner).
  */
 export function PatternBg({
   pattern,
@@ -52,45 +49,43 @@ export function PatternBg({
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    // Tight grid in 100×100 viewBox — ~5–8 cells per axis after skips
-    // (earlier 40–64 left only 1–2 visible items)
-    const stepBase = density === 'low' ? 26 : density === 'high' ? 15 : 19;
-    const step = isWords ? stepBase + 5 : stepBase;
-    const skipChance = isWords ? 0.18 : 0.12;
+    // Dense grid in 100×100 viewBox (~8–12 cells per axis)
+    const stepBase = density === 'low' ? 14 : density === 'high' ? 9 : 11;
+    const step = isWords ? stepBase + 3 : stepBase;
+    // Almost no skips — user wants a filled pattern, not sparse dots
+    const skipChance = isWords ? 0.08 : 0.04;
 
-    for (let yCoord = -step * 0.5; yCoord < 105; yCoord += step) {
+    for (let yCoord = -step; yCoord <= 110; yCoord += step) {
       const row = Math.round((yCoord + step) / step);
-      const shift = (row % 2) * (step * 0.45);
+      const shift = (row % 2) * (step * 0.5);
 
-      for (let xCoord = -step * 0.5; xCoord < 105; xCoord += step) {
+      for (let xCoord = -step; xCoord <= 110; xCoord += step) {
         if (rng() < skipChance) continue;
 
-        const jitterX = (rng() - 0.5) * (step * 0.28);
-        const jitterY = (rng() - 0.5) * (step * 0.28);
-
+        const jitterX = (rng() - 0.5) * (step * 0.35);
+        const jitterY = (rng() - 0.5) * (step * 0.35);
         const idx = Math.floor(rng() * pattern.items.length);
-        const rotate = isWords
-          ? -12 + (rng() - 0.5) * 8
-          : -18 + (rng() - 0.5) * 12;
 
         out.push({
           text: pattern.items[idx]!,
           x: xCoord + shift + jitterX,
           y: yCoord + jitterY,
-          rotate,
-          scale: 0.95 + rng() * 0.35,
-          opacity: 0.28 + rng() * 0.32,
+          rotate: isWords
+            ? -10 + (rng() - 0.5) * 8
+            : -16 + (rng() - 0.5) * 14,
+          scale: 0.9 + rng() * 0.4,
+          opacity: 0.3 + rng() * 0.35,
         });
       }
     }
     return out;
   }, [pattern, seed, density, isWords]);
 
-  // ~2× old size, but with dense grid so many items remain visible
-  // old: size * 1.55 * 0.06 ≈ size * 0.093
-  const sizeMul = isWords ? 0.145 : 0.2;
+  // Readable size without killing density
+  // old tiny: size * 0.093 · previous dense attempt ~0.2
+  const sizeMul = isWords ? 0.13 : 0.18;
   const baseFontSize = (pattern.size ?? 18) * sizeMul;
-  const baseOpacity = Math.min(0.95, (pattern.opacity ?? 0.45) + 0.25);
+  const baseOpacity = Math.min(0.96, (pattern.opacity ?? 0.45) + 0.28);
 
   return (
     <div
