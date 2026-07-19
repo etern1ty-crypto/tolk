@@ -128,8 +128,10 @@
 
 .thumb {
   width: 100%;
-  max-height: 140px;
-  object-fit: cover;
+  max-height: min(52vh, 420px);
+  object-fit: contain;
+  object-position: center;
+  background: rgba(0, 0, 0, 0.25);
   border-radius: var(--radius-media);
   margin-bottom: 8px;
   display: block;

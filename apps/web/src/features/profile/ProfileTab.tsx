@@ -461,16 +461,6 @@ export function ProfileTab() {
                     type="button"
                     role="menuitem"
                     onClick={() => {
-                      setIsComposeExpanded(true);
-                      closeMenu();
-                    }}
-                  >
-                    Новый пост
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
                       setPanel('banner');
                       closeMenu();
                     }}

@@ -1,3 +1,73 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.livePreview {
+  position: relative;
+  height: 120px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: #0a0a0a;
+}
+
+.livePattern,
+.liveImg {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.liveBubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 12px 14px 28px;
+  pointer-events: none;
+}
+
+.liveTheirs,
+.liveMine {
+  max-width: 70%;
+  padding: 7px 11px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.liveTheirs {
+  align-self: flex-start;
+  background: rgba(28, 28, 30, 0.92);
+  color: #f5f5f5;
+}
+
+.liveMine {
+  align-self: flex-end;
+  background: rgba(232, 232, 232, 0.95);
+  color: #0a0a0a;
+}
+
+.liveLabel {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -10,17 +80,20 @@
   overflow-x: auto;
   padding: 2px 0 4px;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .card,
 .cardActive {
   position: relative;
-  height: 88px;
+  height: 96px;
+  min-height: 96px;
   border-radius: 14px;
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   padding: 0;
-  background: #000;
+  /* solid fallback so mobile never shows pure black void */
+  background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
   flex-shrink: 0;
 }
 

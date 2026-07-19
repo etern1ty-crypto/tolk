@@ -85,7 +85,7 @@ export function MessageContextMenu() {
         <Copy size={16} /> Копировать
       </button>
       <button type="button" role="menuitem" onClick={() => pinToShelf(msg.id)}>
-        <Bookmark size={16} /> На полку
+        <Bookmark size={16} /> Закрепить
       </button>
       <button
         type="button"

@@ -34,7 +34,7 @@ export function ShelfSheet() {
         </button>
       </header>
       {items.length === 0 ? (
-        <p className={styles.empty}>Пусто. Удержание → «На полку»</p>
+        <p className={styles.empty}>Пусто. Удержание → «Закрепить»</p>
       ) : (
         <ul className={styles.list}>
           {items.map((item) => (

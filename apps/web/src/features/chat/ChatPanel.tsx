@@ -5,7 +5,6 @@ import {
   Mic,
   MoreVertical,
   Palette,
-  Paperclip,
   SendHorizontal,
   X,
   Image as ImageIcon,
@@ -30,6 +29,8 @@ import { iconProps } from '../../shared/ui/icons';
 import { ChatThemePicker } from '../settings/ChatThemePicker';
 import styles from './ChatPanel.module.css';
 import { GlobalMediaPlayer } from './GlobalMediaPlayer';
+import { MediaSendPreview } from './MediaSendPreview';
+import { VoicePlayer } from './MessageVoiceBubble';
 import { formatLastSeen } from '../profile/PeerProfile';
 
 /** How many newest messages stay mounted. Expand on scroll-up. */
@@ -63,7 +64,7 @@ export function ChatPanel() {
   const sendMessage = useAppStore((s) => s.sendMessage);
   const retryMessage = useAppStore((s) => s.retryMessage);
   const setContextMenu = useAppStore((s) => s.setContextMenu);
-  const setAttachSheetOpen = useAppStore((s) => s.setAttachSheetOpen);
+  // attach sheet removed from UI — photo only via gallery button
   const setCircleSheetOpen = useAppStore((s) => s.setCircleSheetOpen);
   const setVoiceRecording = useAppStore((s) => s.setVoiceRecording);
   const setShelfOpen = useAppStore((s) => s.setShelfOpen);
@@ -143,11 +144,15 @@ export function ChatPanel() {
     e.target.value = '';
   };
 
-  const confirmPendingImage = async () => {
+  const confirmPendingImage = async (file?: File, caption?: string) => {
     if (!pendingImage || sendingImage) return;
     setSendingImage(true);
     try {
-      await uploadAttachment(pendingImage.file, 'media', pendingCaption);
+      await uploadAttachment(
+        file || pendingImage.file,
+        'media',
+        caption !== undefined ? caption : pendingCaption
+      );
       URL.revokeObjectURL(pendingImage.preview);
       setPendingImage(null);
       setPendingCaption('');
@@ -768,41 +773,16 @@ export function ChatPanel() {
                     </div>
                   )}
                   {m.isEcho && <span className={styles.echoTag}>Echo</span>}
-                  {m.kind === 'voice' && (
-                    m.media?.url ? (
-                      <div className={styles.voice} onClick={() => useAppStore.getState().setActiveMediaId(m.id)}>
-                        <audio data-media-id={m.id} src={m.media.url} preload="metadata" />
-                        <span className={styles.play}>
-                          <Mic size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-                        </span>
-                        <span className={styles.wave}>
-                          <i /><i /><i /><i /><i /><i /><i /><i />
-                        </span>
-                        <span>
-                          0:{String(m.media.durationSec ?? 0).padStart(2, '0')}
-                        </span>
-                      </div>
+                  {m.kind === 'voice' &&
+                    (m.media?.url ? (
+                      <VoicePlayer
+                        src={m.media.url}
+                        durationSec={m.media.durationSec ?? m.durationSec}
+                        seed={m.id}
+                      />
                     ) : (
-                      <div className={styles.voice}>
-                        <span className={styles.play}>
-                          <Mic size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-                        </span>
-                        <span className={styles.wave}>
-                          <i />
-                          <i />
-                          <i />
-                          <i />
-                          <i />
-                          <i />
-                          <i />
-                          <i />
-                        </span>
-                        <span>
-                          0:{String(m.durationSec ?? 0).padStart(2, '0')}
-                        </span>
-                      </div>
-                    )
-                  )}
+                      <VoicePlayer src="" durationSec={m.durationSec} seed={m.id} />
+                    ))}
                   {m.kind === 'circle' && (
                     m.media?.url ? (
                       <div
@@ -954,38 +934,21 @@ export function ChatPanel() {
       )}
 
       {pendingImage && (
-        <div className={styles.pendingMedia}>
-          <img src={pendingImage.preview} alt="Превью" />
-          <div className={styles.pendingBody}>
-            <input
-              className={styles.pendingCaption}
-              value={pendingCaption}
-              onChange={(e) => setPendingCaption(e.target.value)}
-              placeholder="Подпись (необязательно)"
-              autoFocus
-            />
-            <div className={styles.pendingActions}>
-              <button
-                type="button"
-                onClick={() => {
-                  URL.revokeObjectURL(pendingImage.preview);
-                  setPendingImage(null);
-                  setPendingCaption('');
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                className={styles.pendingSend}
-                disabled={sendingImage}
-                onClick={() => void confirmPendingImage()}
-              >
-                {sendingImage ? '…' : 'Отправить'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MediaSendPreview
+          file={pendingImage.file}
+          previewUrl={pendingImage.preview}
+          caption={pendingCaption}
+          onCaption={setPendingCaption}
+          sending={sendingImage}
+          onCancel={() => {
+            URL.revokeObjectURL(pendingImage.preview);
+            setPendingImage(null);
+            setPendingCaption('');
+          }}
+          onSend={async (file, cap) => {
+            await confirmPendingImage(file, cap);
+          }}
+        />
       )}
 
       {/* Preview: only Subscribe. Subscribed channel members (non-admin): no footer at all. */}
@@ -1010,12 +973,10 @@ export function ChatPanel() {
             style={{ display: 'none' }}
             onChange={handleImageSelect}
           />
-          <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Галерея">
+          <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Фото">
             <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
-          <IconBtn onClick={() => setAttachSheetOpen(true)} aria-label="Вложение">
-            <Paperclip size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
+          {/* File / attach menu removed (YAGNI) — only photo for now */}
           <input
             className={styles.input}
             value={text}

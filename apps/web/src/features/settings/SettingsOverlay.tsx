@@ -42,12 +42,21 @@ export function SettingsOverlay() {
   const globalChatThemeId = useAppStore((s) => s.globalChatThemeId);
   const notificationSound = useAppStore((s) => s.notificationSound);
   const soundVolume = useAppStore((s) => s.soundVolume);
+  const notifVolume = useAppStore((s) => s.notifVolume);
+  const sendVolume = useAppStore((s) => s.sendVolume);
+  const uiTheme = useAppStore((s) => s.uiTheme);
+  const uiFont = useAppStore((s) => s.uiFont);
   const browserNotificationsEnabled = useAppStore((s) => s.browserNotificationsEnabled);
   const defaultReaction = useAppStore((s) => s.defaultReaction);
+  const [mixerOpen, setMixerOpen] = useState(false);
 
   const setGlobalChatTheme = useAppStore((s) => s.setGlobalChatTheme);
   const setNotificationSound = useAppStore((s) => s.setNotificationSound);
   const setSoundVolume = useAppStore((s) => s.setSoundVolume);
+  const setNotifVolume = useAppStore((s) => s.setNotifVolume);
+  const setSendVolume = useAppStore((s) => s.setSendVolume);
+  const setUiTheme = useAppStore((s) => s.setUiTheme);
+  const setUiFont = useAppStore((s) => s.setUiFont);
   const setBrowserNotificationsEnabled = useAppStore((s) => s.setBrowserNotificationsEnabled);
   const setDefaultReaction = useAppStore((s) => s.setDefaultReaction);
   const notifPrefs = useAppStore((s) => s.notifPrefs);
@@ -153,73 +162,121 @@ export function SettingsOverlay() {
 
               {route === 'chats' && (
                 <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Фон чата по умолчанию</div>
+                  <div className={styles.sectionTitle}>Обои чатов</div>
                   <p className={styles.note}>
-                    Тёмный monochrome. Можно переопределить в чате: ⋯ → Оформление.
+                    Фон по умолчанию. Звуковой пак подстраивается под выбранную тему.
+                    В диалоге: ⋯ → Оформление — только этот чат.
                   </p>
                   <ChatThemePicker
                     value={globalChatThemeId}
                     onSelect={setGlobalChatTheme}
                     allowCustom
+                    showLivePreview
                   />
 
                   <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Звуковой пак</div>
+                  <p className={styles.note}>
+                    Отправка + входящие. Меняется с темой чата или вручную.
+                  </p>
+                  <div className={styles.segRow} role="group">
+                    {(
+                      [
+                        ['pixel', 'Ink'],
+                        ['bubble', 'Pulse'],
+                        ['glass', 'Glass'],
+                        ['silent', 'Тихо'],
+                      ] as const
+                    ).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        className={
+                          notificationSound === val ? styles.segActive : styles.seg
+                        }
+                        onClick={() => setNotificationSound(val)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-                  <div className={styles.sectionTitle}>Звуки и уведомления</div>
-                  
+                  <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Громкость</div>
+                  <button
+                    type="button"
+                    className={styles.mixerToggle}
+                    onClick={() => setMixerOpen((v) => !v)}
+                  >
+                    <span>Микшер</span>
+                    <span className={styles.mixerVal}>
+                      {Math.round(soundVolume * 100)}% · {mixerOpen ? '▲' : '▼'}
+                    </span>
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.02"
+                    value={soundVolume}
+                    onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+                    onPointerDown={() => setMixerOpen(true)}
+                    className={styles.volumeSlider}
+                    aria-label="Общая громкость"
+                  />
+                  {mixerOpen && (
+                    <div className={styles.mixerPanel}>
+                      <label className={styles.mixerRow}>
+                        <span>Уведомления на сайте</span>
+                        <em>{Math.round(notifVolume * 100)}</em>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.02"
+                          value={notifVolume}
+                          onChange={(e) => setNotifVolume(parseFloat(e.target.value))}
+                        />
+                      </label>
+                      <label className={styles.mixerRow}>
+                        <span>Звук отправки</span>
+                        <em>{Math.round(sendVolume * 100)}</em>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.02"
+                          value={sendVolume}
+                          onChange={(e) => setSendVolume(parseFloat(e.target.value))}
+                        />
+                      </label>
+                    </div>
+                  )}
+
                   <div className={styles.rowFlex}>
-                    <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
+                    <span
+                      className={styles.rowLabel}
+                      style={{
+                        textTransform: 'none',
+                        fontSize: '13px',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
                       Уведомления в браузере
                     </span>
                     <label className={styles.switch}>
                       <input
                         type="checkbox"
                         checked={browserNotificationsEnabled}
-                        onChange={(e) => setBrowserNotificationsEnabled(e.target.checked)}
+                        onChange={(e) =>
+                          setBrowserNotificationsEnabled(e.target.checked)
+                        }
                       />
                       <span className={styles.slider} />
                     </label>
                   </div>
 
-                  <div className={styles.rowFlex}>
-                    <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
-                      Звук уведомлений
-                    </span>
-                    <select
-                      value={notificationSound}
-                      onChange={(e) => {
-                        const val = e.target.value as 'pixel' | 'bubble' | 'glass' | 'silent';
-                        setNotificationSound(val);
-                      }}
-                      className={styles.select}
-                    >
-                      <option value="pixel">Pixel Chime</option>
-                      <option value="bubble">Bubble Pop</option>
-                      <option value="glass">Glass Tap</option>
-                      <option value="silent">Без звука</option>
-                    </select>
-                  </div>
-
-                  {notificationSound !== 'silent' && (
-                    <div className={styles.row} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                        <span>Громкость звука</span>
-                        <span>{Math.round(soundVolume * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={soundVolume}
-                        onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-                        className={styles.volumeSlider}
-                      />
-                    </div>
-                  )}
-
                   <div className={styles.divider} />
-
                   <div className={styles.sectionTitle}>Реакция по умолчанию</div>
                   <div className={styles.reactionRow}>
                     {REACTION_SET.map((emoji) => (
@@ -245,7 +302,14 @@ export function SettingsOverlay() {
                     ] as const
                   ).map(([key, label]) => (
                     <div key={key} className={styles.rowFlex}>
-                      <span className={styles.rowLabel} style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}>
+                      <span
+                        className={styles.rowLabel}
+                        style={{
+                          textTransform: 'none',
+                          fontSize: '13px',
+                          color: 'var(--text-primary)',
+                        }}
+                      >
                         {label}
                       </span>
                       <label className={styles.switch}>
@@ -265,22 +329,71 @@ export function SettingsOverlay() {
 
               {route === 'appearance' && (
                 <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Тема</div>
-                  <Row label="Режим" value="Тёмная monochrome" />
-                  <div className={styles.sectionTitle}>Фон чата</div>
+                  <div className={styles.sectionTitle}>Тема сайта</div>
                   <p className={styles.note}>
-                    По умолчанию для всех диалогов. В чате: ⋯ → Оформление — только этот
-                    диалог. Баннер профиля — во вкладке Профиль.
+                    Стена, профиль, оболочка. Обоев чата здесь нет — они в «Чаты» и в
+                    ⋯ диалога.
                   </p>
-                  <ChatThemePicker
-                    value={globalChatThemeId}
-                    onSelect={setGlobalChatTheme}
-                    allowCustom
-                  />
+                  <div className={styles.segRow} role="group" aria-label="Тема">
+                    <button
+                      type="button"
+                      className={uiTheme === 'dark' ? styles.segActive : styles.seg}
+                      onClick={() => setUiTheme('dark')}
+                    >
+                      Тёмная
+                    </button>
+                    <button
+                      type="button"
+                      className={uiTheme === 'light' ? styles.segActive : styles.seg}
+                      onClick={() => setUiTheme('light')}
+                    >
+                      Светлая
+                    </button>
+                  </div>
+
                   <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Интерфейс</div>
-                  <Row label="Иконки" value="lucide · stroke 1.75" />
-                  <Row label="Шрифт" value="Inter / system" />
+                  <div className={styles.sectionTitle}>Шрифт интерфейса</div>
+                  <div className={styles.segRow} role="group" aria-label="Шрифт">
+                    {(
+                      [
+                        ['inter', 'Inter'],
+                        ['system', 'System'],
+                        ['serif', 'Serif'],
+                        ['mono', 'Mono'],
+                      ] as const
+                    ).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        className={uiFont === id ? styles.segActive : styles.seg}
+                        onClick={() => setUiFont(id)}
+                        style={{
+                          fontFamily:
+                            id === 'serif'
+                              ? 'Georgia, serif'
+                              : id === 'mono'
+                                ? 'ui-monospace, monospace'
+                                : id === 'system'
+                                  ? 'system-ui, sans-serif'
+                                  : 'Inter, sans-serif',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Палитра Tolk</div>
+                  <p className={styles.note}>
+                    monochrome · accent = белый CTA · иконки lucide stroke 1.75
+                  </p>
+                  <div className={styles.paletteRow}>
+                    <span className={styles.swatch} style={{ background: 'var(--bg-primary)' }} />
+                    <span className={styles.swatch} style={{ background: 'var(--bg-elevated)' }} />
+                    <span className={styles.swatch} style={{ background: 'var(--accent)' }} />
+                    <span className={styles.swatch} style={{ background: 'var(--text-secondary)' }} />
+                  </div>
                 </div>
               )}
 

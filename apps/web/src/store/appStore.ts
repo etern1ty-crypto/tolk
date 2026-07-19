@@ -12,7 +12,7 @@ import {
   DEFAULT_CHAT_THEME_ID,
   resolveChatThemeId,
 } from '../shared/patterns';
-import { soundEffects } from '../shared/soundEffects';
+import { soundEffects, THEME_SOUND_PACK, type SoundPackId } from '../shared/soundEffects';
 import type {
   AuthStep,
   Chat,
@@ -591,8 +591,12 @@ interface AppState {
 
   globalChatThemeId: string;
   globalCustomWallpaper: string | null;
-  notificationSound: 'pixel' | 'bubble' | 'glass' | 'silent';
+  notificationSound: SoundPackId;
   soundVolume: number;
+  notifVolume: number;
+  sendVolume: number;
+  uiTheme: 'dark' | 'light';
+  uiFont: 'inter' | 'system' | 'serif' | 'mono';
   browserNotificationsEnabled: boolean;
   defaultReaction: string;
   notifPrefs: {
@@ -603,8 +607,12 @@ interface AppState {
   };
   setGlobalChatTheme: (themeId: string) => void;
   setGlobalCustomWallpaper: (url: string | null) => void;
-  setNotificationSound: (sound: 'pixel' | 'bubble' | 'glass' | 'silent') => void;
+  setNotificationSound: (sound: SoundPackId) => void;
   setSoundVolume: (volume: number) => void;
+  setNotifVolume: (volume: number) => void;
+  setSendVolume: (volume: number) => void;
+  setUiTheme: (theme: 'dark' | 'light') => void;
+  setUiFont: (font: AppState['uiFont']) => void;
   setBrowserNotificationsEnabled: (enabled: boolean) => Promise<void>;
   setDefaultReaction: (emoji: string) => void;
   setNotifPref: (key: keyof AppState['notifPrefs'], value: boolean) => void;
@@ -675,8 +683,12 @@ export const useAppStore = create<AppState>()(
 
       globalChatThemeId: DEFAULT_CHAT_THEME_ID,
       globalCustomWallpaper: null,
-      notificationSound: 'pixel',
-      soundVolume: 0.8,
+      notificationSound: 'pixel' as SoundPackId,
+      soundVolume: 0.85,
+      notifVolume: 1,
+      sendVolume: 1,
+      uiTheme: 'dark' as const,
+      uiFont: 'inter' as const,
       browserNotificationsEnabled: false,
       defaultReaction: '👍',
       notifPrefs: {
@@ -1503,7 +1515,7 @@ export const useAppStore = create<AppState>()(
     }));
 
     if (!isEcho) {
-      soundEffects.playSent();
+      soundEffects.playSent(get().notificationSound);
     }
   
     if (isEcho) {
@@ -1831,6 +1843,7 @@ export const useAppStore = create<AppState>()(
     if (!msg) return;
     if (get().shelfItems.some((x) => x.messageId === messageId)) {
       set({ contextMenu: null });
+      get().showToast('Уже на полке');
       return;
     }
     const preview =
@@ -1841,6 +1854,10 @@ export const useAppStore = create<AppState>()(
           : msg.kind === 'circle'
             ? 'Кружок'
             : msg.text || 'Сообщение';
+    // Mobile has no side wall column — pin silently with toast
+    const isDesktop =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(min-width: 1024px)').matches;
     set((s) => ({
       shelfItems: [
         {
@@ -1856,8 +1873,10 @@ export const useAppStore = create<AppState>()(
         ...s.shelfItems,
       ],
       contextMenu: null,
-      shelfOpen: true,
+      // Open docked shelf only on desktop; mobile → toast only
+      shelfOpen: isDesktop ? true : s.shelfOpen,
     }));
+    get().showToast('Закреплено');
   },
   removeFromShelf: (shelfId) =>
     set((s) => ({
@@ -2159,7 +2178,15 @@ export const useAppStore = create<AppState>()(
   closeSettings: () => set({ settingsRoute: null }),
   navigateSettings: (route) => set({ settingsRoute: route }),
 
-  setGlobalChatTheme: (themeId) => set({ globalChatThemeId: themeId, globalCustomWallpaper: null }),
+  setGlobalChatTheme: (themeId) => {
+    const pack = THEME_SOUND_PACK[themeId] || get().notificationSound;
+    set({
+      globalChatThemeId: themeId,
+      globalCustomWallpaper: null,
+      notificationSound: pack,
+    });
+    soundEffects.playTheme(pack);
+  },
   setGlobalCustomWallpaper: (url) => set({ globalCustomWallpaper: url }),
   setNotificationSound: (sound) => {
     set({ notificationSound: sound });
@@ -2168,6 +2195,27 @@ export const useAppStore = create<AppState>()(
   setSoundVolume: (volume) => {
     set({ soundVolume: volume });
     soundEffects.volume = volume;
+  },
+  setNotifVolume: (volume) => {
+    set({ notifVolume: volume });
+    soundEffects.notifVolume = volume;
+  },
+  setSendVolume: (volume) => {
+    set({ sendVolume: volume });
+    soundEffects.sendVolume = volume;
+    soundEffects.previewSend(get().notificationSound);
+  },
+  setUiTheme: (theme) => {
+    set({ uiTheme: theme });
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = theme;
+    }
+  },
+  setUiFont: (font) => {
+    set({ uiFont: font });
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.font = font;
+    }
   },
   setBrowserNotificationsEnabled: async (enabled) => {
     if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
@@ -2204,6 +2252,10 @@ export const useAppStore = create<AppState>()(
         globalChatThemeId: state.globalChatThemeId,
         notificationSound: state.notificationSound,
         soundVolume: state.soundVolume,
+        notifVolume: state.notifVolume,
+        sendVolume: state.sendVolume,
+        uiTheme: state.uiTheme,
+        uiFont: state.uiFont,
         browserNotificationsEnabled: state.browserNotificationsEnabled,
         defaultReaction: state.defaultReaction,
         notifPrefs: state.notifPrefs,
@@ -2232,14 +2284,17 @@ export const useAppStore = create<AppState>()(
   )
 );
 
-// Sync persisted soundVolume with soundEffects on initialization and changes
+// Sync persisted audio + UI prefs on load
 if (typeof window !== 'undefined') {
-  // Set initial volume from store
-  soundEffects.volume = useAppStore.getState().soundVolume;
-  // Subscribe to updates
-  useAppStore.subscribe((state) => {
-    soundEffects.volume = state.soundVolume;
-  });
+  const applyUi = (s: AppState) => {
+    soundEffects.volume = s.soundVolume ?? 0.85;
+    soundEffects.notifVolume = s.notifVolume ?? 1;
+    soundEffects.sendVolume = s.sendVolume ?? 1;
+    document.documentElement.dataset.theme = s.uiTheme || 'dark';
+    document.documentElement.dataset.font = s.uiFont || 'inter';
+  };
+  applyUi(useAppStore.getState());
+  useAppStore.subscribe((state) => applyUi(state));
 }
 
 export { BANNER_PATTERNS, CHAT_THEMES, DEFAULT_CHAT_THEME_ID, REACTION_SET };

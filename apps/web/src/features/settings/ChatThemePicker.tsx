@@ -14,6 +14,8 @@ type Props = {
   allowCustom?: boolean;
   /** Compact row for in-chat bar */
   compact?: boolean;
+  /** Larger preview strip under grid (settings) */
+  showLivePreview?: boolean;
 };
 
 /**
@@ -24,12 +26,15 @@ export function ChatThemePicker({
   onSelect,
   allowCustom = false,
   compact = false,
+  showLivePreview = false,
 }: Props) {
   const globalCustomWallpaper = useAppStore((s) => s.globalCustomWallpaper);
   const setGlobalCustomWallpaper = useAppStore((s) => s.setGlobalCustomWallpaper);
   const showToast = useAppStore((s) => s.showToast);
   const active = resolveChatThemeId(value ?? undefined);
   const customActive = allowCustom && !!globalCustomWallpaper;
+  const activeTheme =
+    CHAT_THEMES.find((t) => t.id === active) || CHAT_THEMES[0]!;
 
   const pickTheme = (themeId: string) => {
     if (allowCustom && globalCustomWallpaper) {
@@ -83,6 +88,28 @@ export function ChatThemePicker({
   };
 
   return (
+    <div className={styles.wrap}>
+    {showLivePreview && (
+      <div className={styles.livePreview} aria-hidden>
+        {customActive && globalCustomWallpaper ? (
+          <img src={globalCustomWallpaper} alt="" className={styles.liveImg} />
+        ) : (
+          <PatternBg
+            pattern={activeTheme}
+            seed={activeTheme.id}
+            density="mid"
+            className={styles.livePattern}
+          />
+        )}
+        <div className={styles.liveBubbles}>
+          <span className={styles.liveTheirs}>привет</span>
+          <span className={styles.liveMine}>как дела?</span>
+        </div>
+        <span className={styles.liveLabel}>
+          {customActive ? 'Своё фото' : activeTheme.label}
+        </span>
+      </div>
+    )}
     <div className={compact ? styles.row : styles.grid} role="listbox" aria-label="Фон чата">
       {CHAT_THEMES.map((theme) => {
         const selected = !customActive && active === theme.id;
@@ -99,7 +126,7 @@ export function ChatThemePicker({
             <PatternBg
               pattern={theme}
               seed={theme.id}
-              density="low"
+              density="high"
               className={styles.preview}
             />
             <span className={styles.label}>{theme.label}</span>
@@ -125,6 +152,7 @@ export function ChatThemePicker({
           <span className={styles.label}>Своё</span>
         </button>
       )}
+    </div>
     </div>
   );
 }
