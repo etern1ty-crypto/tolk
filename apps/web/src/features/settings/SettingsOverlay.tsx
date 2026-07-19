@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import { Upload, ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppStore, CHAT_THEMES, REACTION_SET, fetchApi } from '../../store/appStore';
@@ -72,27 +71,20 @@ export function SettingsOverlay() {
       ? 'Настройки'
       : HUB_ITEMS.find((i) => i.id === route)?.label ?? 'Настройки';
 
+  if (!route) return null;
+
   return (
-    <AnimatePresence>
-      {route && (
-        <motion.div
+        <div
           className={styles.overlay}
           role="presentation"
           onClick={closeSettings}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
         >
-          <motion.div
+          <div
             className={styles.panel}
             role="dialog"
             aria-modal="true"
             aria-label={title}
             onClick={(e) => e.stopPropagation()}
-            initial={{ x: 36, opacity: 0.9 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 24, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           >
             <header className={styles.header}>
               {route !== 'hub' ? (
@@ -381,10 +373,8 @@ export function SettingsOverlay() {
                 </div>
               )}
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+          </div>
+        </div>
   );
 }
 

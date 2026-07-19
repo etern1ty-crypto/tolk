@@ -1,19 +1,18 @@
-import { motion } from 'framer-motion';
-import { MessageCircle, Newspaper, Search, UserRound } from 'lucide-react';
+import { MessageCircle, Newspaper, UserRound } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './BottomNav.module.css';
 
+/** Mobile-only: 3 tabs (not TG chrome). Hidden while a chat is open. */
 const TABS: {
   id: MainTab;
   label: string;
   Icon: typeof Newspaper;
 }[] = [
-  { id: 'wall', label: 'Стена', Icon: Newspaper },
   { id: 'chats', label: 'Чаты', Icon: MessageCircle },
-  { id: 'search', label: 'Поиск', Icon: Search },
+  { id: 'wall', label: 'Стена', Icon: Newspaper },
   { id: 'profile', label: 'Профиль', Icon: UserRound },
 ];
 
@@ -59,13 +58,6 @@ export function BottomNav() {
             aria-current={active ? 'page' : undefined}
           >
             <span className={styles.iconWrap}>
-              {active && (
-                <motion.span
-                  layoutId="nav-pill"
-                  className={styles.pill}
-                  transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                />
-              )}
               <Icon
                 size={iconProps.size.lg}
                 strokeWidth={iconProps.strokeWidth}

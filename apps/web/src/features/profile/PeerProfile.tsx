@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { ArrowLeft, Link2, MessageCircle } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
@@ -57,26 +56,21 @@ export function PeerProfile() {
   if (!userId || !user) return null;
 
   return (
-    <motion.div
+    <div
       className={styles.overlay}
       onClick={closeUserProfile}
       role="presentation"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
     >
-      <motion.div
+      <div
         className={styles.panel}
         role="dialog"
         onClick={(e) => e.stopPropagation()}
-        initial={{ x: 40, opacity: 0.9 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 34 }}
       >
         <div className={styles.banner}>
           <PatternBg
             pattern={banner}
             seed={user.id}
-            density="high"
+            density="low"
             className={styles.bannerFill}
           />
           <IconBtn className={styles.close} onClick={closeUserProfile} aria-label="Назад">
@@ -181,7 +175,7 @@ export function PeerProfile() {
             })
           )}
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }

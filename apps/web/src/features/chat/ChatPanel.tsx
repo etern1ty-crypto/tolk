@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
   Bookmark,
@@ -11,7 +10,15 @@ import {
   X,
   Image as ImageIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type UIEvent,
+} from 'react';
 import { CHAT_THEMES, useAppStore, fetchApi } from '../../store/appStore';
 import { patternById } from '../../shared/patterns';
 import { formatReplyPreview } from '../../shared/lib/messagePreview';
@@ -23,6 +30,10 @@ import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatPanel.module.css';
 import { GlobalMediaPlayer } from './GlobalMediaPlayer';
 import { formatLastSeen } from '../profile/PeerProfile';
+
+/** How many newest messages stay mounted. Expand on scroll-up. */
+const MSG_WINDOW = 48;
+const MSG_WINDOW_STEP = 40;
 
 function formatMsgTime(ts: any) {
   const parsed = typeof ts === 'string' && /^\d+$/.test(ts) ? Number(ts) : ts;
@@ -111,7 +122,11 @@ export function ChatPanel() {
   const [themeOpen, setThemeOpen] = useState(false);
   /** TG-style: mic button toggles voice ↔ circle */
   const [recordMode, setRecordMode] = useState<'voice' | 'circle'>('voice');
+  /** Windowed render — only last N messages in DOM */
+  const [visibleLimit, setVisibleLimit] = useState(MSG_WINDOW);
   const listRef = useRef<HTMLDivElement>(null);
+  const stickBottomRef = useRef(true);
+  const loadingOlderRef = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const holdArmTimer = useRef<number | null>(null);
   const voiceHold = useRef(false);
@@ -140,6 +155,27 @@ export function ChatPanel() {
     },
     [messages, activeChatId]
   );
+
+  const hasOlder = chatMessages.length > visibleLimit;
+  const windowStart = Math.max(0, chatMessages.length - visibleLimit);
+  const visibleMessages = useMemo(
+    () => (hasOlder ? chatMessages.slice(windowStart) : chatMessages),
+    [chatMessages, hasOlder, windowStart]
+  );
+
+  // Reset window when switching chats
+  useEffect(() => {
+    setVisibleLimit(MSG_WINDOW);
+    stickBottomRef.current = true;
+  }, [activeChatId]);
+
+  // Keep newest messages visible when length grows while pinned to bottom
+  useEffect(() => {
+    if (stickBottomRef.current) {
+      setVisibleLimit((n) => Math.max(n, Math.min(MSG_WINDOW, chatMessages.length)));
+    }
+  }, [chatMessages.length]);
+
   const shelfCount = shelfItems.filter((s) => s.chatId === activeChatId).length;
   const replyMsg = replyToId ? messages.find((m) => m.id === replyToId) : null;
   const replyAuthor = replyMsg
@@ -154,16 +190,51 @@ export function ChatPanel() {
 
   useEffect(() => {
     const el = listRef.current;
-    if (!el) return;
+    if (!el || !stickBottomRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [chatMessages.length, activeChatId, typingChatId]);
+  }, [chatMessages.length, activeChatId, typingChatId, visibleMessages.length]);
 
   useEffect(() => {
     if (!highlightMessageId) return;
-    document
-      .getElementById(`msg-${highlightMessageId}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [highlightMessageId]);
+    const idx = chatMessages.findIndex((m) => m.id === highlightMessageId);
+    if (idx < 0) return;
+    // Expand window so target is mounted
+    const fromEnd = chatMessages.length - idx;
+    if (fromEnd > visibleLimit) {
+      setVisibleLimit(fromEnd + 8);
+    }
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`msg-${highlightMessageId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [highlightMessageId, chatMessages, visibleLimit]);
+
+  const loadOlder = useCallback(() => {
+    const el = listRef.current;
+    if (!el || loadingOlderRef.current || !hasOlder) return;
+    loadingOlderRef.current = true;
+    const prevH = el.scrollHeight;
+    const prevTop = el.scrollTop;
+    setVisibleLimit((n) => Math.min(chatMessages.length, n + MSG_WINDOW_STEP));
+    window.requestAnimationFrame(() => {
+      const node = listRef.current;
+      if (node) {
+        node.scrollTop = node.scrollHeight - prevH + prevTop;
+      }
+      loadingOlderRef.current = false;
+    });
+  }, [hasOlder, chatMessages.length]);
+
+  const onMessagesScroll = useCallback(
+    (e: UIEvent<HTMLDivElement>) => {
+      const el = e.currentTarget;
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+      stickBottomRef.current = dist < 96;
+      if (el.scrollTop < 56) loadOlder();
+    },
+    [loadOlder]
+  );
 
   /* Mobile: swipe from right edge → Chat Wall (полка) */
   useEffect(() => {
@@ -399,7 +470,7 @@ export function ChatPanel() {
         <PatternBg
           pattern={theme}
           seed={chat.id}
-          density="high"
+          density="low"
           className={styles.wallpaper}
         />
       )}
@@ -500,58 +571,56 @@ export function ChatPanel() {
         </div>
       </header>
 
-      <AnimatePresence>
-        {themeOpen && (
-          <motion.div
-            className={styles.themeBar}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-          >
-            <span className={styles.themeLabel}>Фон чата</span>
-            <div className={styles.themeRow}>
-              {CHAT_THEMES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={
-                    chat.themeId === t.id || (!chat.themeId && t.id === 'chat_dots')
-                      ? styles.themeActive
-                      : styles.themeChip
-                  }
-                  onClick={() => {
-                    setChatTheme(chat.id, t.id);
-                    setThemeOpen(false);
-                  }}
-                  title={t.label}
-                >
-                  <PatternBg pattern={t} seed={t.id} density="low" className={styles.themePreview} />
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {themeOpen && (
+        <div className={styles.themeBar}>
+          <span className={styles.themeLabel}>Фон чата</span>
+          <div className={styles.themeRow}>
+            {CHAT_THEMES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={
+                  chat.themeId === t.id || (!chat.themeId && t.id === 'chat_dots')
+                    ? styles.themeActive
+                    : styles.themeChip
+                }
+                onClick={() => {
+                  setChatTheme(chat.id, t.id);
+                  setThemeOpen(false);
+                }}
+                title={t.label}
+              >
+                <PatternBg pattern={t} seed={t.id} density="low" className={styles.themePreview} />
+                <span>{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <GlobalMediaPlayer />
-      <div className={styles.messages} ref={listRef}>
-        <AnimatePresence initial={false}>
-          {chatMessages.map((m) => {
+      <div className={styles.messages} ref={listRef} onScroll={onMessagesScroll}>
+        {hasOlder && (
+          <div className={styles.loadOlder}>
+            <button type="button" className={styles.loadOlderBtn} onClick={loadOlder}>
+              Раньше · {chatMessages.length - visibleMessages.length}
+            </button>
+          </div>
+        )}
+        {visibleMessages.map((m, idx) => {
             const mine = m.senderId === me.id;
             const reactionEntries = Object.entries(m.reactions);
+            const globalIdx = windowStart + idx;
+            const isLatest = globalIdx === chatMessages.length - 1;
             return (
-              <motion.div
+              <div
                 key={m.id}
                 id={`msg-${m.id}`}
-                layout
-                initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                 className={[
                   styles.bubbleRow,
                   mine ? styles.mine : styles.theirs,
                   highlightMessageId === m.id ? styles.highlight : '',
+                  isLatest && mine && m.status === 'pending' ? styles.bubbleEnter : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -801,10 +870,9 @@ export function ChatPanel() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             );
           })}
-        </AnimatePresence>
         {typingChatId === activeChatId && (
           <div className={styles.typing}>
             <span />
@@ -814,22 +882,15 @@ export function ChatPanel() {
         )}
       </div>
 
-      <AnimatePresence>
-        {voiceRecording && (
-          <motion.div
-            className={styles.voiceBar}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-          >
-            <span className={styles.recPulse} />
-            Запись… отпустите, чтобы отправить
-            <button type="button" onClick={() => endVoice(false)}>
-              Отмена
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {voiceRecording && (
+        <div className={styles.voiceBar}>
+          <span className={styles.recPulse} />
+          Запись… отпустите, чтобы отправить
+          <button type="button" onClick={() => endVoice(false)}>
+            Отмена
+          </button>
+        </div>
+      )}
 
       <div className={styles.composerStack}>
       {replyMsg && (

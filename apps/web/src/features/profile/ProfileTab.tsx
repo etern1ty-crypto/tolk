@@ -1,4 +1,3 @@
-import { motion, AnimatePresence } from 'framer-motion';
 import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore, fetchApi } from '../../store/appStore';
@@ -332,16 +331,11 @@ export function ProfileTab() {
                 </div>
               )}
             </IconBtn>
-            <AnimatePresence>
-              {notifOpen && (
-                <motion.div
+            {notifOpen && (
+                <div
                   className={styles.menu}
                   style={{ left: 0, right: 'auto', minWidth: '280px', maxHeight: '360px', overflowY: 'auto' }}
                   role="menu"
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.15 }}
                 >
                   <div className={styles.notifTitleRow}>
                     <div className={styles.notifTitle}>Уведомления</div>
@@ -431,9 +425,8 @@ export function ProfileTab() {
                       )}
                     </>
                   )}
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
           </div>
         </div>
         <div className={styles.bannerActions}>
@@ -450,15 +443,10 @@ export function ProfileTab() {
                 <MoreHorizontal size={18} strokeWidth={iconProps.strokeWidth} />
               )}
             </IconBtn>
-            <AnimatePresence>
-              {menuOpen && (
-                <motion.div
+            {menuOpen && (
+                <div
                   className={styles.menu}
                   role="menu"
-                  initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                  transition={{ duration: 0.15 }}
                 >
                   <button
                     type="button"
@@ -507,9 +495,8 @@ export function ProfileTab() {
                     <Settings size={15} strokeWidth={iconProps.strokeWidth} />
                     Настройки
                   </button>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -561,14 +548,10 @@ export function ProfileTab() {
         )}
       </div>
 
-      <AnimatePresence mode="wait">
-        {panel === 'banner' && (
-          <motion.section
+      {panel === 'banner' && (
+          <section
             key="banner"
             className={styles.panel}
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
           >
             <div className={styles.panelHead}>
               <h2>Оформление</h2>
@@ -593,10 +576,8 @@ export function ProfileTab() {
                 </button>
               ))}
             </div>
-          </motion.section>
+          </section>
         )}
-
-      </AnimatePresence>
 
       <section className={styles.section}>
         <div className={styles.composerWrap}>
@@ -606,11 +587,8 @@ export function ProfileTab() {
               <input type="text" placeholder="Что у вас нового?" readOnly />
             </div>
           ) : (
-            <motion.div
+            <div
               className={styles.composeCard}
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
             >
               <div style={{ position: 'relative' }}>
                 <textarea
@@ -870,7 +848,7 @@ export function ProfileTab() {
                   Опубликовать
                 </button>
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 
@@ -879,7 +857,7 @@ export function ProfileTab() {
           <p className={styles.empty}>Пока пусто</p>
         ) : (
           <div className={styles.postsGrid}>
-          {myPosts.map((p, i) => {
+          {myPosts.map((p) => {
             const mediaPat =
               p.media?.kind === 'pattern'
                 ? p.media.patternId === 'custom' && p.media.items
@@ -887,12 +865,9 @@ export function ProfileTab() {
                   : patternById(MEDIA_PATTERNS, p.media.patternId, MEDIA_PATTERNS[0]!)
                 : null;
             return (
-              <motion.article
+              <article
                 key={p.id}
                 className={styles.post}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.04, 0.2) }}
               >
                 <div className={styles.postTop}>
                   <time>{rel(p.createdAt)}</time>
@@ -926,7 +901,7 @@ export function ProfileTab() {
                     {p.text}
                   </p>
                 ) : null}
-              </motion.article>
+              </article>
             );
           })}
           </div>
@@ -1007,8 +982,7 @@ export function ProfileTab() {
         </div>
       )}
 
-      <AnimatePresence>
-        {selectedPostId && (
+      {selectedPostId && (
           (() => {
             const selectedPost = posts.find((p) => p.id === selectedPostId);
             if (!selectedPost) return null;
@@ -1019,18 +993,12 @@ export function ProfileTab() {
                   : patternById(MEDIA_PATTERNS, selectedPost.media.patternId, MEDIA_PATTERNS[0]!)
                 : null;
             return (
-              <motion.div
+              <div
                 className={styles.modalOverlay}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
                 onClick={() => setSelectedPostId(null)}
               >
-                <motion.div
+                <div
                   className={styles.modalContent}
-                  initial={{ scale: 0.95, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.95, opacity: 0 }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className={styles.modalHeader}>
@@ -1090,12 +1058,11 @@ export function ProfileTab() {
                       )}
                     </div>
                   </div>
-                </motion.div>
-              </motion.div>
+                </div>
+              </div>
             );
           })()
         )}
-      </AnimatePresence>
     </div>
   );
 }

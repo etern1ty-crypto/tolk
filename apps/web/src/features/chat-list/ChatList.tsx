@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { PenSquare, Pin, Search } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
@@ -115,15 +114,12 @@ export function ChatList() {
             <p className={styles.emptySub}>Напишите кому-нибудь</p>
           </div>
         )}
-        {filtered.map((chat, i) => {
+        {filtered.map((chat) => {
           const isPinned = chat.pinned || navPins.includes(chat.id);
           return (
-            <motion.div
+            <div
               key={chat.id}
               className={`${styles.row} ${activeChatId === chat.id ? styles.rowActive : ''}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.02, 0.15), duration: 0.22 }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 toggleNavPin(chat.id);
@@ -173,7 +169,7 @@ export function ChatList() {
                   </div>
                 </div>
               </button>
-            </motion.div>
+            </div>
           );
         })}
       </div>

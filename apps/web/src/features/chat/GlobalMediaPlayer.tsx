@@ -3,8 +3,6 @@ import { Play, Pause, X, SkipBack, SkipForward } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import styles from './GlobalMediaPlayer.module.css';
 import { iconProps } from '../../shared/ui/icons';
-import { motion, AnimatePresence } from 'framer-motion';
-
 function formatTime(sec: number) {
   if (!isFinite(sec)) return '0:00';
   const m = Math.floor(sec / 60);
@@ -137,41 +135,33 @@ export function GlobalMediaPlayer() {
     }
   };
 
+  if (!activeMediaId) return null;
+
   return (
-    <AnimatePresence>
-      {activeMediaId && (
-        <motion.div 
-          className={styles.root}
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -50, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        >
-          <div className={styles.controls}>
-            <button type="button" className={styles.skipBtn} onClick={skipBack} disabled={!hasPrev} style={{ opacity: hasPrev ? 1 : 0.4 }}>
-              <SkipBack size={18} strokeWidth={iconProps.strokeWidth} />
-            </button>
-            <button type="button" className={styles.playBtn} onClick={togglePlay}>
-              {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
-            </button>
-            <button type="button" className={styles.skipBtn} onClick={skipForward} disabled={!hasNext} style={{ opacity: hasNext ? 1 : 0.4 }}>
-              <SkipForward size={18} strokeWidth={iconProps.strokeWidth} />
-            </button>
-          </div>
-          
-          <div className={styles.scrubber} onMouseDown={onScrub}>
-            <div className={styles.track}>
-              <div className={styles.fill} style={{ width: `${progress * 100}%` }} />
-            </div>
-          </div>
-          
-          <div className={styles.time}>{formatTime(currentTime)} / {formatTime(duration)}</div>
-          
-          <button type="button" className={styles.closeBtn} onClick={() => setActiveMediaId(null)}>
-            <X size={20} strokeWidth={iconProps.strokeWidth} />
-          </button>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    <div className={styles.root}>
+      <div className={styles.controls}>
+        <button type="button" className={styles.skipBtn} onClick={skipBack} disabled={!hasPrev} style={{ opacity: hasPrev ? 1 : 0.4 }}>
+          <SkipBack size={18} strokeWidth={iconProps.strokeWidth} />
+        </button>
+        <button type="button" className={styles.playBtn} onClick={togglePlay}>
+          {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+        </button>
+        <button type="button" className={styles.skipBtn} onClick={skipForward} disabled={!hasNext} style={{ opacity: hasNext ? 1 : 0.4 }}>
+          <SkipForward size={18} strokeWidth={iconProps.strokeWidth} />
+        </button>
+      </div>
+
+      <div className={styles.scrubber} onMouseDown={onScrub}>
+        <div className={styles.track}>
+          <div className={styles.fill} style={{ width: `${progress * 100}%` }} />
+        </div>
+      </div>
+
+      <div className={styles.time}>{formatTime(currentTime)} / {formatTime(duration)}</div>
+
+      <button type="button" className={styles.closeBtn} onClick={() => setActiveMediaId(null)}>
+        <X size={20} strokeWidth={iconProps.strokeWidth} />
+      </button>
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Hash, Search, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchApi, useAppStore } from '../../store/appStore';
@@ -159,14 +158,8 @@ export function SearchTab() {
                   <Users size={14} strokeWidth={iconProps.strokeWidth} />
                   Люди
                 </h2>
-                {people.map((u, i) => (
-                  <motion.div
-                    key={u.id}
-                    className={styles.row}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.15) }}
-                  >
+                {people.map((u) => (
+                  <div key={u.id} className={styles.row}>
                     <button
                       type="button"
                       className={styles.rowMain}
@@ -188,7 +181,7 @@ export function SearchTab() {
                     >
                       Написать
                     </button>
-                  </motion.div>
+                  </div>
                 ))}
               </section>
             )}
@@ -199,14 +192,11 @@ export function SearchTab() {
                   <Hash size={14} strokeWidth={iconProps.strokeWidth} />
                   Каналы и группы
                 </h2>
-                {myChannels.map((c, i) => (
-                  <motion.button
+                {myChannels.map((c) => (
+                  <button
                     key={c.id}
                     type="button"
                     className={styles.rowMain}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.15) }}
                     onClick={() => setActiveChat(c.id)}
                   >
                     <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
@@ -218,16 +208,10 @@ export function SearchTab() {
                         {c.preview ? ` · ${c.preview}` : ''}
                       </span>
                     </div>
-                  </motion.button>
+                  </button>
                 ))}
-                {discoverChannels.map((c, i) => (
-                  <motion.div
-                    key={c.id}
-                    className={styles.row}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.15) }}
-                  >
+                {discoverChannels.map((c) => (
+                  <div key={c.id} className={styles.row}>
                     <button type="button" className={styles.rowMain} onClick={() => joinChat(c.id)}>
                       <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
                       <div className={styles.meta}>
@@ -241,7 +225,7 @@ export function SearchTab() {
                     <button type="button" className={styles.action} onClick={() => joinChat(c.id)}>
                       Вступить
                     </button>
-                  </motion.div>
+                  </div>
                 ))}
               </section>
             )}
@@ -252,16 +236,13 @@ export function SearchTab() {
                   <Search size={14} strokeWidth={iconProps.strokeWidth} />
                   Посты
                 </h2>
-                {foundPosts.map((p, i) => {
+                {foundPosts.map((p) => {
                   const author = users[p.authorId];
                   return (
-                    <motion.button
+                    <button
                       key={p.id}
                       type="button"
                       className={styles.postRow}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(i * 0.03, 0.15) }}
                       onClick={() => {
                         setMainTab('wall');
                         setCommentPostId(p.id);
@@ -276,7 +257,7 @@ export function SearchTab() {
                           {p.text || 'Медиа'}
                         </span>
                       </div>
-                    </motion.button>
+                    </button>
                   );
                 })}
               </section>

@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import {
   Forward,
   Heart,
@@ -53,25 +52,17 @@ export function WallFeed() {
         <h1>Стена</h1>
       </header>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
-      </motion.div>
+      <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
 
       <div className={styles.list}>
         {feed.length === 0 ? (
           <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
         ) : (
-          feed.map((post, i) => {
+          feed.map((post) => {
             const author = users[post.authorId];
             const liked = post.likedBy.includes(me.id);
             return (
-              <motion.article
-                key={post.id}
-                className={styles.card}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.04, 0.24) }}
-              >
+              <article key={post.id} className={styles.card}>
                 <header className={styles.cardHead}>
                   <button
                     type="button"
@@ -200,7 +191,7 @@ export function WallFeed() {
                     />
                   </button>
                 </footer>
-              </motion.article>
+              </article>
             );
           })
         )}

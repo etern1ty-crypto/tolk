@@ -99,6 +99,12 @@
   -webkit-overflow-scrolling: touch;
 }
 
+@media (max-width: 1023px) {
+  .list {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .empty {
   padding: 48px 24px;
   text-align: center;

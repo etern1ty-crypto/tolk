@@ -4,14 +4,14 @@ import { ChatPanel } from '../chat/ChatPanel';
 import { WallFeed } from '../wall/WallFeed';
 import { ProfileTab } from '../profile/ProfileTab';
 import { SearchTab } from '../search/SearchTab';
+import { BottomNav } from './BottomNav';
 import { SideNav } from './SideNav';
 import { useAppStore } from '../../store/appStore';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 import styles from './MainShell.module.css';
 
 /**
- * Spatial shell
- * - Mobile: list ↔ chat stack (no TG bottom-tab chrome); search/profile/wall = pages from header/nav
+ * - Mobile: 3-tab bar (Чаты · Стена · Профиль), hidden in open chat
  * - Desktop: thin SideNav rail + list | chat | optional wall column
  */
 export function MainShell() {
@@ -22,7 +22,6 @@ export function MainShell() {
   const setShelfOpen = useAppStore((s) => s.setShelfOpen);
   const isDesktop = useIsDesktop();
   const inChatMobile = !isDesktop && mainTab === 'chats' && !!activeChatId;
-  /* Host always mounted when chat active so ShelfSheet can portal in */
   const wallHost = isDesktop && mainTab === 'chats' && !!activeChatId;
   const showWallCol = wallHost && shelfOpen;
 
@@ -68,17 +67,6 @@ export function MainShell() {
         {mainTab === 'wall' && (
           <div className={styles.pageCol}>
             <div className={styles.paper}>
-              {!isDesktop && (
-                <div className={styles.mobilePageBar}>
-                  <button
-                    type="button"
-                    className={styles.backBtn}
-                    onClick={() => setMainTab('chats')}
-                  >
-                    ← Чаты
-                  </button>
-                </div>
-              )}
               <WallFeed />
             </div>
           </div>
@@ -96,7 +84,6 @@ export function MainShell() {
                 <ChatPanel />
               </div>
             )}
-            {/* Desktop host for Chat Wall (ShelfSheet portals in) */}
             {wallHost && (
               <div
                 className={styles.wallCol}
@@ -130,22 +117,14 @@ export function MainShell() {
         {mainTab === 'profile' && (
           <div className={styles.pageCol}>
             <div className={`${styles.paper} ${styles.paperProfile}`}>
-              {!isDesktop && (
-                <div className={styles.mobilePageBar}>
-                  <button
-                    type="button"
-                    className={styles.backBtn}
-                    onClick={() => setMainTab('chats')}
-                  >
-                    ← Чаты
-                  </button>
-                </div>
-              )}
               <ProfileTab />
             </div>
           </div>
         )}
       </div>
+
+      {/* Mobile chrome — hide inside open chat for full canvas */}
+      {!isDesktop && !inChatMobile && <BottomNav />}
     </div>
   );
 }

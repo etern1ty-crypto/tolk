@@ -47,30 +47,33 @@ export function PatternBg({
     const rng = mulberry32(h);
     const out: ScatteredItem[] = [];
 
-    // Dense + large glyphs so patterns read as texture, not sparse dust
-    const step = density === 'low' ? 22 : density === 'high' ? 10 : 14;
-    
+    // Sparse scatter — high density was hundreds of DOM nodes and killed scroll FPS
+    const step = density === 'low' ? 36 : density === 'high' ? 20 : 28;
+
     for (let yCoord = -step; yCoord < 120; yCoord += step) {
       const row = Math.round((yCoord + step) / step);
       const shift = (row % 2) * (step / 2);
-      
+
       for (let xCoord = -step; xCoord < 120; xCoord += step) {
-        const jitterX = (rng() - 0.5) * (step * 0.25);
-        const jitterY = (rng() - 0.5) * (step * 0.25);
-        
+        // skip ~35% for less overdraw
+        if (rng() < 0.35) continue;
+
+        const jitterX = (rng() - 0.5) * (step * 0.3);
+        const jitterY = (rng() - 0.5) * (step * 0.3);
+
         const finalX = xCoord + shift + jitterX;
         const finalY = yCoord + jitterY;
-        
+
         const idx = Math.floor(rng() * pattern.items.length);
-        const rotate = -30 + (rng() - 0.5) * 15;
-        
+        const rotate = -24 + (rng() - 0.5) * 12;
+
         out.push({
           text: pattern.items[idx]!,
           x: finalX,
           y: finalY,
           rotate,
-          scale: 1.35 + rng() * 0.55,
-          opacity: 0.38 + rng() * 0.22,
+          scale: 1.2 + rng() * 0.4,
+          opacity: 0.22 + rng() * 0.18,
         });
       }
     }

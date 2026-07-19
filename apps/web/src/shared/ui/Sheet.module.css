@@ -7,6 +7,34 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  animation: fadeIn 0.14s ease-out both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(12px);
+    opacity: 0.92;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .sheet {
+    animation: none !important;
+  }
 }
 
 @media (min-width: 768px) {
@@ -27,6 +55,7 @@
   flex-direction: column;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
+  animation: sheetUp 0.16s ease-out both;
 }
 
 @media (min-width: 768px) {

@@ -6,6 +6,25 @@
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: flex-end;
+  animation: fadeIn 0.12s ease-out both;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(16px);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .panel {
@@ -16,6 +35,14 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
+  animation: slideIn 0.14s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .panel {
+    animation: none;
+  }
 }
 
 .header {

@@ -78,7 +78,7 @@ export default function App() {
     return (
       <div className={styles.app}>
         <div className={styles.ambient} aria-hidden>
-          <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-auth" density="high" />
+          <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-auth" density="low" />
         </div>
         <div className={styles.authLayer}>
           <AuthScreen />
@@ -89,9 +89,7 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      <div className={styles.ambient} aria-hidden>
-        <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-ambient" density="high" />
-      </div>
+      {/* No full-viewport PatternBg when authed — pure black shell, zero lag */}
       <OfflineBanner />
       <div className={styles.main}>
         <div className={styles.shell}>

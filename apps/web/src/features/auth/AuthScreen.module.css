@@ -21,6 +21,24 @@
   border-radius: var(--radius-sheet);
   padding: 32px 26px 26px;
   box-shadow: var(--shadow-md);
+  animation: cardIn 0.22s var(--ease-out) both;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
 }
 
 .brand {

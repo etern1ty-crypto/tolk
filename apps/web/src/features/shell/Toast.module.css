@@ -1,6 +1,6 @@
 .toast {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 90;
@@ -27,10 +27,16 @@
 @keyframes up {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(10px);
+    transform: translateX(-50%) translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .toast {
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
 }

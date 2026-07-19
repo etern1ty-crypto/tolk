@@ -62,9 +62,17 @@
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.2, 0.64, 1);
-  --dur-fast: 140ms;
-  --dur: 220ms;
-  --dur-slow: 360ms;
+  --dur-fast: 100ms;
+  --dur: 160ms;
+  --dur-slow: 240ms;
+
+  /* Message bubbles — solid, no glass borders */
+  --bubble-mine: #e8e8e8;
+  --bubble-mine-text: #0a0a0a;
+  --bubble-mine-meta: rgba(10, 10, 10, 0.45);
+  --bubble-theirs: #1c1c1e;
+  --bubble-theirs-text: #f5f5f5;
+  --bubble-theirs-meta: #737373;
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-meta: 12px;
@@ -143,16 +151,19 @@ button {
   border: none;
   background: none;
   padding: 0;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
 }
 
 button:active:not(:disabled) {
-  transform: scale(0.98);
+  opacity: 0.88;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button {
+    transition:
+      background var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      opacity var(--dur-fast) var(--ease-out);
+  }
 }
 
 button:disabled {

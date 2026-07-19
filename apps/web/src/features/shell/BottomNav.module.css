@@ -1,10 +1,13 @@
+/* Thin 3-tab mobile bar — no spring pills, no lag */
+
 .nav {
   display: flex;
-  gap: 2px;
-  padding: 4px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  gap: 0;
+  padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--glass-strong);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   flex-shrink: 0;
   z-index: 20;
 }
@@ -22,17 +25,18 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 8px 4px;
-  border-radius: 10px;
+  padding: 6px 4px 4px;
+  border-radius: 12px;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   min-height: 48px;
   justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.tab:hover {
-  color: var(--text-secondary);
+.tab:active {
+  background: var(--bg-hover);
 }
 
 .active {
@@ -42,14 +46,9 @@
 .iconWrap {
   position: relative;
   width: 40px;
-  height: 28px;
+  height: 26px;
   display: grid;
   place-items: center;
-}
-
-/* no colored pill */
-.pill {
-  display: none;
 }
 
 .icon {
@@ -60,6 +59,7 @@
 .label {
   position: relative;
   z-index: 1;
+  letter-spacing: 0.01em;
 }
 
 .badge {
@@ -71,10 +71,11 @@
   height: 15px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--text-primary);
+  background: var(--accent);
   color: var(--text-on-accent);
   font-size: 9px;
   font-weight: 800;
   display: grid;
   place-items: center;
+  line-height: 1;
 }
