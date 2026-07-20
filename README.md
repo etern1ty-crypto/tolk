@@ -10,8 +10,13 @@
 </p>
 
 <p align="center">
-  <a href="#-быстрый-старт"><img src="https://img.shields.io/badge/web-MVP-ffffff?style=flat-square&labelColor=000000" alt="web MVP" /></a>
-  <a href="#-навигация"><img src="https://img.shields.io/badge/nav-Стена·Чаты·Профиль-a3a3a3?style=flat-square&labelColor=000000" alt="nav" /></a>
+  <strong>Русский</strong> · <a href="README.en.md">English</a>
+</p>
+
+<p align="center">
+  <a href="#быстрый-старт"><img src="https://img.shields.io/badge/web-MVP-ffffff?style=flat-square&labelColor=000000" alt="web MVP" /></a>
+  <a href="#навигация"><img src="https://img.shields.io/badge/nav-Стена·Чаты·Профиль-a3a3a3?style=flat-square&labelColor=000000" alt="nav" /></a>
+  <a href="https://github.com/etern1ty-crypto/tolk-back"><img src="https://img.shields.io/badge/backend-tolk--back-a3a3a3?style=flat-square&labelColor=000000" alt="backend" /></a>
   <a href="vault/"><img src="https://img.shields.io/badge/docs-Obsidian_vault-a3a3a3?style=flat-square&labelColor=000000" alt="vault" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-a3a3a3?style=flat-square&labelColor=000000" alt="license" /></a>
 </p>
@@ -26,10 +31,22 @@
 | **Стена** | Лента постов (лайк · коммент · репост в профиль · переслать) |
 | **Профиль** | Оформление, посты, «добавить в стену», настройки |
 
-Дифференциаторы без шума: **Стена**, **Echo** (тихо), **Полка** (закрепы *в* чате).  
+Дифференциаторы без шума: **Стена**, **Echo** (тихо), **Полка** (закрепы *в* чате).
 Визуал: **монохром**, hairline-лента (как X), иконки **lucide**.
 
 Полный продукт-концепт → [`vault/Tolk_Core_Concept.md`](vault/Tolk_Core_Concept.md) · IA → [`vault/Navigation_IA.md`](vault/Navigation_IA.md)
+
+---
+
+## Что это за репозиторий
+
+Это **клиент** (веб-приложение) и **продуктовый vault**. Серверная часть — HTTP API и
+WebSocket-шлюз — живёт в отдельном репозитории [**tolk-back**](https://github.com/etern1ty-crypto/tolk-back).
+
+| Репозиторий | Роль |
+|---|---|
+| **tolk** (этот) | Веб-клиент `apps/web` + продуктовый vault |
+| [**tolk-back**](https://github.com/etern1ty-crypto/tolk-back) | API + WebSocket + Postgres · Redis · S3 |
 
 ---
 
@@ -39,13 +56,15 @@
 tolk/
 ├── apps/
 │   └── web/                 # Vite + React + TS · основной клиент
+├── packages/
+│   └── protocol/            # Общие контракты WS/REST (зеркало из tolk-back)
 ├── vault/                   # Obsidian source of truth (продукт)
 ├── docs/                    # Инженерные заметки, walkthrough, assets
 ├── package.json             # root scripts → apps/web
 └── README.md
 ```
 
-> В корне также лежит legacy Expo scaffold (ранний RN-эксперимент).  
+> В корне также лежит legacy Expo scaffold (ранний RN-эксперимент).
 > **Актуальный UI — `apps/web`.**
 
 ---
@@ -68,6 +87,24 @@ npm run dev      # то же, что apps/web
 npm run build
 npm run preview
 ```
+
+### Подключение к бэкенду
+
+Клиент работает с реальным API из [tolk-back](https://github.com/etern1ty-crypto/tolk-back).
+Без переменных окружения он ходит на `http://localhost:3000` и WS `/ws` того же origin —
+то есть достаточно поднять `tolk-back` локально. Чтобы указать другой адрес, создай
+`apps/web/.env.local`:
+
+```bash
+# apps/web/.env.local
+VITE_API_URL=http://localhost:3000        # базовый URL API
+VITE_WS_URL=ws://localhost:3000/ws        # WebSocket-шлюз
+VITE_YANDEX_CLIENT_ID=                    # опц. вход через Яндекс ID
+VITE_VK_CLIENT_ID=                        # опц. вход через VK ID
+```
+
+> Кнопки соц-входа появляются, только если заданы соответствующие `CLIENT_ID`.
+> Иначе доступен вход по username/паролю.
 
 ### Демо друзьям (Cloudflare Tunnel)
 
@@ -93,7 +130,7 @@ cloudflared tunnel --url http://127.0.0.1:5173
    лента      list→chat   посты + ⚙
 ```
 
-**Mock demo path:** login → чат → reply / реакция / войс / кружок → стена → профиль → settings.
+**Demo path:** login → чат → reply / реакция / войс / кружок → стена → профиль → settings.
 
 Подробнее: [`docs/walkthrough.md`](docs/walkthrough.md)
 
@@ -104,12 +141,14 @@ cloudflared tunnel --url http://127.0.0.1:5173
 | Слой | |
 |---|---|
 | UI | React 19 · TypeScript · Vite |
-| State | Zustand |
-| Motion | Framer Motion |
+| Роутинг | react-router-dom |
+| State | Zustand (+ persist) |
+| Медиа | browser-image-compression |
 | Icons | lucide-react (stroke 1.75) |
 | Style | CSS Modules · monochrome tokens |
+| Realtime | WebSocket → [tolk-back](https://github.com/etern1ty-crypto/tolk-back) |
 
-Backend / realtime — **ещё нет** (mock store + fixtures).
+Auth: username/пароль + опциональный вход через Яндекс ID и VK ID.
 
 ---
 
@@ -146,20 +185,20 @@ Backend / realtime — **ещё нет** (mock store + fixtures).
 
 ## Backend & mobile
 
-| Doc | |
+| Ссылка | |
 |---|---|
-| [`docs/BACKEND_AGENT_PROMPT.md`](docs/BACKEND_AGENT_PROMPT.md) | **English AI prompt** for backend (copy-paste) |
-| [`docs/MOBILE_PREP.md`](docs/MOBILE_PREP.md) | iOS / Android (Expo) readiness |
-| [`packages/protocol`](packages/protocol) | Shared WS/REST contracts |
+| [**tolk-back**](https://github.com/etern1ty-crypto/tolk-back) | Серверная часть: API + WebSocket + Postgres/Redis/S3 |
+| [`packages/protocol`](packages/protocol) | Общие контракты WS/REST |
+| [`docs/MOBILE_PREP.md`](docs/MOBILE_PREP.md) | Готовность к iOS / Android (Expo) |
 
 ## Roadmap (коротко)
 
-- [x] Web shell · 3 tabs · mock happy path  
-- [x] Стена / профиль / чаты / Echo / полка (UI)  
-- [x] Desktop shell + ambient patterns  
-- [ ] Real API + WebSocket (`apps/api`)  
-- [ ] Media upload / real voice & circles  
-- [ ] Expo client (`apps/mobile`) iOS + Android  
+- [x] Web shell · 3 вкладки · happy path
+- [x] Стена / профиль / чаты / Echo / полка (UI)
+- [x] Desktop shell + ambient patterns
+- [x] Реальный API + WebSocket ([tolk-back](https://github.com/etern1ty-crypto/tolk-back))
+- [x] Загрузка медиа / войсы и кружки
+- [ ] Expo-клиент (`apps/mobile`) iOS + Android
 
 ---
 
