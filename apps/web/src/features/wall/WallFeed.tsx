@@ -77,7 +77,9 @@ export function WallFeed() {
 
       <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
 
-      <div className={styles.list}>
+      {/* tabIndex: контейнер прокручивается сам, и без фокуса лента
+          недостижима с клавиатуры — PageDown листает пустой документ. */}
+      <div className={styles.list} tabIndex={0} role="feed" aria-label="Лента">
         {feed.length === 0 && booting ? (
           <SkeletonList count={3} kind="post" />
         ) : feed.length === 0 ? (
