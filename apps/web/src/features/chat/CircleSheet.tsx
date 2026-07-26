@@ -5,8 +5,6 @@ import styles from './CircleSheet.module.css';
 export function CircleSheet() {
   const open = useAppStore((s) => s.circleSheetOpen);
   const setCircleSheetOpen = useAppStore((s) => s.setCircleSheetOpen);
-  const showEffects = useAppStore((s) => s.showCircleEffects);
-  const setShowCircleEffects = useAppStore((s) => s.setShowCircleEffects);
   const showToast = useAppStore((s) => s.showToast);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -14,7 +12,6 @@ export function CircleSheet() {
 
   const [camera, setCamera] = useState<'user' | 'environment'>('user');
   const [flash, setFlash] = useState(false);
-  const [effect, setEffect] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [hasCam, setHasCam] = useState(false);
 
@@ -40,8 +37,19 @@ export function CircleSheet() {
     if (!navigator.mediaDevices?.getUserMedia) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: 320, height: 320 },
-        audio: true,
+        // 320×320 давало заметное мыло на современных экранах. 640 — вдвое
+        // чётче; ideal, а не exact, чтобы слабая камера не отказала совсем.
+        video: {
+          facingMode: facing,
+          width: { ideal: 640 },
+          height: { ideal: 640 },
+          frameRate: { ideal: 30 },
+        },
+        audio: {
+          autoGainControl: true,
+          noiseSuppression: true,
+          echoCancellation: true,
+        },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -58,8 +66,6 @@ export function CircleSheet() {
   useEffect(() => {
     if (!open) {
       setRecording(false);
-      setEffect(null);
-      setShowCircleEffects(false);
       setFlash(false);
       stopStream();
       return;
@@ -108,8 +114,10 @@ export function CircleSheet() {
     
     let options: MediaRecorderOptions = { 
       mimeType: 'video/webm;codecs=vp9,opus',
-      videoBitsPerSecond: 250000,
-      audioBitsPerSecond: 32000
+      // 250 кбит/с хватало только на 320px. Для 640px нужно втрое больше;
+      // 15 секунд при 1.5 Мбит/с — около 2.8 МБ, лимит загрузки 10 МБ.
+      videoBitsPerSecond: 1500000,
+      audioBitsPerSecond: 64000
     };
     if (!MediaRecorder.isTypeSupported(options.mimeType as string)) {
       options = { ...options, mimeType: 'video/webm;codecs=vp8,opus' };
@@ -222,7 +230,7 @@ export function CircleSheet() {
     <div className={styles.overlay} role="dialog" aria-label="Кружок">
       <div className={styles.stage}>
         <div
-          className={`${styles.circle} ${effect ? styles[`fx_${effect}`] : ''}`}
+          className={styles.circle}
           data-cam={camera}
         >
           <video
@@ -241,7 +249,6 @@ export function CircleSheet() {
           {flash && camera === 'environment' && (
             <span className={styles.flash}>⚡</span>
           )}
-          {effect && <span className={styles.fxLabel}>{effect}</span>}
         </div>
 
         <div className={styles.toolbar}>
@@ -281,28 +288,9 @@ export function CircleSheet() {
           </button>
         </div>
 
-        <button
-          type="button"
-          className={styles.effectsEntry}
-          onClick={() => setShowCircleEffects(!showEffects)}
-        >
-          ···
-        </button>
-
-        {showEffects && (
-          <div className={styles.effects}>
-            <p>Эффекты (спрятаны)</p>
-            {['blur', 'cat', 'dog', 'none'].map((fx) => (
-              <button
-                key={fx}
-                type="button"
-                onClick={() => setEffect(fx === 'none' ? null : fx)}
-              >
-                {fx}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Панель «Эффекты (спрятаны)» удалена: кнопки blur/cat/dog
+            только меняли CSS-класс и ничего не делали. Заглушка в интерфейсе
+            хуже её отсутствия — она обещает то, чего нет. */}
       </div>
     </div>
   );

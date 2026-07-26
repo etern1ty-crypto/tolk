@@ -21,6 +21,9 @@ import { PatternBg } from './shared/ui/PatternBg';
 import { useEffect } from 'react';
 import styles from './App.module.css';
 
+/** Куда вести человека после входа: пережидает регистрацию и вход через соцсеть. */
+const PENDING_TARGET_KEY = 'tolk:pending-target';
+
 export default function App() {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
 
@@ -28,47 +31,79 @@ export default function App() {
     useAppStore.getState().initApi();
   }, []);
 
-  // Deep links: /?chat= · /?user= · /?post= · /s/:slug handled via path
+  // Диплинки: /?chat= · /?user= · /?post= · /s/:slug
+  //
+  // Цель запоминается ДО проверки авторизации. Раньше обработчик выходил по
+  // return для неавторизованного, и человек, пришедший по ссылке друга, попадал
+  // на экран входа, а приглашение молча пропадало — то есть единственный
+  // механизм роста не работал ровно для того, ради кого он существует.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const chat = params.get('chat');
-    const user = params.get('user');
-    const post = params.get('post');
+    const slug = window.location.pathname.match(/^\/s\/([a-zA-Z0-9_-]+)$/)?.[1];
+    const target =
+      (slug && { kind: 's' as const, id: slug }) ||
+      (params.get('chat') && { kind: 'chat' as const, id: params.get('chat')! }) ||
+      (params.get('user') && { kind: 'user' as const, id: params.get('user')! }) ||
+      (params.get('post') && { kind: 'post' as const, id: params.get('post')! }) ||
+      null;
+
+    if (target) {
+      try {
+        sessionStorage.setItem(PENDING_TARGET_KEY, JSON.stringify(target));
+      } catch {
+        // приватный режим — переживём, просто цель не сохранится
+      }
+    }
+  }, []);
+
+  // Выполняем отложенную цель, когда пользователь появился.
+  useEffect(() => {
+    if (!isAuthenticated) return;
     const run = async () => {
       const store = useAppStore.getState();
-      if (!store.isAuthenticated) return;
-      if (chat) {
-        await store.setActiveChat(chat);
-      } else if (user) {
-        await store.openUserProfile(user);
-      } else if (post) {
-        store.setMainTab('wall');
-        store.setCommentPostId(post);
+      let target: { kind: string; id: string } | null = null;
+      try {
+        const raw = sessionStorage.getItem(PENDING_TARGET_KEY);
+        target = raw ? JSON.parse(raw) : null;
+      } catch {
+        target = null;
       }
-      // /s/slug share resolve
-      const path = window.location.pathname;
-      const m = path.match(/^\/s\/([a-zA-Z0-9_-]+)$/);
-      if (m?.[1] && store.token) {
-        try {
-          const link = await fetchApi(
-            `/share-links/${m[1]}`,
-            {},
-            store.token
-          );
+      if (!target) return;
+      // Снимаем до выполнения: неудачная ссылка не должна срабатывать на каждый
+      // повторный вход.
+      try {
+        sessionStorage.removeItem(PENDING_TARGET_KEY);
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        if (target.kind === 'chat') {
+          await store.setActiveChat(target.id);
+        } else if (target.kind === 'user') {
+          await store.openUserProfile(target.id);
+        } else if (target.kind === 'post') {
+          store.setMainTab('wall');
+          store.setCommentPostId(target.id);
+        } else if (target.kind === 's' && store.token) {
+          const link = await fetchApi(`/share-links/${target.id}`, {}, store.token);
           if (link.kind === 'user') await store.openUserProfile(link.targetId);
           else if (link.kind === 'post') {
             store.setMainTab('wall');
             store.setCommentPostId(link.targetId);
           } else if (link.kind === 'group' || link.kind === 'channel') {
             try {
-              await store.joinByShareSlug(m[1]);
+              await store.joinByShareSlug(target.id);
             } catch {
               await store.setActiveChat(link.targetId);
             }
           }
-        } catch (e) {
-          console.warn('share link resolve failed', e);
+          // Убираем /s/slug из адреса, иначе перезагрузка снова попытается войти.
+          window.history.replaceState({}, '', '/');
         }
+      } catch (e) {
+        console.warn('не удалось открыть цель приглашения', e);
+        store.showToast('Ссылка недействительна');
       }
     };
     void run();
