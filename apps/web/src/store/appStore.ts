@@ -1761,11 +1761,39 @@ export const useAppStore = create<AppState>()(
     set({ booting: true });
     try {
       connectWebSocket(token, useAppStore);
+
+      // Кто мы — обязательно первым: без идентификатора нельзя спросить свои
+      // посты, да и показывать нечего.
       const mePayload = await fetchApi('/me', {}, token);
       set({ me: mePayload });
-      
-      const chatsList = await fetchApi('/chats', {}, token);
-      
+
+      // Всё остальное друг от друга не зависит. Раньше эти шесть запросов
+      // шли цепочкой, каждый ждал предыдущего: на мобильной связи это около
+      // секунды чистого ожидания перед первой отрисовкой. Теперь один круг.
+      //
+      // allSettled, а не all: неудача второстепенного — уведомлений, эха,
+      // блокировок — не должна оставлять человека без чатов и ленты.
+      const [chatsRes, feedRes, myPostsRes] = await Promise.allSettled([
+        fetchApi('/chats', {}, token),
+        // Просим ровно предел: если пришло столько же, значит есть продолжение.
+        fetchApi('/wall/feed?limit=30', {}, token),
+        fetchApi(`/users/${mePayload.id}/posts?limit=100`, {}, token),
+      ]);
+      // Эти три наполняют собственные срезы состояния и обрабатывают свои
+      // отказы сами, поэтому просто отпускаем их в тот же круг.
+      const sideLoads = Promise.allSettled([
+        get().refreshNotifications(),
+        get().syncEchoes(),
+        get().loadBlocks(),
+      ]);
+
+      const chatsList = chatsRes.status === 'fulfilled' && Array.isArray(chatsRes.value)
+        ? chatsRes.value
+        : [];
+      if (chatsRes.status === 'rejected') {
+        console.error('Не удалось загрузить чаты:', chatsRes.reason);
+      }
+
       const usersMap: Record<string, User> = {};
       usersMap[mePayload.id] = mePayload;
       
@@ -1784,19 +1812,22 @@ export const useAppStore = create<AppState>()(
       });
       
       let combinedPosts: Post[] = [];
-      try {
-        // Сервер отдаёт страницами по 30. Просим на один больше предела, чтобы
-        // понять, есть ли продолжение, не делая второго запроса.
-        const postsList = await fetchApi('/wall/feed?limit=30', {}, token);
-        set({ feedHasMore: Array.isArray(postsList) && postsList.length >= 30 });
-        const myPostsList = await fetchApi(`/users/${mePayload.id}/posts?limit=100`, {}, token);
-        const combinedPostsMap = new Map();
-        postsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
-        myPostsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
-        combinedPosts = Array.from(combinedPostsMap.values()).sort((a: any, b: any) => b.createdAt - a.createdAt) as Post[];
+      const postsList: Post[] = feedRes.status === 'fulfilled' && Array.isArray(feedRes.value)
+        ? feedRes.value
+        : [];
+      const myPostsList: Post[] = myPostsRes.status === 'fulfilled' && Array.isArray(myPostsRes.value)
+        ? myPostsRes.value
+        : [];
+      if (feedRes.status === 'rejected') console.error('Не удалось загрузить ленту:', feedRes.reason);
+      if (myPostsRes.status === 'rejected') console.error('Не удалось загрузить свои посты:', myPostsRes.reason);
+
+      set({ feedHasMore: postsList.length >= 30 });
+      if (postsList.length || myPostsList.length) {
+        const byId = new Map<string, Post>();
+        postsList.forEach((p) => byId.set(p.id, p));
+        myPostsList.forEach((p) => byId.set(p.id, p));
+        combinedPosts = [...byId.values()].sort((a: any, b: any) => b.createdAt - a.createdAt);
         Object.assign(usersMap, mergeUsersFromPosts(combinedPosts, usersMap));
-      } catch (err) {
-        console.error('Failed to fetch posts in initApi:', err);
       }
 
       set({
@@ -1805,13 +1836,10 @@ export const useAppStore = create<AppState>()(
         posts: combinedPosts,
       });
 
-      try {
-        await get().refreshNotifications();
-      } catch { /* optional */ }
+      // Второстепенное уже летит параллельно — дожидаемся, чтобы отказ не
+      // всплыл необработанным, но экран к этому моменту уже нарисован.
+      await sideLoads;
 
-      await get().syncEchoes();
-      await get().loadBlocks();
-      
       const activeId = get().activeChatId;
       if (activeId) {
         const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
