@@ -82,6 +82,25 @@ export function mergeUsersFromPosts(
   return users;
 }
 
+/** Ответ сервера -> ShelfItem. Сервер вкладывает само сообщение, чтобы полку
+ *  можно было отрисовать без запроса на каждый закреп. */
+function shelfFromApi(x: any): any {
+  const m = x?.message ?? {};
+  const body =
+    (m.text && String(m.text).trim()) ||
+    (m.kind === 'media' ? 'Фото' : m.kind === 'voice' ? 'Голосовое' : m.kind === 'circle' ? 'Кружок' : 'Сообщение');
+  return {
+    id: x.id,
+    chatId: x.chatId,
+    messageId: x.messageId,
+    pinnedBy: x.pinnedBy,
+    pinnedAt: Number(x.pinnedAt) || Date.now(),
+    text: body,
+    mediaUrl: m.media?.url,
+    kind: m.kind,
+  };
+}
+
 export async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
   const headers = new Headers(options.headers || {});
   if (options.body) {
@@ -219,6 +238,53 @@ function connectWebSocket(token: string, store: any) {
       const payload = JSON.parse(event.data);
       const { event: wsEvent, data } = payload;
       
+      if (wsEvent === 'reaction.updated') {
+        // Сервер шлёт всю карту реакций — заменяем, а не сводим.
+        const { messages } = store.getState();
+        store.setState({
+          messages: messages.map((m: any) =>
+            m.id === data.messageId ? { ...m, reactions: data.reactions ?? {} } : m
+          ),
+        });
+        return;
+      }
+
+      if (wsEvent === 'shelf.pinned') {
+        const { shelfItems } = store.getState();
+        if (!shelfItems.some((x: any) => x.messageId === data.messageId)) {
+          store.setState({ shelfItems: [shelfFromApi(data), ...shelfItems] });
+        }
+        return;
+      }
+
+      if (wsEvent === 'shelf.unpinned') {
+        const { shelfItems } = store.getState();
+        store.setState({
+          shelfItems: shelfItems.filter((x: any) => x.messageId !== data.messageId),
+        });
+        return;
+      }
+
+      if (wsEvent === 'message.edited') {
+        const { messages } = store.getState();
+        store.setState({
+          messages: messages.map((m: any) =>
+            m.id === data.id ? { ...m, text: data.text, editedAt: data.editedAt } : m
+          ),
+        });
+        return;
+      }
+
+      if (wsEvent === 'message.deleted') {
+        const { messages } = store.getState();
+        store.setState({
+          messages: messages.map((m: any) =>
+            m.id === data.id ? { ...m, deleted: true, text: '', media: undefined } : m
+          ),
+        });
+        return;
+      }
+
       if (wsEvent === 'message.created') {
         const { messages, chats, activeChatId } = store.getState();
         const cid = data.client_id || data.clientId;
@@ -539,11 +605,12 @@ interface AppState {
   retryMessage: (id: string) => void;
   deleteMessage: (id: string) => void;
   setReplyTo: (id: string | null) => void;
-  toggleReaction: (messageId: string, emoji: string) => void;
+  toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   setReactionPicker: (v: AppState['reactionPicker']) => void;
   setContextMenu: (v: AppState['contextMenu']) => void;
-  pinToShelf: (messageId: string) => void;
-  removeFromShelf: (shelfId: string) => void;
+  pinToShelf: (messageId: string) => Promise<void>;
+  removeFromShelf: (shelfId: string) => Promise<void>;
+  loadShelf: (chatId: string) => Promise<void>;
   setShelfOpen: (v: boolean) => void;
 
   setEchoMode: (v: boolean) => void;
@@ -1090,6 +1157,9 @@ export const useAppStore = create<AppState>()(
           ],
         }));
         await fetchApi(`/chats/${id}/read`, { method: 'POST' }, get().token);
+        // Полка живёт на сервере — до этого она была локальной и умирала
+        // вместе с устройством.
+        get().loadShelf(id);
       } catch (err) {
         console.error('Failed to fetch messages or mark read:', err);
         get().showToast('Не удалось загрузить сообщения');
@@ -1818,8 +1888,11 @@ export const useAppStore = create<AppState>()(
       reactionPicker: null,
     })),
 
-  toggleReaction: (messageId, emoji) => {
+  toggleReaction: async (messageId, emoji) => {
     const me = get().me.id;
+    const before = get().messages;
+
+    // Оптимистично: реакция должна появиться мгновенно, а не через круг до сервера.
     set((s) => ({
       reactionPicker: null,
       messages: s.messages.map((m) => {
@@ -1833,55 +1906,82 @@ export const useAppStore = create<AppState>()(
         return { ...m, reactions };
       }),
     }));
+
+    try {
+      // Сервер возвращает всю карту реакций, а не дельту: счётчики — общее
+      // состояние, и сводить их вручную значит однажды разойтись.
+      const res = await fetchApi(
+        `/messages/${messageId}/reactions`,
+        { method: 'POST', body: JSON.stringify({ emoji }) },
+        get().token
+      );
+      set((s) => ({
+        messages: s.messages.map((m) =>
+          m.id === messageId ? { ...m, reactions: res.reactions ?? {} } : m
+        ),
+      }));
+    } catch (err) {
+      console.error('reaction failed', err);
+      set({ messages: before });
+      get().showToast('Не удалось поставить реакцию');
+    }
   },
 
   setReactionPicker: (v) => set({ reactionPicker: v, contextMenu: null }),
   setContextMenu: (v) => set({ contextMenu: v, reactionPicker: null }),
 
-  pinToShelf: (messageId) => {
+  pinToShelf: async (messageId) => {
     const msg = get().messages.find((m) => m.id === messageId);
     if (!msg) return;
+    set({ contextMenu: null });
     if (get().shelfItems.some((x) => x.messageId === messageId)) {
-      set({ contextMenu: null });
       get().showToast('Уже на полке');
       return;
     }
-    const preview =
-      msg.kind === 'media'
-        ? msg.text?.trim() || 'Фото'
-        : msg.kind === 'voice'
-          ? 'Голосовое'
-          : msg.kind === 'circle'
-            ? 'Кружок'
-            : msg.text || 'Сообщение';
-    // Mobile has no side wall column — pin silently with toast
-    const isDesktop =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(min-width: 1024px)').matches;
-    set((s) => ({
-      shelfItems: [
-        {
-          id: uid('sh'),
-          chatId: msg.chatId,
-          messageId: msg.id,
-          pinnedBy: get().me.id,
-          pinnedAt: Date.now(),
-          text: preview,
-          mediaUrl: msg.media?.url,
-          kind: msg.kind,
-        },
-        ...s.shelfItems,
-      ],
-      contextMenu: null,
-      // Open docked shelf only on desktop; mobile → toast only
-      shelfOpen: isDesktop ? true : s.shelfOpen,
-    }));
-    get().showToast('Закреплено');
+    try {
+      const item = await fetchApi(
+        `/chats/${msg.chatId}/shelf`,
+        { method: 'POST', body: JSON.stringify({ message_id: messageId }) },
+        get().token
+      );
+      set((s) => ({ shelfItems: [shelfFromApi(item), ...s.shelfItems] }));
+      get().showToast('На полке');
+    } catch (err) {
+      console.error('pin failed', err);
+      get().showToast('Не удалось закрепить');
+    }
   },
-  removeFromShelf: (shelfId) =>
-    set((s) => ({
-      shelfItems: s.shelfItems.filter((x) => x.id !== shelfId),
-    })),
+
+  removeFromShelf: async (shelfId) => {
+    const item = get().shelfItems.find((x) => x.id === shelfId);
+    if (!item) return;
+    const before = get().shelfItems;
+    set((s) => ({ shelfItems: s.shelfItems.filter((x) => x.id !== shelfId) }));
+    try {
+      await fetchApi(
+        `/chats/${item.chatId}/shelf/${item.messageId}`,
+        { method: 'DELETE' },
+        get().token
+      );
+    } catch (err) {
+      console.error('unpin failed', err);
+      set({ shelfItems: before });
+      get().showToast('Не удалось открепить');
+    }
+  },
+
+  loadShelf: async (chatId) => {
+    try {
+      const items = await fetchApi(`/chats/${chatId}/shelf`, {}, get().token);
+      const list = Array.isArray(items) ? items.map(shelfFromApi) : [];
+      set((s) => ({
+        shelfItems: [...s.shelfItems.filter((x) => x.chatId !== chatId), ...list],
+      }));
+    } catch (err) {
+      console.error('shelf load failed', err);
+    }
+  },
+
   setShelfOpen: (v) => set({ shelfOpen: v }),
 
   setEchoMode: (v) => set({ echoMode: v }),
