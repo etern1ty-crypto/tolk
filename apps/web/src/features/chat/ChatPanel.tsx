@@ -342,6 +342,15 @@ export function ChatPanel() {
     return () => window.removeEventListener('paste', onPaste);
   }, [activeChatId, pendingImage]);
 
+  // Взяли сообщение в правку — переносим его текст в поле ввода.
+  // Хук обязан стоять выше условного возврата ниже: иначе при выборе чата
+  // число хуков меняется и React роняет отрисовку.
+  useEffect(() => {
+    if (!editingMessageId) return;
+    const m = useAppStore.getState().messages.find((x) => x.id === editingMessageId);
+    if (m) setText(m.text);
+  }, [editingMessageId]);
+
   if (!activeChatId || !chat) {
     return (
       <section className={styles.root} aria-label="Чат">
@@ -370,10 +379,6 @@ export function ChatPanel() {
     setText('');
   };
 
-  // Взяли сообщение в правку — переносим его текст в поле ввода.
-  useEffect(() => {
-    if (editingMsg) setText(editingMsg.text);
-  }, [editingMsg?.id]);
 
   const clearHoldArm = () => {
     if (holdArmTimer.current != null) {
