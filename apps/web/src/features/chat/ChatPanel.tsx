@@ -681,6 +681,14 @@ export function ChatPanel() {
 
       <GlobalMediaPlayer />
       <div className={styles.messages} ref={listRef} onScroll={onMessagesScroll}>
+        {/* Первый экран после приглашения — именно этот. Пустой чёрный
+            прямоугольник читается как «сломалось», а не как «ещё ничего нет». */}
+        {chatMessages.length === 0 && (
+          <div className={styles.emptyThread}>
+            <p>Здесь пока пусто</p>
+            <p>{chat.type === 'dm' ? 'Напишите первым — это ни к чему не обязывает' : 'Начните разговор'}</p>
+          </div>
+        )}
         {hasOlder && (
           <div className={styles.loadOlder}>
             <button type="button" className={styles.loadOlderBtn} onClick={loadOlder}>
