@@ -1,6 +1,6 @@
 import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { BANNER_PATTERNS, useAppStore, fetchApi } from '../../store/appStore';
+import { BANNER_PATTERNS, useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
 import { patternById, MEDIA_PATTERNS, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
@@ -10,6 +10,7 @@ import { iconProps } from '../../shared/ui/icons';
 import styles from './ProfileTab.module.css';
 import { PostImage } from '../../shared/ui/PostImage';
 import { prepareImage } from '../../shared/lib/imagePrep';
+import { uploadFile } from '../../shared/lib/api';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -128,35 +129,11 @@ export function ProfileTab() {
       let publicUrl = '';
       try {
         const prepared = await prepareImage(file, 'avatar');
-        const uploadRes = await fetchApi('/media/uploads', {
-          method: 'POST',
-          body: JSON.stringify({
-            mime: prepared.type || 'image/jpeg',
-            size: prepared.size,
-            kind: 'image',
-            purpose: 'avatar'
-          })
-        }, token);
-
-        const s3Res = await fetch(uploadRes.upload_url, {
-          method: 'PUT',
-          body: prepared,
-          headers: {
-            'Content-Type': prepared.type || 'image/jpeg',
-            Authorization: `Bearer ${token}`,
-          }
-        });
-
-        if (!s3Res.ok) {
-          throw new Error(`S3 upload failed: ${s3Res.statusText}`);
-        }
-
-        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-          method: 'POST',
-          body: JSON.stringify({})
-        }, token);
-
-        publicUrl = uploadRes.public_url;
+        ({ url: publicUrl } = await uploadFile(
+          prepared,
+          { kind: 'image', purpose: 'avatar' },
+          token
+        ));
       } catch (uploadErr) {
         console.error('Avatar upload failed:', uploadErr);
         throw uploadErr;
@@ -575,30 +552,12 @@ export function ProfileTab() {
                   try {
                     showToast('Загрузка фона…');
                     const prepared = await prepareImage(file, 'banner');
-                    const uploadRes = await fetchApi(
-                      '/media/uploads',
-                      {
-                        method: 'POST',
-                        body: JSON.stringify({
-                          mime: prepared.type || 'image/jpeg',
-                          size: prepared.size,
-                          kind: 'image',
-                          purpose: 'banner',
-                        }),
-                      },
+                    const { url } = await uploadFile(
+                      prepared,
+                      { kind: 'image', purpose: 'banner' },
                       token
                     );
-                    const put = await fetch(uploadRes.upload_url, {
-                      method: 'PUT',
-                      body: prepared,
-                      headers: {
-                        'Content-Type': prepared.type || 'image/jpeg',
-                        Authorization: `Bearer ${token}`,
-                      },
-                    });
-                    if (!put.ok) throw new Error('upload failed');
-                    await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
-                    await updateMe({ bannerRef: uploadRes.public_url });
+                    await updateMe({ bannerRef: url });
                     showToast('Фон обновлён');
                   } catch (err: any) {
                     showToast(err.message || 'Ошибка загрузки фона');

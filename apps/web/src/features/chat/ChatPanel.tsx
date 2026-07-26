@@ -18,7 +18,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type UIEvent,
 } from 'react';
-import { CHAT_THEMES, useAppStore, fetchApi } from '../../store/appStore';
+import { CHAT_THEMES, useAppStore } from '../../store/appStore';
 import { patternById } from '../../shared/patterns';
 import { formatReplyPreview } from '../../shared/lib/messagePreview';
 import { Avatar } from '../../shared/ui/Avatar';
@@ -33,6 +33,7 @@ import { MediaSendPreview } from './MediaSendPreview';
 import { VoicePlayer } from './MessageVoiceBubble';
 import { formatLastSeen } from '../profile/PeerProfile';
 import { PostImage } from '../../shared/ui/PostImage';
+import { uploadFile } from '../../shared/lib/api';
 
 /** How many newest messages stay mounted. Expand on scroll-up. */
 const MSG_WINDOW = 48;
@@ -411,38 +412,16 @@ export function ChatPanel() {
               useAppStore.getState().showToast('Отправка голосового...');
               
               const voiceMime = (file.type || 'audio/webm').split(';')[0] || 'audio/webm';
-              const uploadRes = await fetchApi('/media/uploads', {
-                method: 'POST',
-                body: JSON.stringify({
-                  mime: voiceMime,
-                  size: file.size,
-                  kind: 'voice',
-                  purpose: 'voice'
-                })
-              }, token);
-
-              const s3Res = await fetch(uploadRes.upload_url, {
-                method: 'PUT',
-                body: file,
-                headers: {
-                  'Content-Type': voiceMime,
-                  Authorization: `Bearer ${token}`,
-                }
-              });
-
-              if (!s3Res.ok) {
-                throw new Error(`Failed to upload voice: ${s3Res.statusText}`);
-              }
-
-              await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-                method: 'POST',
-                body: JSON.stringify({})
-              }, token);
+              const { url } = await uploadFile(
+                file,
+                { kind: 'voice', purpose: 'voice', mime: voiceMime },
+                token
+              );
 
               await sendMessage('Голосовое сообщение', {
                 kind: 'voice',
                 media: {
-                  url: uploadRes.public_url,
+                  url,
                   durationSec,
                   filename: 'voice.webm',
                   mime: file.type,

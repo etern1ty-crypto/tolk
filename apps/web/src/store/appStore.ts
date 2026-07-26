@@ -13,6 +13,11 @@ import {
 } from '../shared/patterns';
 import { soundEffects, THEME_SOUND_PACK, type SoundPackId } from '../shared/soundEffects';
 import { prepareImage } from '../shared/lib/imagePrep';
+import { fetchApi, socketUrl, uploadFile } from '../shared/lib/api';
+
+// Слой работы с сервером живёт в shared/lib/api. Здесь он переэкспортируется,
+// потому что на этот путь импорта ссылается вся остальная часть приложения.
+export { fetchApi };
 import type {
   AuthStep,
   Chat,
@@ -25,16 +30,6 @@ import type {
   User,
 } from '../shared/types';
 
-const getApiUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  return 'http://localhost:3000';
-};
-const API_URL = getApiUrl();
 
 /** Merge author/commenter cards from feed payloads into users map */
 export function mergeUsersFromPosts(
@@ -132,36 +127,6 @@ function shelfFromApi(x: any): any {
   };
 }
 
-export async function fetchApi(path: string, options: RequestInit = {}, token?: string | null) {
-  const headers = new Headers(options.headers || {});
-  if (options.body) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
-  if (!res.ok) {
-    const errorText = await res.text();
-    let errorObj;
-    try {
-      errorObj = JSON.parse(errorText);
-    } catch {
-      errorObj = { error: errorText };
-    }
-    // Код ответа кладём на саму ошибку. Раньше наружу уходил только текст
-    // сервера, и «Unauthorized» невозможно было отличить от любой другой
-    // неудачи — проверка на «401» в тексте не срабатывала никогда.
-    const err = new Error(errorObj.error || `HTTP ${res.status}`) as Error & { status: number };
-    err.status = res.status;
-    throw err;
-  }
-  if (res.status === 204) return null;
-  return res.json();
-}
 
 let activeSocket: WebSocket | null = null;
 let lastTypingSent = 0;
@@ -251,11 +216,7 @@ function connectWebSocket(token: string, store: any) {
     activeSocket.close();
   }
   
-  const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = import.meta.env.VITE_WS_URL
-    ? `${import.meta.env.VITE_WS_URL}?token=${token}`
-    : `${wsProto}//${window.location.host}/ws?token=${token}`;
-  const ws = new WebSocket(wsUrl);
+  const ws = new WebSocket(socketUrl(token));
   activeSocket = ws;
   
   ws.onopen = () => {
@@ -1745,43 +1706,24 @@ export const useAppStore = create<AppState>()(
       const processedFile =
         kind === 'media' ? await prepareImage(file, 'photo') : file;
       
+      const mime = processedFile.type || 'application/octet-stream';
       let publicUrl = '';
       try {
-        const uploadRes = await fetchApi('/media/uploads', {
-          method: 'POST',
-          body: JSON.stringify({
-            mime: processedFile.type || 'application/octet-stream',
-            size: processedFile.size,
+        ({ url: publicUrl } = await uploadFile(
+          processedFile,
+          {
+            mime,
             purpose: 'message',
-            kind: processedFile.type.startsWith('image/')
+            kind: mime.startsWith('image/')
               ? 'image'
-              : processedFile.type.startsWith('audio/')
+              : mime.startsWith('audio/')
                 ? 'voice'
-                : processedFile.type.startsWith('video/')
+                : mime.startsWith('video/')
                   ? 'circle'
                   : 'file',
-          })
-        }, token);
-
-        const s3Res = await fetch(uploadRes.upload_url, {
-          method: 'PUT',
-          body: processedFile,
-          headers: {
-            'Content-Type': processedFile.type || 'application/octet-stream',
-            Authorization: `Bearer ${token}`,
-          }
-        });
-
-        if (!s3Res.ok) {
-          throw new Error(`Failed to upload file: ${s3Res.statusText}`);
-        }
-
-        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-          method: 'POST',
-          body: JSON.stringify({})
-        }, token);
-
-        publicUrl = uploadRes.public_url;
+          },
+          token
+        ));
       } catch (uploadErr) {
         console.error('Media upload failed:', uploadErr);
         throw uploadErr;
@@ -2308,38 +2250,16 @@ export const useAppStore = create<AppState>()(
     if (opts.photoFile) {
       try {
         const prepared = await prepareImage(opts.photoFile, 'photo');
-        const uploadRes = await fetchApi('/media/uploads', {
-          method: 'POST',
-          body: JSON.stringify({
-            mime: prepared.type,
-            size: prepared.size,
-            kind: 'image',
-            purpose: 'post'
-          })
-        }, token);
-
-        const s3Res = await fetch(uploadRes.upload_url, {
-          method: 'PUT',
-          body: prepared,
-          headers: {
-            'Content-Type': prepared.type,
-            Authorization: `Bearer ${token}`,
-          }
-        });
-
-        if (!s3Res.ok) {
-          throw new Error(`Failed to upload file: ${s3Res.statusText}`);
-        }
-
-        await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-          method: 'POST',
-          body: JSON.stringify({})
-        }, token);
+        const { url, mediaId } = await uploadFile(
+          prepared,
+          { kind: 'image', purpose: 'post' },
+          token
+        );
 
         mediaPayload = {
           kind: 'image',
-          url: uploadRes.public_url,
-          media_id: uploadRes.media_id,
+          url,
+          media_id: mediaId,
           height: opts.mediaHeight
         };
       } catch (err: any) {

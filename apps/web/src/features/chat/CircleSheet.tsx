@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore, fetchApi } from '../../store/appStore';
+import { useAppStore } from '../../store/appStore';
 import styles from './CircleSheet.module.css';
+import { uploadFile } from '../../shared/lib/api';
 
 export function CircleSheet() {
   const open = useAppStore((s) => s.circleSheetOpen);
@@ -156,38 +157,16 @@ export function CircleSheet() {
             showToast('Отправка кружка...');
             
             const circleMime = (file.type || 'video/webm').split(';')[0] || 'video/webm';
-            const uploadRes = await fetchApi('/media/uploads', {
-              method: 'POST',
-              body: JSON.stringify({
-                mime: circleMime,
-                size: file.size,
-                kind: 'circle',
-              purpose: 'circle'
-              })
-            }, token);
-
-            const s3Res = await fetch(uploadRes.upload_url, {
-              method: 'PUT',
-              body: file,
-              headers: {
-                'Content-Type': circleMime,
-                Authorization: `Bearer ${token}`,
-              }
-            });
-
-            if (!s3Res.ok) {
-              throw new Error(`Failed to upload circle: ${s3Res.statusText}`);
-            }
-
-            await fetchApi(`/media/${uploadRes.media_id}/complete`, {
-              method: 'POST',
-              body: JSON.stringify({})
-            }, token);
+            const { url } = await uploadFile(
+              file,
+              { kind: 'circle', purpose: 'circle', mime: circleMime },
+              token
+            );
 
             await sendMessage('Видеосообщение', {
               kind: 'circle',
               media: {
-                url: uploadRes.public_url,
+                url,
                 durationSec,
                 filename: 'circle.webm',
                 mime: file.type,

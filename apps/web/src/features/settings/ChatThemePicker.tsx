@@ -1,10 +1,11 @@
 import { Upload } from 'lucide-react';
 import { CHAT_THEMES, resolveChatThemeId } from '../../shared/patterns';
 import { PatternBg } from '../../shared/ui/PatternBg';
-import { fetchApi, useAppStore } from '../../store/appStore';
+import { useAppStore } from '../../store/appStore';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatThemePicker.module.css';
 import { prepareImage } from '../../shared/lib/imagePrep';
+import { uploadFile } from '../../shared/lib/api';
 
 type Props = {
   /** Selected theme id (chat or global) */
@@ -53,29 +54,12 @@ export function ChatThemePicker({
       try {
         const compressed = await prepareImage(file, 'wallpaper');
         const token = useAppStore.getState().token;
-        const uploadRes = await fetchApi(
-          '/media/uploads',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              mime: 'image/webp',
-              size: compressed.size,
-              kind: 'image',
-              purpose: 'wallpaper',
-            }),
-          },
+        const { url } = await uploadFile(
+          compressed,
+          { kind: 'image', purpose: 'wallpaper', mime: 'image/webp' },
           token
         );
-        await fetch(uploadRes.upload_url, {
-          method: 'PUT',
-          body: compressed,
-          headers: {
-            'Content-Type': 'image/webp',
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        await fetchApi(`/media/${uploadRes.media_id}/complete`, { method: 'POST' }, token);
-        setGlobalCustomWallpaper(uploadRes.public_url);
+        setGlobalCustomWallpaper(url);
       } catch {
         showToast('Ошибка загрузки обоев');
       }
