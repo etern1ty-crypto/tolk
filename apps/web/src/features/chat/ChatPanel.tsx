@@ -72,6 +72,9 @@ export function ChatPanel() {
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const defaultReaction = useAppStore((s) => s.defaultReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
+  const editingMessageId = useAppStore((s) => s.editingMessageId);
+  const setEditingMessage = useAppStore((s) => s.setEditingMessage);
+  const editMessage = useAppStore((s) => s.editMessage);
   const setChatTheme = useAppStore((s) => s.setChatTheme);
   const uploadAttachment = useAppStore((s) => s.uploadAttachment);
   const setChatInfoOpen = useAppStore((s) => s.setChatInfoOpen);
@@ -353,11 +356,24 @@ export function ChatPanel() {
     );
   }
 
+  const editingMsg = editingMessageId ? messages.find((m) => m.id === editingMessageId) : null;
+
   const submit = () => {
     if (!text.trim()) return;
-    sendMessage(text);
+    // То же поле служит и правкой: отдельный редактор ради одной строки —
+    // лишний экран, а место ввода человек уже знает.
+    if (editingMessageId) {
+      void editMessage(editingMessageId, text);
+    } else {
+      sendMessage(text);
+    }
     setText('');
   };
+
+  // Взяли сообщение в правку — переносим его текст в поле ввода.
+  useEffect(() => {
+    if (editingMsg) setText(editingMsg.text);
+  }, [editingMsg?.id]);
 
   const clearHoldArm = () => {
     if (holdArmTimer.current != null) {
@@ -860,13 +876,18 @@ export function ChatPanel() {
                       <span>{m.media.filename || m.text || 'Скачать файл'}</span>
                     </a>
                   )}
-                  {(m.kind === 'text' || (!m.media?.url && (m.kind === 'file' || m.kind === 'media'))) && (
+                  {m.deleted ? (
+                    <div className={`${styles.bubbleText} ${styles.deletedText}`}>Сообщение удалено</div>
+                  ) : (m.kind === 'text' || (!m.media?.url && (m.kind === 'file' || m.kind === 'media'))) && (
                     <div className={styles.bubbleText}>{m.text}</div>
                   )}
                   {m.kind === 'media' && m.media?.url && m.text && !m.text.includes('mock attachment') && (
                     <div className={styles.bubbleText} style={{ marginTop: '4px' }}>{m.text}</div>
                   )}
                   <div className={styles.bubbleMeta}>
+                    {/* Правка должна быть видна собеседнику: иначе текст меняется
+                        задним числом и разговор перестаёт быть надёжным. */}
+                    {m.editedAt && !m.deleted ? <span title="Изменено">изм.</span> : null}
                     <span>{formatMsgTime(m.createdAt)}</span>
                     {mine && m.status === 'pending' && <span className={styles.checkmarks}>·</span>}
                     {mine && m.status !== 'pending' && m.status !== 'failed' && (
@@ -941,6 +962,22 @@ export function ChatPanel() {
         </div>
       )}
 
+      {editingMsg && (
+        <div className={styles.replyBar}>
+          <div className={styles.replyBarBody}>
+            <strong>Правка</strong>
+            <span>{formatReplyPreview(editingMsg)}</span>
+          </div>
+          <IconBtn
+            size="sm"
+            onClick={() => { setEditingMessage(null); setText(''); }}
+            aria-label="Отменить правку"
+          >
+            <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+          </IconBtn>
+        </div>
+      )}
+
       {pendingImage && (
         <MediaSendPreview
           file={pendingImage.file}
@@ -994,7 +1031,7 @@ export function ChatPanel() {
               setText(e.target.value);
               useAppStore.getState().sendTypingPresence();
             }}
-            placeholder={replyMsg ? 'Ответ…' : 'Сообщение'}
+            placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

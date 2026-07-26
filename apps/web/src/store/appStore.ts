@@ -661,7 +661,10 @@ interface AppState {
   sendVoiceMock: () => void;
   sendCircleMock: () => void;
   retryMessage: (id: string) => void;
-  deleteMessage: (id: string) => void;
+  deleteMessage: (id: string) => Promise<void>;
+  editMessage: (id: string, text: string) => Promise<void>;
+  editingMessageId: string | null;
+  setEditingMessage: (id: string | null) => void;
   setReplyTo: (id: string | null) => void;
   toggleReaction: (messageId: string, emoji: string) => Promise<void>;
   setReactionPicker: (v: AppState['reactionPicker']) => void;
@@ -775,6 +778,7 @@ export const useAppStore = create<AppState>()(
       shelfItems: [],
       echoes: [],
       blockedIds: [],
+      editingMessageId: null,
       navPins: [],
 
       activeChatId: null,
@@ -1998,12 +2002,51 @@ export const useAppStore = create<AppState>()(
     }, 350);
   },
 
-  deleteMessage: (id) =>
+  // Удаление только у себя выглядело как работающее: сообщение исчезало с
+  // экрана, оставалось у собеседника и возвращалось после перезагрузки.
+  deleteMessage: async (id) => {
+    const msg = get().messages.find((m) => m.id === id);
+    set({ contextMenu: null, reactionPicker: null });
+    if (!msg) return;
+    const before = get().messages;
     set((s) => ({
-      messages: s.messages.filter((m) => m.id !== id),
-      contextMenu: null,
-      reactionPicker: null,
-    })),
+      messages: s.messages.map((m) =>
+        m.id === id ? { ...m, deleted: true, text: '', media: undefined } : m
+      ),
+    }));
+    try {
+      await fetchApi(`/chats/${msg.chatId}/messages/${id}`, { method: 'DELETE' }, get().token);
+    } catch (e) {
+      set({ messages: before });
+      get().showToast('Не удалось удалить');
+    }
+  },
+
+  editMessage: async (id, text) => {
+    const msg = get().messages.find((m) => m.id === id);
+    const next = text.trim();
+    set({ contextMenu: null, editingMessageId: null });
+    if (!msg || !next || next === msg.text) return;
+    const before = get().messages;
+    set((s) => ({
+      messages: s.messages.map((m) => (m.id === id ? { ...m, text: next } : m)),
+    }));
+    try {
+      const res = await fetchApi(
+        `/chats/${msg.chatId}/messages/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ text: next }) },
+        get().token
+      );
+      if (res?.editedAt) {
+        set((s) => ({
+          messages: s.messages.map((m) => (m.id === id ? { ...m, editedAt: Number(res.editedAt) } : m)),
+        }));
+      }
+    } catch (e) {
+      set({ messages: before });
+      get().showToast('Не удалось изменить');
+    }
+  },
 
   toggleReaction: async (messageId, emoji) => {
     const me = get().me.id;
@@ -2243,6 +2286,7 @@ export const useAppStore = create<AppState>()(
     window.setTimeout(() => set({ highlightMessageId: null }), 2000);
   },
 
+  setEditingMessage: (id) => set({ editingMessageId: id, contextMenu: null }),
   setAttachSheetOpen: (v) => set({ attachSheetOpen: v }),
   setCircleSheetOpen: (v) => set({ circleSheetOpen: v, showCircleEffects: false }),
   setVoiceRecording: (v) => set({ voiceRecording: v }),

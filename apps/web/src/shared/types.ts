@@ -64,6 +64,10 @@ export interface Message {
   createdAt: number;
   seq?: number;
   isEcho?: boolean;
+  /** Мягкое удаление: строка остаётся ради нумерации, содержимое стирается. */
+  deleted?: boolean;
+  /** Когда текст правили. Пусто — не правили ни разу. */
+  editedAt?: number;
   /** voice duration sec */
   durationSec?: number;
   reactions: Record<string, string[]>; // emoji -> userIds

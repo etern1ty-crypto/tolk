@@ -1,4 +1,4 @@
-import { Bookmark, Copy, Reply, Trash2 } from 'lucide-react';
+import { Bookmark, Copy, Pencil, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import styles from './MessageContextMenu.module.css';
@@ -8,6 +8,8 @@ export function MessageContextMenu() {
   const setContextMenu = useAppStore((s) => s.setContextMenu);
   const pinToShelf = useAppStore((s) => s.pinToShelf);
   const deleteMessage = useAppStore((s) => s.deleteMessage);
+  const setEditingMessage = useAppStore((s) => s.setEditingMessage);
+  const me = useAppStore((s) => s.me);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const emojis = useAppStore((s) => s.reactionEmojis);
@@ -87,6 +89,14 @@ export function MessageContextMenu() {
       <button type="button" role="menuitem" onClick={() => pinToShelf(msg.id)}>
         <Bookmark size={16} /> На полку
       </button>
+      {/* Править можно только свой текст: голосовое или кружок «изменить» на
+          произвольные слова — это подделка, а не правка. Сервер это и так
+          запрещает, но предлагать пункт, который откажет, незачем. */}
+      {msg.senderId === me.id && msg.kind === 'text' && !msg.deleted && (
+        <button type="button" role="menuitem" onClick={() => setEditingMessage(msg.id)}>
+          <Pencil size={16} /> Изменить
+        </button>
+      )}
       <button
         type="button"
         role="menuitem"
