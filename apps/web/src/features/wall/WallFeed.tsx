@@ -163,6 +163,8 @@ export function WallFeed() {
                   <button
                     type="button"
                     className={liked ? styles.liked : ''}
+                    aria-label={liked ? 'Убрать отметку «нравится»' : 'Нравится'}
+                    aria-pressed={liked}
                     onClick={() => toggleLike(post.id)}
                   >
                     <Heart
@@ -174,6 +176,7 @@ export function WallFeed() {
                   </button>
                   <button
                     type="button"
+                    aria-label="Комментарии"
                     onClick={() => setCommentPostId(post.id)}
                   >
                     <MessageCircle
@@ -184,6 +187,7 @@ export function WallFeed() {
                   </button>
                   <button
                     type="button"
+                    aria-label="Опубликовать у себя"
                     onClick={() => repostToProfile(post.id)}
                   >
                     <Repeat2
@@ -193,6 +197,7 @@ export function WallFeed() {
                   </button>
                   <button
                     type="button"
+                    aria-label="Переслать в чат"
                     onClick={() => setForwardPostId(post.id)}
                   >
                     <Forward
@@ -203,6 +208,7 @@ export function WallFeed() {
                   <button
                     type="button"
                     title="Ссылка"
+                    aria-label="Скопировать ссылку на пост"
                     onClick={async () => {
                       try {
                         await copyShareLink('post', post.id, token);
