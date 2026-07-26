@@ -57,7 +57,7 @@ export function ChatInfoSheet() {
         </header>
 
         <div className={styles.hero}>
-          <Avatar name={chat.title} id={chat.id} avatarUrl={chat.avatarRef} size={64} />
+          <Avatar name={chat.title} id={chat.peerId || chat.id} avatarUrl={chat.avatarRef} size={64} />
           {isAdmin ? (
             <input
               className={styles.titleInput}

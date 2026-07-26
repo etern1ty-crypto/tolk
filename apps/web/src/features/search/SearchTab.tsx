@@ -200,7 +200,7 @@ export function SearchTab() {
                     className={styles.rowMain}
                     onClick={() => setActiveChat(c.id)}
                   >
-                    <Avatar name={c.title} id={c.id} avatarUrl={c.avatarRef} size={44} />
+                    <Avatar name={c.title} id={c.peerId || c.id} avatarUrl={c.avatarRef} size={44} />
                     <div className={styles.meta}>
                       <span className={styles.name}>{c.title}</span>
                       <span className={styles.sub}>

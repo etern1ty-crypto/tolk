@@ -201,7 +201,7 @@ export function ChatList() {
               >
                 <Avatar
                   name={chat.title}
-                  id={chat.id}
+                  id={chat.peerId || chat.id}
                   avatarUrl={chat.avatarRef}
                   online={chat.online}
                   size={isDesktop ? 44 : 48}
