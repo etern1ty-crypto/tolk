@@ -22,7 +22,7 @@ export function ShelfSheet() {
       <header className={styles.head}>
         <div>
           <h3>Полка чата</h3>
-          <p className={styles.hint}>Закрепы этого диалога</p>
+          <p className={styles.hint}>Всё нужное из этого чата</p>
         </div>
         <button
           type="button"
