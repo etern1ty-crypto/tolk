@@ -1,16 +1,42 @@
 import { PenSquare, Pin, Search } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatList.module.css';
+import { createShareUrl } from '../../shared/lib/share';
 
 export function ChatList() {
   const chats = useAppStore((s) => s.chats);
   const me = useAppStore((s) => s.me);
   const activeChatId = useAppStore((s) => s.activeChatId);
   const searchQuery = useAppStore((s) => s.searchQuery);
+  const [inviting, setInviting] = useState(false);
+
+  // Единственный работающий механизм роста: дать человеку ссылку на себя,
+  // чтобы позвать первого собеседника прямо отсюда.
+  const inviteFriend = async () => {
+    const { me, token, showToast } = useAppStore.getState();
+    if (!me?.id) return;
+    setInviting(true);
+    try {
+      const url = await createShareUrl('user', me.id, token);
+      if (navigator.share) {
+        await navigator.share({ title: 'Толк', text: 'Напиши мне в Толке', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast('Ссылка скопирована');
+      }
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') {
+        useAppStore.getState().showToast('Не удалось создать ссылку');
+      }
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const setActiveChat = useAppStore((s) => s.setActiveChat);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
@@ -108,12 +134,39 @@ export function ChatList() {
       </div>
 
       <div className={styles.list}>
-        {filtered.length === 0 && (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>Пусто</p>
-            <p className={styles.emptySub}>Напишите кому-нибудь</p>
-          </div>
-        )}
+        {filtered.length === 0 &&
+          (searchQuery.trim() ? (
+            // Раньше поиск с опечаткой показывал «Напишите кому-нибудь» —
+            // приложение советовало заводить друзей в ответ на промах в букве.
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Ничего не нашлось</p>
+              <p className={styles.emptySub}>Попробуйте другое имя</p>
+            </div>
+          ) : (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Напишите первым</p>
+              <p className={styles.emptySub}>
+                Мессенджер начинается со второго человека
+              </p>
+              <div className={styles.emptyActions}>
+                <button
+                  type="button"
+                  className={styles.emptyPrimary}
+                  onClick={() => setNewChatOpen(true)}
+                >
+                  Найти людей
+                </button>
+                <button
+                  type="button"
+                  className={styles.emptyGhost}
+                  onClick={inviteFriend}
+                  disabled={inviting}
+                >
+                  {inviting ? 'Готовим ссылку…' : 'Пригласить друга'}
+                </button>
+              </div>
+            </div>
+          ))}
         {filtered.map((chat) => {
           const isPinned = chat.pinned || navPins.includes(chat.id);
           return (

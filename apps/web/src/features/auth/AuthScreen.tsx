@@ -92,6 +92,10 @@ export function AuthScreen() {
     } catch {
       /* ignore */
     }
+    // Только origin, без пути: провайдер сверяет redirect_uri с точностью до
+    // символа, и регистрировать каждый /s/<slug> невозможно. Цель приглашения
+    // переживает переход через sessionStorage — оно привязано к вкладке и
+    // origin, а не к странице, так что уцелеет и на обратном пути от провайдера.
     const redirectUri = window.location.origin;
     const url =
       `https://oauth.yandex.ru/authorize?response_type=token` +
@@ -114,6 +118,10 @@ export function AuthScreen() {
     } catch {
       /* ignore */
     }
+    // Только origin, без пути: провайдер сверяет redirect_uri с точностью до
+    // символа, и регистрировать каждый /s/<slug> невозможно. Цель приглашения
+    // переживает переход через sessionStorage — оно привязано к вкладке и
+    // origin, а не к странице, так что уцелеет и на обратном пути от провайдера.
     const redirectUri = window.location.origin;
     const url =
       `https://oauth.vk.com/authorize?client_id=${encodeURIComponent(clientId)}` +
