@@ -2042,6 +2042,13 @@ export const useAppStore = create<AppState>()(
           messages: s.messages.map((m) => (m.id === id ? { ...m, editedAt: Number(res.editedAt) } : m)),
         }));
       }
+      // Если правили последнее сообщение, строка чата показывала бы прежний
+      // текст — расхождение видно сразу, оба места на одном экране.
+      set((s) => ({
+        chats: s.chats.map((c: any) =>
+          c.id === msg.chatId && c.preview === msg.text ? { ...c, preview: next } : c
+        ),
+      }));
     } catch (e) {
       set({ messages: before });
       get().showToast('Не удалось изменить');
