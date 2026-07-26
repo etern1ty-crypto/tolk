@@ -6,6 +6,7 @@ import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatList.module.css';
 import { createShareUrl } from '../../shared/lib/share';
+import { SkeletonList } from '../../shared/ui/Skeleton';
 
 export function ChatList() {
   const chats = useAppStore((s) => s.chats);
@@ -13,6 +14,7 @@ export function ChatList() {
   const activeChatId = useAppStore((s) => s.activeChatId);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const [inviting, setInviting] = useState(false);
+  const booting = useAppStore((s) => s.booting);
 
   // Единственный работающий механизм роста: дать человеку ссылку на себя,
   // чтобы позвать первого собеседника прямо отсюда.
@@ -134,7 +136,8 @@ export function ChatList() {
       </div>
 
       <div className={styles.list}>
-        {filtered.length === 0 &&
+        {filtered.length === 0 && booting && <SkeletonList count={6} kind="chat" />}
+        {filtered.length === 0 && !booting &&
           (searchQuery.trim() ? (
             // Раньше поиск с опечаткой показывал «Напишите кому-нибудь» —
             // приложение советовало заводить друзей в ответ на промах в букве.

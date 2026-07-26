@@ -1,0 +1,84 @@
+/* Заглушки загрузки. Разделители те же волосяные, что и у настоящих строк —
+   иначе подмена заметна скачком высоты. */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.post {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.postHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.line {
+  height: 13px;
+  border-radius: 6px;
+}
+
+/* Блик идёт по самим элементам, а не поверх: отдельный слой пришлось бы
+   позиционировать под каждую форму. */
+.avatar,
+.line {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.10) 37%,
+    rgba(255, 255, 255, 0.05) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+html[data-theme='light'] .avatar,
+html[data-theme='light'] .line {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 25%,
+    rgba(0, 0, 0, 0.09) 37%,
+    rgba(0, 0, 0, 0.05) 63%
+  );
+  background-size: 400% 100%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* Движение здесь декоративное: без него заглушки читаются не хуже, а для тех,
+   кому анимация мешает, она просто вредна. */
+@media (prefers-reduced-motion: reduce) {
+  .avatar,
+  .line {
+    animation: none;
+    background: var(--bg-elevated, rgba(255, 255, 255, 0.06));
+  }
+}
