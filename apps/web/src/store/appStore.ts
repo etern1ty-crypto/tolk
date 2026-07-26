@@ -83,6 +83,21 @@ export function mergeUsersFromPosts(
 
 /** Ответ сервера -> ShelfItem. Сервер вкладывает само сообщение, чтобы полку
  *  можно было отрисовать без запроса на каждый закреп. */
+// Эхо с сервера: отправитель приходит вложенным объектом, а внутри клиента
+// хранится плоско — как его кладёт отправляющая сторона.
+function echoFromApi(x: any): EchoItem {
+  return {
+    id: x.id,
+    fromUserId: x.from?.id ?? '',
+    fromName: x.from?.displayName || x.from?.username || 'Кто-то',
+    chatId: x.chatId,
+    messageId: x.messageId,
+    text: x.message?.text || `[${x.message?.kind ?? 'сообщение'}]`,
+    status: x.status ?? 'pending',
+    createdAt: Number(x.createdAt) || Date.now(),
+  };
+}
+
 function shelfFromApi(x: any): any {
   const m = x?.message ?? {};
   const body =
@@ -338,6 +353,31 @@ function connectWebSocket(token: string, store: any) {
           reactions: {},
         };
         
+        // Тихое сообщение не звонит и не подсвечивает чат — весь смысл в том,
+        // что человек увидит его сам. Значит указатель обязан подняться сразу,
+        // иначе про сообщение узнают только после перезапуска.
+        if (isEcho && !isFromMe) {
+          const known = store.getState().echoes;
+          if (!known.some((e: any) => e.messageId === data.id)) {
+            const sender = store.getState().users[data.senderId];
+            store.setState({
+              echoes: [
+                ...known,
+                {
+                  id: `e_local_${data.id}`,
+                  fromUserId: data.senderId,
+                  fromName: sender?.displayName || 'Кто-то',
+                  chatId: data.chatId,
+                  messageId: data.id,
+                  text: data.text || `[${data.kind}]`,
+                  status: 'pending' as const,
+                  createdAt: Number(data.createdAt) || Date.now(),
+                },
+              ],
+            });
+          }
+        }
+
         // Чата ещё нет в списке — значит это первое сообщение от нового
         // человека. Без дозагрузки оно оседало в messages, а переписка не
         // появлялась до перезапуска приложения.
@@ -1817,6 +1857,13 @@ export const useAppStore = create<AppState>()(
       try {
         await get().refreshNotifications();
       } catch { /* optional */ }
+
+      try {
+        const list = await fetchApi('/echoes?status=pending', {}, token);
+        if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
+      } catch (e) {
+        console.error('Не удалось загрузить эхо:', e);
+      }
       
       const activeId = get().activeChatId;
       if (activeId) {
