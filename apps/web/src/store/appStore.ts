@@ -485,6 +485,9 @@ interface AppState {
   chats: Chat[];
   messages: Message[];
   posts: Post[];
+  /** Идёт первая загрузка данных. Нужен, чтобы показать скелетоны
+   *  вместо пустого экрана, который потом рывком заполняется. */
+  booting: boolean;
   shelfItems: ShelfItem[];
   echoes: EchoItem[];
   /** chat ids pinned in SideNav for quick open while scrolling feed */
@@ -701,6 +704,7 @@ export const useAppStore = create<AppState>()(
       chats: [],
       messages: [],
       posts: INITIAL_POSTS,
+      booting: true,
       shelfItems: [],
       echoes: [],
       navPins: [],
@@ -1737,7 +1741,11 @@ export const useAppStore = create<AppState>()(
 
   initApi: async () => {
     const token = get().token;
-    if (!token) return;
+    if (!token) {
+      set({ booting: false });
+      return;
+    }
+    set({ booting: true });
     try {
       connectWebSocket(token, useAppStore);
       const mePayload = await fetchApi('/me', {}, token);
@@ -1796,6 +1804,10 @@ export const useAppStore = create<AppState>()(
       if (err.message && (err.message.includes('401') || err.message.includes('419') || err.message.includes('expired'))) {
         get().logout();
       }
+    } finally {
+      // finally, а не в try: при ошибке скелетоны обязаны погаснуть, иначе
+      // экран навсегда останется в состоянии загрузки.
+      set({ booting: false });
     }
   },
 

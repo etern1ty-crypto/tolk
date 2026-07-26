@@ -15,6 +15,7 @@ import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import { PostComposer } from './PostComposer';
 import styles from './WallFeed.module.css';
+import { SkeletonList } from '../../shared/ui/Skeleton';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -26,6 +27,7 @@ function rel(ts: number) {
 }
 
 export function WallFeed() {
+  const booting = useAppStore((s) => s.booting);
   const posts = useAppStore((s) => s.posts);
   const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
@@ -55,7 +57,9 @@ export function WallFeed() {
       <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
 
       <div className={styles.list}>
-        {feed.length === 0 ? (
+        {feed.length === 0 && booting ? (
+          <SkeletonList count={3} kind="post" />
+        ) : feed.length === 0 ? (
           <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
         ) : (
           feed.map((post) => {
