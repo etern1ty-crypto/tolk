@@ -334,6 +334,13 @@ function connectWebSocket(token: string, store: any) {
           reactions: {},
         };
         
+        // Чата ещё нет в списке — значит это первое сообщение от нового
+        // человека. Без дозагрузки оно оседало в messages, а переписка не
+        // появлялась до перезапуска приложения.
+        if (!chats.some((c: any) => c.id === data.chatId)) {
+          store.getState().syncChats();
+        }
+
         const updatedChats = chats.map((c: any) => {
           if (c.id === data.chatId) {
             const preview = data.isEcho ? `Echo: ${data.text}` : (data.kind === 'text' ? data.text : `[${data.kind}]`);
@@ -618,6 +625,7 @@ interface AppState {
   pinToShelf: (messageId: string) => Promise<void>;
   removeFromShelf: (shelfId: string) => Promise<void>;
   loadShelf: (chatId: string) => Promise<void>;
+  syncChats: () => Promise<void>;
   setShelfOpen: (v: boolean) => void;
 
   setEchoMode: (v: boolean) => void;
@@ -691,6 +699,9 @@ interface AppState {
   setDefaultReaction: (emoji: string) => void;
   setNotifPref: (key: keyof AppState['notifPrefs'], value: boolean) => void;
 }
+
+// Пачка сообщений в неизвестный чат не должна вызвать столько же запросов.
+let syncingChats = false;
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -2015,6 +2026,40 @@ export const useAppStore = create<AppState>()(
       console.error('unpin failed', err);
       set({ shelfItems: before });
       get().showToast('Не удалось открепить');
+    }
+  },
+
+  // Перезапрашивает список чатов целиком. Нужна там, где пришло событие о
+  // чате, которого клиент ещё не знает: первое сообщение от нового человека
+  // или добавление в группу. Список приходит одним батчем на сервере, так что
+  // это дешевле, чем достраивать чат по кускам из события.
+  syncChats: async () => {
+    const token = get().token;
+    if (!token || syncingChats) return;
+    syncingChats = true;
+    try {
+      const list = await fetchApi('/chats', {}, token);
+      if (!Array.isArray(list)) return;
+      const users = { ...get().users };
+      list.forEach((c: any) => {
+        if (c.peerId) {
+          users[c.peerId] = {
+            ...users[c.peerId],
+            id: c.peerId,
+            username: c.peerUsername || users[c.peerId]?.username || '',
+            displayName: c.title,
+            avatarRef: c.avatarRef,
+            online: c.online,
+            lastSeenAt: c.lastSeenAt || 0,
+            bannerPatternId: users[c.peerId]?.bannerPatternId || 'mint_wave',
+          };
+        }
+      });
+      set({ chats: list, users });
+    } catch (e) {
+      console.error('Не удалось обновить список чатов:', e);
+    } finally {
+      syncingChats = false;
     }
   },
 
