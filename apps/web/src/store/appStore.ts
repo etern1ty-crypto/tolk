@@ -2011,7 +2011,14 @@ export const useAppStore = create<AppState>()(
         { method: 'POST', body: JSON.stringify({ message_id: messageId }) },
         get().token
       );
-      set((s) => ({ shelfItems: [shelfFromApi(item), ...s.shelfItems] }));
+      // Событие от сервера могло опередить ответ на этот же запрос, и тогда
+      // запись уже на месте. Проверка внутри set: снаружи между чтением и
+      // записью остаётся зазор, в который и попадала вторая копия.
+      set((s) =>
+        s.shelfItems.some((x: any) => x.messageId === messageId)
+          ? s
+          : { shelfItems: [shelfFromApi(item), ...s.shelfItems] }
+      );
       get().showToast('На полке');
     } catch (err) {
       console.error('pin failed', err);

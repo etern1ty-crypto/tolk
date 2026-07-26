@@ -612,7 +612,7 @@ export function ChatPanel() {
                     setShelfOpen(true);
                   }}
                 >
-                  <Bookmark size={16} /> Избранное
+                  <Bookmark size={16} /> Полка
                   {shelfCount > 0 ? ` · ${shelfCount}` : ''}
                 </button>
               )}
