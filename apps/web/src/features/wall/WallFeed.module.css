@@ -227,6 +227,20 @@
   cursor: zoom-in;
 }
 
+/* Недоступное фото не должно занимать высоту, задуманную для самого фото:
+   автор просил 470 пикселей под снимок, а не под сообщение о его отсутствии.
+   Заглушка при этом выводится из абсолютного потока, иначе высота схлопнется
+   в ноль — mediaFill растягивает содержимое поверх контейнера. */
+.media:has(:global(.post-image-fallback)) {
+  height: auto !important;
+}
+
+.media :global(.post-image-fallback) {
+  position: static !important;
+  height: auto !important;
+  min-height: 132px;
+}
+
 .mediaFill {
   position: absolute !important;
   inset: 0;

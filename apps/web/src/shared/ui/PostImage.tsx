@@ -29,7 +29,7 @@ export function PostImage({ src, alt = 'медиа', className, style, fallback 
   if (failed) {
     if (fallback !== undefined) return <>{fallback}</>;
     return (
-      <div className={`${styles.placeholder} ${className ?? ''}`} role="img" aria-label="Фото недоступно">
+      <div className={`${styles.placeholder} post-image-fallback ${className ?? ''}`} role="img" aria-label="Фото недоступно">
         <span className={styles.icon} aria-hidden>▢</span>
         <span className={styles.caption}>Фото недоступно</span>
       </div>
