@@ -1135,8 +1135,11 @@ export const useAppStore = create<AppState>()(
         if (token) {
           try {
             await fetchApi('/auth/logout', { method: 'POST' }, token);
-          } catch (e) {
-            console.error('Logout request failed:', e);
+          } catch (e: any) {
+            // 401 здесь — норма: выходим как раз потому, что токен уже мёртв,
+            // отзывать на сервере нечего. Кричать об этом в консоль значит
+            // оставлять ложный след тому, кто будет разбирать настоящий сбой.
+            if (e?.status !== 401) console.error('Не удалось выйти на сервере:', e);
           }
         }
         if (activeSocket) {
