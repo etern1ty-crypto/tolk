@@ -152,12 +152,16 @@ export function ChatList() {
                 Мессенджер начинается со второго человека
               </p>
               <div className={styles.emptyActions}>
+                {/* Список людей мы намеренно не показываем, поэтому «найти
+                    людей» через поиск по имени — тупик для того, кто ещё
+                    никого здесь не знает. Живые люди есть на стене: оттуда
+                    открывается профиль, а из профиля — переписка. */}
                 <button
                   type="button"
                   className={styles.emptyPrimary}
-                  onClick={() => setNewChatOpen(true)}
+                  onClick={() => setMainTab('wall')}
                 >
-                  Найти людей
+                  Смотреть стену
                 </button>
                 <button
                   type="button"
@@ -168,6 +172,13 @@ export function ChatList() {
                   {inviting ? 'Готовим ссылку…' : 'Пригласить друга'}
                 </button>
               </div>
+              <button
+                type="button"
+                className={styles.emptyQuiet}
+                onClick={() => setNewChatOpen(true)}
+              >
+                Знаете @username — напишите сразу
+              </button>
             </div>
           ))}
         {filtered.map((chat) => {

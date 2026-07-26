@@ -280,3 +280,21 @@
   border-color: var(--border-strong, rgba(255,255,255,0.22));
 }
 .emptyGhost:disabled { opacity: 0.5; cursor: default; }
+
+/* Третье действие — для тех, кто уже знает конкретный @username. Тише двух
+   верхних: это не путь для новичка, а короткая дорога для своего. */
+.emptyQuiet {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 13px;
+  color: var(--text-tertiary, var(--text-secondary));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.emptyQuiet:hover {
+  color: var(--text-primary);
+}

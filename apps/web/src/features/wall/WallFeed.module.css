@@ -263,3 +263,15 @@
 .sentinel {
   min-height: 1px;
 }
+
+/* Лента получает фокус ради прокрутки с клавиатуры. Обводка нужна тому, кто
+   ходит табом, и мешает тому, кто кликнул мышью — отсюда focus-visible. */
+.list:focus-visible {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+
+.list:focus:not(:focus-visible) {
+  outline: none;
+}
