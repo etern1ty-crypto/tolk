@@ -215,7 +215,7 @@
   height: 200px;
   /* Предел выше заданной автором высоты: иначе один пост занимает весь экран
      и лента перестаёт быть лентой. */
-  max-height: 56vh;
+  max-height: 48vh;
   border-radius: 14px;
   margin: 10px 0 4px;
   border: 1px solid var(--border-subtle);
@@ -328,7 +328,7 @@
   }
 
   .media {
-    max-height: 70vh;
+    max-height: 62vh;
   }
 
   .text {
