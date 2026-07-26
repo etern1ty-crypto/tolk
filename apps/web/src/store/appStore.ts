@@ -671,6 +671,11 @@ interface AppState {
   loadShelf: (chatId: string) => Promise<void>;
   syncChats: () => Promise<void>;
   syncEchoes: () => Promise<void>;
+  blockedIds: string[];
+  loadBlocks: () => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  reportUser: (userId: string, reason: string) => Promise<void>;
   setShelfOpen: (v: boolean) => void;
 
   setEchoMode: (v: boolean) => void;
@@ -769,6 +774,7 @@ export const useAppStore = create<AppState>()(
       feedLoadingMore: false,
       shelfItems: [],
       echoes: [],
+      blockedIds: [],
       navPins: [],
 
       activeChatId: null,
@@ -1860,6 +1866,7 @@ export const useAppStore = create<AppState>()(
       } catch { /* optional */ }
 
       await get().syncEchoes();
+      await get().loadBlocks();
       
       const activeId = get().activeChatId;
       if (activeId) {
@@ -2131,6 +2138,59 @@ export const useAppStore = create<AppState>()(
       if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
     } catch (e) {
       console.error('Не удалось обновить эхо:', e);
+    }
+  },
+
+  // Блокировка и жалобы. Сервер это умел с самого начала, но в интерфейсе
+  // не было ни одной кнопки — пожаловаться на человека было нельзя вовсе.
+  loadBlocks: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const list = await fetchApi('/blocks', {}, token);
+      if (Array.isArray(list)) {
+        set({ blockedIds: list.map((b: any) => b.userId || b.id).filter(Boolean) });
+      }
+    } catch (e) {
+      console.error('Не удалось загрузить список блокировок:', e);
+    }
+  },
+
+  blockUser: async (userId) => {
+    const before = get().blockedIds;
+    if (before.includes(userId)) return;
+    set({ blockedIds: [...before, userId] });
+    try {
+      await fetchApi('/blocks', { method: 'POST', body: JSON.stringify({ user_id: userId }) }, get().token);
+      get().showToast('Заблокирован');
+    } catch (e) {
+      set({ blockedIds: before });
+      get().showToast('Не удалось заблокировать');
+    }
+  },
+
+  unblockUser: async (userId) => {
+    const before = get().blockedIds;
+    set({ blockedIds: before.filter((id) => id !== userId) });
+    try {
+      await fetchApi(`/blocks/${userId}`, { method: 'DELETE' }, get().token);
+      get().showToast('Разблокирован');
+    } catch (e) {
+      set({ blockedIds: before });
+      get().showToast('Не удалось разблокировать');
+    }
+  },
+
+  reportUser: async (userId, reason) => {
+    try {
+      await fetchApi(
+        '/reports',
+        { method: 'POST', body: JSON.stringify({ target_type: 'user', target_id: userId, reason }) },
+        get().token
+      );
+      get().showToast('Жалоба отправлена');
+    } catch (e) {
+      get().showToast('Не удалось отправить жалобу');
     }
   },
 

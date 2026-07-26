@@ -1,5 +1,5 @@
 import { ArrowLeft, Link2, MessageCircle } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
 import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
@@ -30,6 +30,13 @@ export function formatLastSeen(ts?: number) {
 }
 
 export function PeerProfile() {
+  const blockUser = useAppStore((st) => st.blockUser);
+  const unblockUser = useAppStore((st) => st.unblockUser);
+  const reportUser = useAppStore((st) => st.reportUser);
+  const blockedIds = useAppStore((st) => st.blockedIds);
+  const [reporting, setReporting] = useState(false);
+  const [reason, setReason] = useState('');
+
   const userId = useAppStore((s) => s.viewingUserId);
   const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
@@ -42,6 +49,7 @@ export function PeerProfile() {
 
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
+  const blocked = !!user && blockedIds.includes(user.id);
   const banner = user
     ? patternById(BANNER_PATTERNS, user.bannerPatternId)
     : BANNER_PATTERNS[0]!;
@@ -125,14 +133,62 @@ export function PeerProfile() {
               Мой профиль
             </button>
           ) : (
-            <button
-              type="button"
-              className={styles.cta}
-              onClick={() => startChatWithUser(user.id)}
-            >
-              <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
-              Написать
-            </button>
+            <>
+              <button
+                type="button"
+                className={styles.cta}
+                onClick={() => startChatWithUser(user.id)}
+              >
+                <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
+                Написать
+              </button>
+              {/* Безопасность до сих пор существовала только на сервере: пожаловаться
+                  или заблокировать было нечем. Тон приглушённый — это не то, чем
+                  пользуются каждый день, но найти нужно сразу. */}
+              <div className={styles.safety}>
+                <button
+                  type="button"
+                  onClick={() => (blocked ? unblockUser(user.id) : blockUser(user.id))}
+                >
+                  {blocked ? 'Разблокировать' : 'Заблокировать'}
+                </button>
+                <span aria-hidden>·</span>
+                <button type="button" onClick={() => setReporting(true)}>
+                  Пожаловаться
+                </button>
+              </div>
+              {reporting && (
+                <form
+                  className={styles.reportBox}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const text = reason.trim();
+                    if (!text) return;
+                    reportUser(user.id, text);
+                    setReporting(false);
+                    setReason('');
+                  }}
+                >
+                  <label htmlFor="report-reason">Что не так?</label>
+                  <textarea
+                    id="report-reason"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    maxLength={1000}
+                    rows={3}
+                    placeholder="Опишите, что произошло"
+                  />
+                  <div className={styles.reportActions}>
+                    <button type="button" onClick={() => { setReporting(false); setReason(''); }}>
+                      Отмена
+                    </button>
+                    <button type="submit" disabled={!reason.trim()}>
+                      Отправить
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
           )}
           <h2>Посты</h2>
           {list.length === 0 ? (
