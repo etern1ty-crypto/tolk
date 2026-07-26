@@ -243,6 +243,14 @@
   overscroll-behavior: contain;
 }
 
+/* Короткий разговор прижимается к полю ввода, а не висит у верхнего края над
+   полупустым экраном. Именно margin-top, а не justify-content: flex-end —
+   последний в прокручиваемом блоке делает верхние сообщения недостижимыми,
+   когда их становится больше экрана. */
+.messages > *:first-child {
+  margin-top: auto;
+}
+
 .loadOlder {
   display: flex;
   justify-content: center;
@@ -887,6 +895,9 @@
 /* Подпись в пустой переписке. Приглушённая: это не сообщение и не ошибка,
    а объяснение тишины. */
 .emptyThread {
+  /* Оба автоотступа: первый ребёнок получает margin-top: auto ради прижатия
+     разговора к низу, но подпись пустого чата должна остаться по центру. */
+  margin-block: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
