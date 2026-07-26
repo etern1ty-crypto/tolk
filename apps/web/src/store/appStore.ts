@@ -121,7 +121,12 @@ export async function fetchApi(path: string, options: RequestInit = {}, token?: 
     } catch {
       errorObj = { error: errorText };
     }
-    throw new Error(errorObj.error || `HTTP ${res.status}`);
+    // Код ответа кладём на саму ошибку. Раньше наружу уходил только текст
+    // сервера, и «Unauthorized» невозможно было отличить от любой другой
+    // неудачи — проверка на «401» в тексте не срабатывала никогда.
+    const err = new Error(errorObj.error || `HTTP ${res.status}`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -1821,7 +1826,10 @@ export const useAppStore = create<AppState>()(
     } catch (err: any) {
       console.error('API initialization failed:', err);
       get().showToast('Ошибка подключения к серверу');
-      if (err.message && (err.message.includes('401') || err.message.includes('419') || err.message.includes('expired'))) {
+      // 401 не проходит сам собой: токен просрочен или сессия отозвана.
+      // Пока выход не срабатывал, приложение оставалось с чужими данными на
+      // экране и бесконечно перезапрашивало /me.
+      if (err?.status === 401 || err?.status === 419) {
         get().logout();
       }
     } finally {
