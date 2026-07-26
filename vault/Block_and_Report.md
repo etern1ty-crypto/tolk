@@ -6,6 +6,8 @@ audience: [product, developer]
 ---
 # Block & Report
 
+> Что из этого действительно работает на сервере — [[Production_State]].
+
 Минимальная безопасность soft launch. Без этого группы разъест спам ([[Risks]]).
 
 ## Block (Must)
