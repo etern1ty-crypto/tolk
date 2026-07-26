@@ -1,4 +1,8 @@
 .root {
+  /* Та же мера, что у ленты: иначе поле ввода разъезжается с карточками. */
+  width: 100%;
+  max-width: var(--feed-width, 620px);
+  margin-inline: auto;
   padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -8,6 +12,8 @@
   align-items: center;
   gap: 12px;
   width: 100%;
+  max-width: var(--feed-width, 620px);
+  margin-inline: auto;
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-subtle);
   text-align: left;
