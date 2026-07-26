@@ -258,3 +258,8 @@
 .liked {
   color: var(--accent) !important;
 }
+
+/* Невидимая метка в конце ленты: пересечение с ней запускает подгрузку. */
+.sentinel {
+  min-height: 1px;
+}

@@ -16,6 +16,7 @@ import { iconProps } from '../../shared/ui/icons';
 import { PostComposer } from './PostComposer';
 import styles from './WallFeed.module.css';
 import { SkeletonList } from '../../shared/ui/Skeleton';
+import { useEffect, useRef } from 'react';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -28,6 +29,25 @@ function rel(ts: number) {
 
 export function WallFeed() {
   const booting = useAppStore((s) => s.booting);
+  const feedHasMore = useAppStore((s) => s.feedHasMore);
+  const feedLoadingMore = useAppStore((s) => s.feedLoadingMore);
+  const loadMoreFeed = useAppStore((s) => s.loadMoreFeed);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Подгружаем, когда до конца ленты остаётся экран: кнопка «ещё» заставляет
+  // человека прицеливаться, а лента должна просто продолжаться.
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !feedHasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreFeed();
+      },
+      { rootMargin: '600px' }
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [feedHasMore, loadMoreFeed]);
   const posts = useAppStore((s) => s.posts);
   const users = useAppStore((s) => s.users);
   const me = useAppStore((s) => s.me);
@@ -198,6 +218,12 @@ export function WallFeed() {
               </article>
             );
           })
+        )}
+
+        {feed.length > 0 && feedHasMore && (
+          <div ref={sentinelRef} className={styles.sentinel} aria-hidden>
+            {feedLoadingMore ? <SkeletonList count={2} kind="post" /> : null}
+          </div>
         )}
       </div>
       <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
