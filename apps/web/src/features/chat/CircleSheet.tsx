@@ -161,7 +161,8 @@ export function CircleSheet() {
               body: JSON.stringify({
                 mime: circleMime,
                 size: file.size,
-                kind: 'circle'
+                kind: 'circle',
+              purpose: 'circle'
               })
             }, token);
 

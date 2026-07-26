@@ -12,6 +12,7 @@ import {
   resolveChatThemeId,
 } from '../shared/patterns';
 import { soundEffects, THEME_SOUND_PACK, type SoundPackId } from '../shared/soundEffects';
+import { prepareImage } from '../shared/lib/imagePrep';
 import type {
   AuthStep,
   Chat,
@@ -1739,17 +1740,10 @@ export const useAppStore = create<AppState>()(
     try {
       get().showToast('Загрузка…');
       
-      let processedFile = file;
-      if (file.type.startsWith('image/') && kind === 'media') {
-        const { default: imageCompression } = await import('browser-image-compression');
-        processedFile = await imageCompression(file, {
-          maxSizeMB: 1,
-          maxWidthOrHeight: 1920,
-          useWebWorker: true,
-          fileType: 'image/webp',
-          initialQuality: 0.85
-        }) as File;
-      }
+      // Пресеты и решение «пересжимать ли вообще» живут в одном месте —
+      // иначе шесть точек загрузки расходятся, как это уже было.
+      const processedFile =
+        kind === 'media' ? await prepareImage(file, 'photo') : file;
       
       let publicUrl = '';
       try {
@@ -1758,6 +1752,7 @@ export const useAppStore = create<AppState>()(
           body: JSON.stringify({
             mime: processedFile.type || 'application/octet-stream',
             size: processedFile.size,
+            purpose: 'message',
             kind: processedFile.type.startsWith('image/')
               ? 'image'
               : processedFile.type.startsWith('audio/')
@@ -2312,20 +2307,22 @@ export const useAppStore = create<AppState>()(
 
     if (opts.photoFile) {
       try {
+        const prepared = await prepareImage(opts.photoFile, 'photo');
         const uploadRes = await fetchApi('/media/uploads', {
           method: 'POST',
           body: JSON.stringify({
-            mime: opts.photoFile.type,
-            size: opts.photoFile.size,
-            kind: 'image'
+            mime: prepared.type,
+            size: prepared.size,
+            kind: 'image',
+            purpose: 'post'
           })
         }, token);
 
         const s3Res = await fetch(uploadRes.upload_url, {
           method: 'PUT',
-          body: opts.photoFile,
+          body: prepared,
           headers: {
-            'Content-Type': opts.photoFile.type,
+            'Content-Type': prepared.type,
             Authorization: `Bearer ${token}`,
           }
         });

@@ -4,6 +4,7 @@ import { PatternBg } from '../../shared/ui/PatternBg';
 import { fetchApi, useAppStore } from '../../store/appStore';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatThemePicker.module.css';
+import { prepareImage } from '../../shared/lib/imagePrep';
 
 type Props = {
   /** Selected theme id (chat or global) */
@@ -50,13 +51,7 @@ export function ChatThemePicker({
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
-        const { default: imageCompression } = await import('browser-image-compression');
-        const compressed = await imageCompression(file, {
-          maxSizeMB: 0.5,
-          maxWidthOrHeight: 1920,
-          fileType: 'image/webp',
-          initialQuality: 0.8,
-        });
+        const compressed = await prepareImage(file, 'wallpaper');
         const token = useAppStore.getState().token;
         const uploadRes = await fetchApi(
           '/media/uploads',
@@ -66,6 +61,7 @@ export function ChatThemePicker({
               mime: 'image/webp',
               size: compressed.size,
               kind: 'image',
+              purpose: 'wallpaper',
             }),
           },
           token

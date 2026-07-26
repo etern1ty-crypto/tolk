@@ -9,6 +9,7 @@ import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ProfileTab.module.css';
 import { PostImage } from '../../shared/ui/PostImage';
+import { prepareImage } from '../../shared/lib/imagePrep';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -126,20 +127,22 @@ export function ProfileTab() {
       showToast('Загрузка аватара...');
       let publicUrl = '';
       try {
+        const prepared = await prepareImage(file, 'avatar');
         const uploadRes = await fetchApi('/media/uploads', {
           method: 'POST',
           body: JSON.stringify({
-            mime: file.type || 'image/jpeg',
-            size: file.size,
-            kind: 'image'
+            mime: prepared.type || 'image/jpeg',
+            size: prepared.size,
+            kind: 'image',
+            purpose: 'avatar'
           })
         }, token);
 
         const s3Res = await fetch(uploadRes.upload_url, {
           method: 'PUT',
-          body: file,
+          body: prepared,
           headers: {
-            'Content-Type': file.type || 'image/jpeg',
+            'Content-Type': prepared.type || 'image/jpeg',
             Authorization: `Bearer ${token}`,
           }
         });
@@ -571,23 +574,25 @@ export function ProfileTab() {
                   if (!file) return;
                   try {
                     showToast('Загрузка фона…');
+                    const prepared = await prepareImage(file, 'banner');
                     const uploadRes = await fetchApi(
                       '/media/uploads',
                       {
                         method: 'POST',
                         body: JSON.stringify({
-                          mime: file.type || 'image/jpeg',
-                          size: file.size,
+                          mime: prepared.type || 'image/jpeg',
+                          size: prepared.size,
                           kind: 'image',
+                          purpose: 'banner',
                         }),
                       },
                       token
                     );
                     const put = await fetch(uploadRes.upload_url, {
                       method: 'PUT',
-                      body: file,
+                      body: prepared,
                       headers: {
-                        'Content-Type': file.type || 'image/jpeg',
+                        'Content-Type': prepared.type || 'image/jpeg',
                         Authorization: `Bearer ${token}`,
                       },
                     });

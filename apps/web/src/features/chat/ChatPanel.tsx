@@ -416,7 +416,8 @@ export function ChatPanel() {
                 body: JSON.stringify({
                   mime: voiceMime,
                   size: file.size,
-                  kind: 'voice'
+                  kind: 'voice',
+                  purpose: 'voice'
                 })
               }, token);
 
