@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import imageCompression from 'browser-image-compression';
 import {
   INITIAL_POSTS,
   ME,
@@ -1688,6 +1687,7 @@ export const useAppStore = create<AppState>()(
       
       let processedFile = file;
       if (file.type.startsWith('image/') && kind === 'media') {
+        const { default: imageCompression } = await import('browser-image-compression');
         processedFile = await imageCompression(file, {
           maxSizeMB: 1,
           maxWidthOrHeight: 1920,

@@ -1,5 +1,4 @@
 import { Upload } from 'lucide-react';
-import imageCompression from 'browser-image-compression';
 import { CHAT_THEMES, resolveChatThemeId } from '../../shared/patterns';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { fetchApi, useAppStore } from '../../store/appStore';
@@ -51,6 +50,7 @@ export function ChatThemePicker({
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
+        const { default: imageCompression } = await import('browser-image-compression');
         const compressed = await imageCompression(file, {
           maxSizeMB: 0.5,
           maxWidthOrHeight: 1920,
