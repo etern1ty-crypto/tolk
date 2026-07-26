@@ -3,6 +3,7 @@ import { Pause, Play } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import styles from './MessageVoiceBubble.module.css';
 import { iconProps } from '../../shared/ui/icons';
+import { boostAudio, resumeAudio } from '../../shared/audioBoost';
 
 interface VoicePlayerProps {
   src: string;
@@ -69,6 +70,9 @@ export function VoicePlayer({
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Голосовые пишутся на встроенный микрофон и выходят тихими; <audio> громче
+    // исходника сделать не может, поэтому пропускаем через Web Audio.
+    boostAudio(audio);
 
     const onTimeUpdate = () => {
       setCurrent(audio.currentTime);
@@ -116,6 +120,8 @@ export function VoicePlayer({
       audio.pause();
     } else {
       if (messageId) setActiveMediaId(messageId);
+      // Контекст создаётся приостановленным до жеста пользователя.
+      resumeAudio();
       void audio.play();
     }
   };

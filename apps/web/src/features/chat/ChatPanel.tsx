@@ -452,7 +452,15 @@ export function ChatPanel() {
       didHoldRecord.current = true;
       if (recordMode === 'voice') {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              // Автоусиление вытягивает тихий голос ещё на источнике: дешевле и
+              // чище, чем потом поднимать готовую запись.
+              autoGainControl: true,
+              noiseSuppression: true,
+              echoCancellation: true,
+            },
+          });
           streamRef.current = stream;
           audioChunksRef.current = [];
           
