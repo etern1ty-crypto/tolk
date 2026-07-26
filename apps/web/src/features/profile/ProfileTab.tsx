@@ -792,9 +792,9 @@ export function ProfileTab() {
                       width: '100%',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      border: '1px solid var(--border)',
+                      border: '1px solid var(--border-subtle)',
                       background: 'rgba(255,255,255,0.05)',
-                      color: 'var(--text)',
+                      color: 'var(--text-primary)',
                       fontSize: '13px'
                     }}
                   />

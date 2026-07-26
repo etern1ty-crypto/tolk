@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
           justifyContent: 'center',
           gap: 14,
           padding: 24,
-          background: 'var(--bg, #000)',
+          background: 'var(--bg-primary, #000)',
           color: 'var(--text-primary, #f5f5f5)',
           textAlign: 'center',
         }}
@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={this.reset}
             style={{
               background: 'var(--text-primary, #f5f5f5)',
-              color: 'var(--bg, #000)',
+              color: 'var(--bg-primary, #000)',
               border: 'none',
               borderRadius: 999,
               padding: '10px 20px',
