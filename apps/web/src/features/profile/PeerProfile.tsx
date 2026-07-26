@@ -8,6 +8,7 @@ import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './PeerProfile.module.css';
+import { PostImage } from '../../shared/ui/PostImage';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -68,7 +69,7 @@ export function PeerProfile() {
       >
         <div className={styles.banner}>
           {user.bannerRef ? (
-            <img src={user.bannerRef} alt="" className={styles.bannerPhoto} />
+            <PostImage src={user.bannerRef} alt="" className={styles.bannerPhoto} fallback={null} />
           ) : (
             <PatternBg
               pattern={banner}
@@ -159,7 +160,7 @@ export function PeerProfile() {
                   )}
                   {p.media?.kind === 'image' && p.media?.url && (
                     <div className={styles.media} style={p.media.height ? { height: `${p.media.height}px` } : undefined}>
-                      <img src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                      <PostImage src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
                     </div>
                   )}
                   {p.text ? (

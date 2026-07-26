@@ -1,0 +1,25 @@
+/* Заглушка вместо недоступного фото. Тон приглушённый: это не ошибка, на
+   которую надо реагировать, а отсутствующий кусок содержимого. */
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 120px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.04));
+  color: var(--text-secondary, #a3a3a3);
+  border-radius: inherit;
+}
+
+.icon {
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.caption {
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}

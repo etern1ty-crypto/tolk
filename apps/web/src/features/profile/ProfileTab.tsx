@@ -8,6 +8,7 @@ import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ProfileTab.module.css';
+import { PostImage } from '../../shared/ui/PostImage';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -308,7 +309,7 @@ export function ProfileTab() {
     <div className={styles.root}>
       <div className={styles.banner}>
         {me.bannerRef ? (
-          <img src={me.bannerRef} alt="" className={styles.bannerPhoto} />
+          <PostImage src={me.bannerRef} alt="" className={styles.bannerPhoto} fallback={null} />
         ) : (
           <PatternBg pattern={banner} seed={me.id} density="high" className={styles.bannerFill} />
         )}
@@ -933,7 +934,7 @@ export function ProfileTab() {
                 )}
                 {p.media?.kind === 'image' && p.media?.url && (
                   <div className={styles.media} style={p.media.height ? { height: `${p.media.height}px` } : undefined}>
-                    <img src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                    <PostImage src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
                   </div>
                 )}
                 {p.text ? (
@@ -1065,7 +1066,7 @@ export function ProfileTab() {
                       )}
                       {selectedPost.media?.kind === 'image' && selectedPost.media?.url && (
                         <div className={styles.media} style={selectedPost.media.height ? { height: `${selectedPost.media.height}px` } : undefined}>
-                          <img src={selectedPost.media.url} alt="media" className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                          <PostImage src={selectedPost.media.url} alt="media" className={styles.mediaFill} style={{ objectFit: 'cover' }} />
                         </div>
                       )}
                       {selectedPost.text && (

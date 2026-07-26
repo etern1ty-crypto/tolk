@@ -17,6 +17,7 @@ import { PostComposer } from './PostComposer';
 import styles from './WallFeed.module.css';
 import { SkeletonList } from '../../shared/ui/Skeleton';
 import { useEffect, useRef } from 'react';
+import { PostImage } from '../../shared/ui/PostImage';
 
 function rel(ts: number) {
   const m = Math.floor((Date.now() - ts) / 60000);
@@ -142,7 +143,7 @@ export function WallFeed() {
                     onClick={() => setLightboxSrc(post.media!.url!)}
                     aria-label="Открыть фото"
                   >
-                    <img src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                    <PostImage src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
                   </button>
                 )}
                 {post.text ? (

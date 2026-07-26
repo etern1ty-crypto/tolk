@@ -32,6 +32,7 @@ import { GlobalMediaPlayer } from './GlobalMediaPlayer';
 import { MediaSendPreview } from './MediaSendPreview';
 import { VoicePlayer } from './MessageVoiceBubble';
 import { formatLastSeen } from '../profile/PeerProfile';
+import { PostImage } from '../../shared/ui/PostImage';
 
 /** How many newest messages stay mounted. Expand on scroll-up. */
 const MSG_WINDOW = 48;
@@ -836,7 +837,7 @@ export function ChatPanel() {
                       onClick={() => setLightboxSrc(m.media!.url)}
                       aria-label="Открыть фото"
                     >
-                      <img src={m.media.url} alt="Attachment" />
+                      <PostImage src={m.media.url} alt="Вложение" />
                     </button>
                   )}
                   {m.kind === 'file' && m.media?.url && (
