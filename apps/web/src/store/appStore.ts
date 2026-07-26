@@ -488,6 +488,10 @@ interface AppState {
   /** Идёт первая загрузка данных. Нужен, чтобы показать скелетоны
    *  вместо пустого экрана, который потом рывком заполняется. */
   booting: boolean;
+  /** Есть ли ещё посты за пределами загруженных. */
+  feedHasMore: boolean;
+  feedLoadingMore: boolean;
+  loadMoreFeed: () => Promise<void>;
   shelfItems: ShelfItem[];
   echoes: EchoItem[];
   /** chat ids pinned in SideNav for quick open while scrolling feed */
@@ -705,6 +709,8 @@ export const useAppStore = create<AppState>()(
       messages: [],
       posts: INITIAL_POSTS,
       booting: true,
+      feedHasMore: true,
+      feedLoadingMore: false,
       shelfItems: [],
       echoes: [],
       navPins: [],
@@ -1772,7 +1778,10 @@ export const useAppStore = create<AppState>()(
       
       let combinedPosts: Post[] = [];
       try {
-        const postsList = await fetchApi('/wall/feed', {}, token);
+        // Сервер отдаёт страницами по 30. Просим на один больше предела, чтобы
+        // понять, есть ли продолжение, не делая второго запроса.
+        const postsList = await fetchApi('/wall/feed?limit=30', {}, token);
+        set({ feedHasMore: Array.isArray(postsList) && postsList.length >= 30 });
         const myPostsList = await fetchApi(`/users/${mePayload.id}/posts`, {}, token);
         const combinedPostsMap = new Map();
         postsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
@@ -1808,6 +1817,33 @@ export const useAppStore = create<AppState>()(
       // finally, а не в try: при ошибке скелетоны обязаны погаснуть, иначе
       // экран навсегда останется в состоянии загрузки.
       set({ booting: false });
+    }
+  },
+
+  loadMoreFeed: async () => {
+    const { posts, feedHasMore, feedLoadingMore, token } = get();
+    if (!feedHasMore || feedLoadingMore || !token) return;
+    const last = posts[posts.length - 1];
+    if (!last) return;
+
+    set({ feedLoadingMore: true });
+    try {
+      // Курсор — идентификатор последнего поста. Время сюда не годится: наружу
+      // оно уходит округлённым, и граница страницы повторяется.
+      const next = await fetchApi(`/wall/feed?limit=30&before_id=${last.id}`, {}, token);
+      const list = Array.isArray(next) ? next : [];
+      set((s) => {
+        const known = new Set(s.posts.map((p: any) => p.id));
+        return {
+          posts: [...s.posts, ...list.filter((p: any) => !known.has(p.id))],
+          feedHasMore: list.length >= 30,
+        };
+      });
+    } catch (err) {
+      console.error('не удалось догрузить ленту', err);
+      get().showToast('Не удалось загрузить ещё');
+    } finally {
+      set({ feedLoadingMore: false });
     }
   },
 
