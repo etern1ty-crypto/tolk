@@ -1191,7 +1191,7 @@ export const useAppStore = create<AppState>()(
       } catch {
         /* optional */
       }
-      const userPosts = await fetchApi(`/users/${userId}/posts`, {}, token);
+      const userPosts = await fetchApi(`/users/${userId}/posts?limit=100`, {}, token);
       set((s) => {
         const otherPosts = s.posts.filter((p) => p.authorId !== userId);
         const combined = [...otherPosts, ...userPosts].sort((a, b) => b.createdAt - a.createdAt);
@@ -1782,7 +1782,7 @@ export const useAppStore = create<AppState>()(
         // понять, есть ли продолжение, не делая второго запроса.
         const postsList = await fetchApi('/wall/feed?limit=30', {}, token);
         set({ feedHasMore: Array.isArray(postsList) && postsList.length >= 30 });
-        const myPostsList = await fetchApi(`/users/${mePayload.id}/posts`, {}, token);
+        const myPostsList = await fetchApi(`/users/${mePayload.id}/posts?limit=100`, {}, token);
         const combinedPostsMap = new Map();
         postsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
         myPostsList.forEach((p: Post) => combinedPostsMap.set(p.id, p));
