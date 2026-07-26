@@ -83,6 +83,22 @@ export function mergeUsersFromPosts(
 
 /** Ответ сервера -> ShelfItem. Сервер вкладывает само сообщение, чтобы полку
  *  можно было отрисовать без запроса на каждый закреп. */
+// Отмечает эхо прочитанным или закрытым на сервере, иначе указатель вернётся
+// при следующем запуске.
+function markEchoesSeen(
+  items: { id: string }[],
+  action: 'open' | 'dismiss',
+  get: () => { token: string | null }
+): void {
+  const token = get().token;
+  if (!token) return;
+  for (const e of items) {
+    fetchApi(`/echoes/${e.id}/${action}`, { method: 'POST' }, token).catch((err) =>
+      console.error('Не удалось отметить эхо:', err)
+    );
+  }
+}
+
 // Эхо с сервера: отправитель приходит вложенным объектом, а внутри клиента
 // хранится плоско — как его кладёт отправляющая сторона.
 function echoFromApi(x: any): EchoItem {
@@ -355,27 +371,11 @@ function connectWebSocket(token: string, store: any) {
         
         // Тихое сообщение не звонит и не подсвечивает чат — весь смысл в том,
         // что человек увидит его сам. Значит указатель обязан подняться сразу,
-        // иначе про сообщение узнают только после перезапуска.
+        // иначе про сообщение узнают только после перезапуска. Список берём с
+        // сервера: там у записи есть идентификатор, без которого её потом не
+        // отметить ни открытой, ни закрытой.
         if (isEcho && !isFromMe) {
-          const known = store.getState().echoes;
-          if (!known.some((e: any) => e.messageId === data.id)) {
-            const sender = store.getState().users[data.senderId];
-            store.setState({
-              echoes: [
-                ...known,
-                {
-                  id: `e_local_${data.id}`,
-                  fromUserId: data.senderId,
-                  fromName: sender?.displayName || 'Кто-то',
-                  chatId: data.chatId,
-                  messageId: data.id,
-                  text: data.text || `[${data.kind}]`,
-                  status: 'pending' as const,
-                  createdAt: Number(data.createdAt) || Date.now(),
-                },
-              ],
-            });
-          }
+          store.getState().syncEchoes();
         }
 
         // Чата ещё нет в списке — значит это первое сообщение от нового
@@ -670,6 +670,7 @@ interface AppState {
   removeFromShelf: (shelfId: string) => Promise<void>;
   loadShelf: (chatId: string) => Promise<void>;
   syncChats: () => Promise<void>;
+  syncEchoes: () => Promise<void>;
   setShelfOpen: (v: boolean) => void;
 
   setEchoMode: (v: boolean) => void;
@@ -1858,12 +1859,7 @@ export const useAppStore = create<AppState>()(
         await get().refreshNotifications();
       } catch { /* optional */ }
 
-      try {
-        const list = await fetchApi('/echoes?status=pending', {}, token);
-        if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
-      } catch (e) {
-        console.error('Не удалось загрузить эхо:', e);
-      }
+      await get().syncEchoes();
       
       const activeId = get().activeChatId;
       if (activeId) {
@@ -2125,6 +2121,19 @@ export const useAppStore = create<AppState>()(
     }
   },
 
+  // Перезапрашивает ожидающие эхо. Зовётся при запуске и когда тихое
+  // сообщение пришло в открытое приложение.
+  syncEchoes: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const list = await fetchApi('/echoes?status=pending', {}, token);
+      if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
+    } catch (e) {
+      console.error('Не удалось обновить эхо:', e);
+    }
+  },
+
   loadShelf: async (chatId) => {
     try {
       const items = await fetchApi(`/chats/${chatId}/shelf`, {}, get().token);
@@ -2142,19 +2151,25 @@ export const useAppStore = create<AppState>()(
   setEchoMode: (v) => set({ echoMode: v }),
   openEchoSheet: () => set({ echoSheetOpen: true }),
   closeEchoSheet: () => set({ echoSheetOpen: false }),
-  dismissEchoes: () =>
+  dismissEchoes: () => {
+    const pending = get().echoes.filter((e) => e.status === 'pending');
     set((s) => ({
       echoes: s.echoes.map((e) =>
         e.status === 'pending' ? { ...e, status: 'dismissed' } : e
       ),
       echoSheetOpen: false,
-    })),
+    }));
+    // Состояние эха живёт на сервере. Без этого указатель вернётся при
+    // следующем запуске — закрыть его было бы невозможно.
+    markEchoesSeen(pending, 'dismiss', get);
+  },
   openEchoInChat: () => {
     const first = get().echoes.find((e) => e.status === 'pending');
     if (!first) {
       set({ echoSheetOpen: false });
       return;
     }
+    const pending = get().echoes.filter((e) => e.status === 'pending');
     set((s) => ({
       echoes: s.echoes.map((e) =>
         e.status === 'pending' ? { ...e, status: 'opened' } : e
@@ -2164,6 +2179,7 @@ export const useAppStore = create<AppState>()(
       activeChatId: first.chatId,
       highlightMessageId: first.messageId,
     }));
+    markEchoesSeen(pending, 'open', get);
     window.setTimeout(() => set({ highlightMessageId: null }), 2000);
   },
 
