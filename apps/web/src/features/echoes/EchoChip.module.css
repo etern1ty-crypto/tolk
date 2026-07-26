@@ -1,6 +1,8 @@
 .chip {
   position: fixed;
-  top: max(14px, calc(env(safe-area-inset-top, 0px) + 8px));
+  /* Ниже шапки чата (около 67px), а не поверх неё: указатель закрывал имя
+     собеседника и его статус — то, по чему человек понимает, где он. */
+  top: max(78px, calc(env(safe-area-inset-top, 0px) + 72px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 40;
