@@ -366,7 +366,13 @@ function connectWebSocket(token: string, store: any) {
         const updatedChats = chats.map((c: any) => {
           if (c.id === data.chatId) {
             const preview = data.isEcho ? `Echo: ${data.text}` : (data.kind === 'text' ? data.text : `[${data.kind}]`);
-            const timeLabel = new Date(data.createdAt).toLocaleTimeString('ru-RU', {
+            // Сервер отдаёт время строкой из цифр, а new Date('1785094892694')
+            // даёт Invalid Date: строка не похожа ни на один известный формат.
+            // В списке чатов вместо времени появлялось «Invalid Date», а
+            // latestMessageCreatedAt становился NaN — и сортировка ломалась,
+            // свежий чат мог не подняться наверх.
+            const createdAt = Number(data.createdAt);
+            const timeLabel = new Date(createdAt).toLocaleTimeString('ru-RU', {
               hour: '2-digit',
               minute: '2-digit',
             });
@@ -374,7 +380,7 @@ function connectWebSocket(token: string, store: any) {
               ...c,
               preview,
               timeLabel,
-              latestMessageCreatedAt: new Date(data.createdAt).getTime(),
+              latestMessageCreatedAt: createdAt,
               unread: activeChatId === data.chatId ? 0 : c.unread + 1
             };
           }
