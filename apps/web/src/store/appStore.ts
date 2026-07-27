@@ -132,6 +132,9 @@ let activeSocket: WebSocket | null = null;
 let lastTypingSent = 0;
 let typingTimeout: number | undefined;
 let reconnectCount = 0;
+// Первое подключение сопровождается загрузкой из initApi; повторные должны
+// догонять пропущенное сами.
+let firstConnection = true;
 
 let lastUserActivity = Date.now();
 if (typeof window !== 'undefined') {
@@ -221,13 +224,26 @@ function connectWebSocket(token: string, store: any) {
   
   ws.onopen = () => {
     console.log('[WS] Connected successfully');
-    reconnectCount = 0; // Reset backoff counter on success
-    
-    // Auto catch-up missed messages and chats on connection/reconnection
-    const state = store.getState();
-    if (state.token) {
-      state.initApi().catch((e: any) => console.error('[WS] Catch-up sync failed:', e));
+
+    // Отсчёт сбрасываем не сразу: сервер может принять рукопожатие и тут же
+    // закрыть соединение — например, если источник не в списке разрешённых.
+    // Считать это удачей значит держать паузу на минимуме и стучаться вечно.
+    const settled = window.setTimeout(() => {
+      reconnectCount = 0;
+    }, 10000);
+    ws.addEventListener('close', () => window.clearTimeout(settled), { once: true });
+
+    // Догоняем пропущенное только при ПОВТОРНОМ подключении. При первом
+    // данные уже грузит initApi, который этот сокет и открыл: раньше они
+    // вызывали друг друга по кругу и приложение перезапрашивало всё целиком
+    // каждые пару секунд.
+    if (!firstConnection) {
+      const state = store.getState();
+      if (state.token) {
+        state.initApi().catch((e: any) => console.error('[WS] Catch-up sync failed:', e));
+      }
     }
+    firstConnection = false;
   };
   
   ws.onmessage = (event) => {
