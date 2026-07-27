@@ -681,6 +681,26 @@ export function ChatPanel() {
             const reactionEntries = Object.entries(m.reactions);
             const globalIdx = windowStart + idx;
             const isLatest = globalIdx === chatMessages.length - 1;
+
+            // Группировка подряд идущих реплик одного человека. Пять сообщений
+            // от одного собеседника выглядели пятью одинаковыми карточками —
+            // взгляду не за что зацепиться, где кончается одна мысль.
+            const sameAuthor = (a?: (typeof visibleMessages)[number], b?: (typeof visibleMessages)[number]) =>
+              !!a && !!b &&
+              a.senderId === b.senderId &&
+              !a.isEcho === !b.isEcho &&
+              Math.abs(Number(a.createdAt) - Number(b.createdAt)) < 5 * 60 * 1000;
+            const prevMsg = visibleMessages[idx - 1];
+            const nextMsg = visibleMessages[idx + 1];
+            const contTop = sameAuthor(prevMsg, m);
+            const contBottom = sameAuthor(m, nextMsg);
+
+            // Время встаёт в строку с текстом — но только там, где текст есть.
+            // У голосового, кружка и фото своя вёрстка, туда его не вписать.
+            const inlineMeta = m.kind === 'text' && !m.deleted;
+            // Ширина, которую надо освободить в конце последней строки:
+            // время, плюс галочки у своих, плюс пометка о правке.
+            const metaWidth = 46 + (mine ? 22 : 0) + (m.editedAt ? 34 : 0);
             return (
               <div
                 key={m.id}
@@ -688,6 +708,7 @@ export function ChatPanel() {
                 className={[
                   styles.bubbleRow,
                   mine ? styles.mine : styles.theirs,
+                  contTop ? '' : styles.groupStart,
                   highlightMessageId === m.id ? styles.highlight : '',
                   isLatest && mine && m.status === 'pending' ? styles.bubbleEnter : '',
                 ]
@@ -697,6 +718,9 @@ export function ChatPanel() {
                 <div
                   className={[
                     styles.bubble,
+                    contTop ? styles.contTop : '',
+                    contBottom ? styles.contBottom : '',
+                    inlineMeta ? styles.inlineMeta : '',
                     m.status === 'failed' ? styles.failed : '',
                     m.isEcho ? styles.echoBubble : '',
                     m.kind === 'circle' ? styles.circleBubble : '',
@@ -705,6 +729,7 @@ export function ChatPanel() {
                     .join(' ')}
                   style={{
                     touchAction: 'pan-y',
+                    ...(inlineMeta ? ({ '--meta-w': `${metaWidth}px` } as React.CSSProperties) : {}),
                     ...(swipeMsgId === m.id
                       ? {
                           transform: `translateX(${Math.min(Math.max(swipeDx, 0), 72)}px)`,
