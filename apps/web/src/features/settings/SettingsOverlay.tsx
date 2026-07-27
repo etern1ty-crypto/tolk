@@ -25,10 +25,10 @@ const HUB_ITEMS: {
     sub: 'Активные сессии',
     Icon: MonitorSmartphone,
   },
-  { id: 'appearance', label: 'Оформление', Icon: Palette },
-  { id: 'privacy', label: 'Приватность', Icon: Shield },
-  { id: 'storage', label: 'Данные', Icon: HardDrive },
-  { id: 'about', label: 'О приложении', Icon: Info },
+  { id: 'appearance', label: 'Оформление', sub: 'Тема и фон', Icon: Palette },
+  { id: 'privacy', label: 'Приватность', sub: 'Видимость, блокировки', Icon: Shield },
+  { id: 'storage', label: 'Данные', sub: 'Место и кэш', Icon: HardDrive },
+  { id: 'about', label: 'О приложении', sub: 'Версия и правовое', Icon: Info },
 ];
 
 export function SettingsOverlay() {
@@ -63,6 +63,8 @@ export function SettingsOverlay() {
   const setNotifPref = useAppStore((s) => s.setNotifPref);
   const privacyPrefs = useAppStore((s) => s.privacyPrefs);
   const setPrivacyPref = useAppStore((s) => s.setPrivacyPref);
+  const blockedUsers = useAppStore((s) => s.blockedUsers);
+  const unblockUser = useAppStore((s) => s.unblockUser);
 
   useEffect(() => {
     if (!route) return;
@@ -403,7 +405,7 @@ export function SettingsOverlay() {
                   {(
                     [
                       ['wallPublic', 'Стена видна всем'],
-                      ['showLastSeen', 'Показывать last seen'],
+                      ['showLastSeen', 'Показывать, когда был в сети'],
                       ['showOnline', 'Показывать «в сети»'],
                     ] as const
                   ).map(([key, label]) => (
@@ -452,9 +454,39 @@ export function SettingsOverlay() {
                       </button>
                     ))}
                   </div>
+                  <div className={styles.divider} />
+                  <div className={styles.sectionTitle}>Заблокированные</div>
+                  {/* Заблокировать можно было из профиля, а снять — нет: профиль
+                      заблокированного ещё надо найти, а он нигде не показан.
+                      Список закрывает эту дыру. */}
+                  {blockedUsers.length === 0 ? (
+                    <p className={styles.note}>Никого. Заблокировать можно из профиля собеседника.</p>
+                  ) : (
+                    blockedUsers.map((b) => (
+                      <div key={b.id} className={styles.rowFlex}>
+                        <span
+                          className={styles.rowLabel}
+                          style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}
+                        >
+                          {b.displayName}
+                          {b.username ? (
+                            <span style={{ color: 'var(--text-tertiary)' }}> @{b.username}</span>
+                          ) : null}
+                        </span>
+                        <button
+                          type="button"
+                          className={styles.unblockBtn}
+                          onClick={() => unblockUser(b.id)}
+                        >
+                          Разблокировать
+                        </button>
+                      </div>
+                    ))
+                  )}
+
                   <p className={styles.note}>
-                    Настройки сохраняются на этом устройстве. Блокировка и жалобы — через
-                    профиль собеседника.
+                    Видимость сохраняется на этом устройстве. Жалобы — через профиль
+                    собеседника.
                   </p>
                 </div>
               )}

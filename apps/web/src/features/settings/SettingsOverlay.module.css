@@ -310,8 +310,8 @@
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background-color: #3a3a40;
-  transition: .2s;
+  background-color: var(--bg-input);
+  transition: background-color var(--dur-fast) var(--ease-out);
   border-radius: 24px;
 }
 
@@ -322,13 +322,25 @@
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
-  transition: .2s;
+  background-color: var(--text-secondary);
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
   border-radius: 50%;
 }
 
+/* Включённое состояние — белым, а не зелёным: по визуальному языку цвет в
+   интерфейсе несут только аватары и обложки, всё остальное монохромно. */
 .switch input:checked + .slider {
-  background-color: #22c55e;
+  background-color: var(--text-primary);
+}
+
+.switch input:checked + .slider:before {
+  background-color: var(--bg-primary);
+}
+
+/* Переключатель достижим с клавиатуры — рамка должна быть видна. */
+.switch input:focus-visible + .slider {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: 2px;
 }
 
 .switch input:checked + .slider:before {
@@ -556,4 +568,23 @@
 .saveBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Снять блокировку. Тише основного действия: пользуются редко, но найти надо
+   сразу — раньше снять её было нельзя вовсе. */
+.unblockBtn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.unblockBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }

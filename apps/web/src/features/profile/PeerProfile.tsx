@@ -33,7 +33,7 @@ export function PeerProfile() {
   const blockUser = useAppStore((st) => st.blockUser);
   const unblockUser = useAppStore((st) => st.unblockUser);
   const reportUser = useAppStore((st) => st.reportUser);
-  const blockedIds = useAppStore((st) => st.blockedIds);
+  const blockedUsers = useAppStore((st) => st.blockedUsers);
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState('');
 
@@ -49,7 +49,7 @@ export function PeerProfile() {
 
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
-  const blocked = !!user && blockedIds.includes(user.id);
+  const blocked = !!user && blockedUsers.some((b) => b.id === user.id);
   const banner = user
     ? patternById(BANNER_PATTERNS, user.bannerPatternId)
     : BANNER_PATTERNS[0]!;

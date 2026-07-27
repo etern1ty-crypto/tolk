@@ -658,7 +658,7 @@ interface AppState {
   loadShelf: (chatId: string) => Promise<void>;
   syncChats: () => Promise<void>;
   syncEchoes: () => Promise<void>;
-  blockedIds: string[];
+  blockedUsers: { id: string; displayName: string; username?: string; avatarRef?: string | null }[];
   loadBlocks: () => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
@@ -761,7 +761,7 @@ export const useAppStore = create<AppState>()(
       feedLoadingMore: false,
       shelfItems: [],
       echoes: [],
-      blockedIds: [],
+      blockedUsers: [],
       editingMessageId: null,
       navPins: [],
 
@@ -2189,7 +2189,16 @@ export const useAppStore = create<AppState>()(
     try {
       const list = await fetchApi('/blocks', {}, token);
       if (Array.isArray(list)) {
-        set({ blockedIds: list.map((b: any) => b.userId || b.id).filter(Boolean) });
+        set({
+          blockedUsers: list
+            .map((b: any) => ({
+              id: b.userId || b.id,
+              displayName: b.displayName || b.username || 'Без имени',
+              username: b.username,
+              avatarRef: b.avatarRef,
+            }))
+            .filter((b: any) => b.id),
+        });
       }
     } catch (e) {
       console.error('Не удалось загрузить список блокировок:', e);
@@ -2197,26 +2206,34 @@ export const useAppStore = create<AppState>()(
   },
 
   blockUser: async (userId) => {
-    const before = get().blockedIds;
-    if (before.includes(userId)) return;
-    set({ blockedIds: [...before, userId] });
+    const before = get().blockedUsers;
+    if (before.some((b) => b.id === userId)) return;
+    const known = get().users[userId];
+    set({
+      blockedUsers: [
+        ...before,
+        { id: userId, displayName: known?.displayName || 'Без имени', username: known?.username, avatarRef: known?.avatarRef },
+      ],
+    });
     try {
       await fetchApi('/blocks', { method: 'POST', body: JSON.stringify({ user_id: userId }) }, get().token);
       get().showToast('Заблокирован');
+      // Перечитываем: имя и аватар для списка приходят с сервера.
+      void get().loadBlocks();
     } catch (e) {
-      set({ blockedIds: before });
+      set({ blockedUsers: before });
       get().showToast('Не удалось заблокировать');
     }
   },
 
   unblockUser: async (userId) => {
-    const before = get().blockedIds;
-    set({ blockedIds: before.filter((id) => id !== userId) });
+    const before = get().blockedUsers;
+    set({ blockedUsers: before.filter((b) => b.id !== userId) });
     try {
       await fetchApi(`/blocks/${userId}`, { method: 'DELETE' }, get().token);
       get().showToast('Разблокирован');
     } catch (e) {
-      set({ blockedIds: before });
+      set({ blockedUsers: before });
       get().showToast('Не удалось разблокировать');
     }
   },
