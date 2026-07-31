@@ -32,8 +32,6 @@ function rel(ts: number) {
   return `${Math.floor(h / 24)} д`;
 }
 
-const MOBILE_PORTION_SIZE = 2;
-
 export function WallFeed() {
   const isDesktop = useIsDesktop();
   const booting = useAppStore((s) => s.booting);
@@ -53,15 +51,17 @@ export function WallFeed() {
   
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-  // Desktop horizontal wheel scroll offset
-  const [scrollX, setScrollX] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
+  // Desktop step index for centered focus card
+  const [desktopIndex, setDesktopIndex] = useState(0);
 
-  // Mobile swipe portion state
-  const [portionIndex, setPortionIndex] = useState(0);
+  // Mobile single post view state & 1-time swipe hint
+  const [mobilePostIndex, setMobilePostIndex] = useState(0);
+  const [hasSwipedMobile, setHasSwipedMobile] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchDeltaX, setTouchDeltaX] = useState(0);
-  const [animatingPortion, setAnimatingPortion] = useState(false);
+  const [animatingMobile, setAnimatingMobile] = useState(false);
+
+  const wheelThrottleRef = useRef(false);
 
   const feed = useMemo(
     () =>
@@ -71,40 +71,48 @@ export function WallFeed() {
     [posts]
   );
 
-  // Split feed into portions of 2 posts for mobile view
-  const mobilePortions = useMemo(() => {
-    const chunks: (typeof feed)[] = [];
-    for (let i = 0; i < feed.length; i += MOBILE_PORTION_SIZE) {
-      chunks.push(feed.slice(i, i + MOBILE_PORTION_SIZE));
-    }
-    return chunks;
-  }, [feed]);
+  const maxIndex = Math.max(0, feed.length - 1);
 
-  const maxPortion = Math.max(0, mobilePortions.length - 1);
-
-  // Handle desktop mouse wheel horizontal scrolling
+  // Handle desktop mouse wheel stepping with smooth centering
   const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (!isDesktop) return;
     const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-    if (Math.abs(delta) < 2) return;
-    
-    setScrollX((prev) => {
-      const maxScroll = Math.max(0, (feed.length - 1) * 440);
-      const next = prev + delta * 1.1;
-      return Math.max(0, Math.min(maxScroll, next));
-    });
+    if (Math.abs(delta) < 10) return;
+    if (wheelThrottleRef.current) return;
+
+    wheelThrottleRef.current = true;
+    setTimeout(() => {
+      wheelThrottleRef.current = false;
+    }, 280);
+
+    if (delta > 0 && desktopIndex < maxIndex) {
+      setDesktopIndex((idx) => {
+        const next = Math.min(maxIndex, idx + 1);
+        if (next >= maxIndex - 1 && feedHasMore) {
+          void loadMoreFeed();
+        }
+        return next;
+      });
+    } else if (delta < 0 && desktopIndex > 0) {
+      setDesktopIndex((idx) => Math.max(0, idx - 1));
+    }
   };
 
   const handlePrevDesktop = () => {
-    setScrollX((prev) => Math.max(0, prev - 440));
+    setDesktopIndex((idx) => Math.max(0, idx - 1));
   };
 
   const handleNextDesktop = () => {
-    const maxScroll = Math.max(0, (feed.length - 1) * 440);
-    setScrollX((prev) => Math.min(maxScroll, prev + 440));
+    setDesktopIndex((idx) => {
+      const next = Math.min(maxIndex, idx + 1);
+      if (next >= maxIndex - 1 && feedHasMore) {
+        void loadMoreFeed();
+      }
+      return next;
+    });
   };
 
-  // Mobile swipe touch handlers
+  // Mobile Touch Swipe Handlers (1 Post per screen)
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     if (isDesktop || e.touches.length === 0) return;
     setTouchStartX(e.touches[0].clientX);
@@ -119,60 +127,71 @@ export function WallFeed() {
 
   const handleTouchEnd = () => {
     if (isDesktop || touchStartX === null) return;
-    if (touchDeltaX < -60 && portionIndex < maxPortion) {
-      triggerNextPortion();
-    } else if (touchDeltaX > 60 && portionIndex > 0) {
-      triggerPrevPortion();
+    if (touchDeltaX < -50 && mobilePostIndex < maxIndex) {
+      triggerNextMobilePost();
+    } else if (touchDeltaX > 50 && mobilePostIndex > 0) {
+      triggerPrevMobilePost();
     }
     setTouchStartX(null);
     setTouchDeltaX(0);
   };
 
-  const triggerNextPortion = () => {
-    if (portionIndex >= maxPortion) {
+  const triggerNextMobilePost = () => {
+    if (mobilePostIndex >= maxIndex) {
       if (feedHasMore) {
         void loadMoreFeed();
       }
       return;
     }
-    setAnimatingPortion(true);
-    setPortionIndex((p) => Math.min(maxPortion, p + 1));
-    setTimeout(() => setAnimatingPortion(false), 300);
+    if (!hasSwipedMobile) setHasSwipedMobile(true);
+    setAnimatingMobile(true);
+    setMobilePostIndex((idx) => Math.min(maxIndex, idx + 1));
+    setTimeout(() => setAnimatingMobile(false), 300);
   };
 
-  const triggerPrevPortion = () => {
-    if (portionIndex <= 0) return;
-    setAnimatingPortion(true);
-    setPortionIndex((p) => Math.max(0, p - 1));
-    setTimeout(() => setAnimatingPortion(false), 300);
+  const triggerPrevMobilePost = () => {
+    if (mobilePostIndex <= 0) return;
+    if (!hasSwipedMobile) setHasSwipedMobile(true);
+    setAnimatingMobile(true);
+    setMobilePostIndex((idx) => Math.max(0, idx - 1));
+    setTimeout(() => setAnimatingMobile(false), 300);
   };
 
   const renderPostCard = (post: typeof feed[0], index: number) => {
     const author = users[post.authorId];
     const liked = post.likedBy.includes(me.id);
 
-    // Desktop 3D depth transform based on distance from focus
+    // Desktop Centered Focus styling (Active card in center, previews on left/right)
     let cardStyle: React.CSSProperties = {};
-    if (isDesktop) {
-      const cardCenter = index * 440;
-      const dist = Math.abs(cardCenter - scrollX);
-      const scale = Math.max(0.88, 1 - dist * 0.00035);
-      const opacity = Math.max(0.55, 1 - dist * 0.0009);
-      const rotateY = Math.max(-10, Math.min(10, (cardCenter - scrollX) * 0.02));
+    let cardClass = styles.card;
 
-      cardStyle = {
-        transform: `perspective(1000px) rotateY(${rotateY}deg) scale(${scale})`,
-        opacity,
-        transition: 'transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease-out',
-      };
+    if (isDesktop) {
+      const diff = index - desktopIndex;
+      const isActive = diff === 0;
+
+      if (isActive) {
+        cardClass += ` ${styles.cardActive}`;
+        cardStyle = {
+          transform: 'perspective(1000px) scale(1) translateZ(0)',
+          opacity: 1,
+          zIndex: 10,
+        };
+      } else {
+        const absDiff = Math.abs(diff);
+        const scale = Math.max(0.82, 1 - absDiff * 0.12);
+        const opacity = Math.max(0.35, 0.5 - (absDiff - 1) * 0.15);
+        const rotateY = diff > 0 ? -12 : 12;
+
+        cardStyle = {
+          transform: `perspective(1000px) rotateY(${rotateY}deg) scale(${scale})`,
+          opacity,
+          zIndex: Math.max(1, 10 - absDiff),
+        };
+      }
     }
 
     return (
-      <article
-        key={post.id}
-        className={styles.card}
-        style={cardStyle}
-      >
+      <article key={post.id} className={cardClass} style={cardStyle}>
         <header className={styles.cardHead}>
           <button
             type="button"
@@ -318,7 +337,7 @@ export function WallFeed() {
     );
   };
 
-  const currentMobilePortion = mobilePortions[portionIndex] || [];
+  const currentMobilePost = feed[mobilePostIndex] || null;
 
   return (
     <div className={styles.root}>
@@ -331,20 +350,20 @@ export function WallFeed() {
                 type="button"
                 className={styles.navBtn}
                 onClick={handlePrevDesktop}
-                disabled={scrollX <= 0}
+                disabled={desktopIndex <= 0}
                 aria-label="Назад"
               >
                 <ChevronLeft size={18} />
               </button>
               <span className={styles.desktopHint}>
                 <Sparkles size={13} />
-                <span>Колёсико — лисание справа налево</span>
+                <span>Колёсико — листание акцентных постов</span>
               </span>
               <button
                 type="button"
                 className={styles.navBtn}
                 onClick={handleNextDesktop}
-                disabled={scrollX >= (feed.length - 1) * 440}
+                disabled={desktopIndex >= maxIndex}
                 aria-label="Вперед"
               >
                 <ChevronRight size={18} />
@@ -356,7 +375,7 @@ export function WallFeed() {
 
       <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
 
-      {/* Main Wall Content Viewport */}
+      {/* Main Viewport Container */}
       <div
         className={styles.viewport}
         onWheel={handleWheel}
@@ -366,60 +385,75 @@ export function WallFeed() {
       >
         {feed.length === 0 && booting ? (
           <div className={styles.skeletonWrap}>
-            <SkeletonList count={3} kind="post" />
+            <SkeletonList count={2} kind="post" />
           </div>
         ) : feed.length === 0 ? (
           <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
         ) : isDesktop ? (
-          /* Desktop Horizontal Fluid Deck (Right-to-Left gliding) */
+          /* Desktop Centered Fluid Deck (Active post centered + side previews) */
           <div className={styles.desktopDeckContainer}>
             <div
-              ref={trackRef}
               className={styles.desktopDeckTrack}
-              style={{ transform: `translateX(-${scrollX}px)` }}
+              style={{
+                transform: `translateX(calc(-${desktopIndex * 468}px))`,
+              }}
             >
               {feed.map((post, idx) => renderPostCard(post, idx))}
             </div>
           </div>
         ) : (
-          /* Mobile Swipe Portion Deck */
-          <div
-            className={`${styles.mobilePortionDeck} ${
-              animatingPortion ? styles.mobilePortionAnim : ''
-            }`}
-            style={{
-              transform: `translateX(${touchDeltaX * 0.6}px)`,
-              transition: touchStartX === null ? 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)' : 'none',
-            }}
-          >
-            {currentMobilePortion.map((post, idx) => renderPostCard(post, idx))}
+          /* Mobile Single Post View (1 Post per Screen) */
+          <div className={styles.mobileSingleViewport}>
+            {currentMobilePost && (
+              <div
+                className={`${styles.mobileSingleCardWrap} ${
+                  animatingMobile ? styles.mobileCardAnim : ''
+                }`}
+                style={{
+                  transform: `translateX(${touchDeltaX * 0.65}px)`,
+                  transition:
+                    touchStartX === null
+                      ? 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                      : 'none',
+                }}
+              >
+                {renderPostCard(currentMobilePost, mobilePostIndex)}
+              </div>
+            )}
+
+            {/* 1-Time Semi-transparent Animated Swipe Hint on first Mobile post */}
+            {mobilePostIndex === 0 && !hasSwipedMobile && (
+              <div
+                className={styles.mobileSwipeHintBanner}
+                onClick={() => setHasSwipedMobile(true)}
+              >
+                <span className={styles.hintPulseDot} />
+                <span>← Смахните влево для просмотра</span>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Mobile Floating Minimalist Arrow Button for Portion Swiping */}
+      {/* Mobile Floating Minimalist Arrow Button for 1-Post Navigation */}
       {!isDesktop && feed.length > 0 && (
         <div className={styles.mobileFloatingBar}>
-          {portionIndex > 0 && (
+          {mobilePostIndex > 0 && (
             <button
               type="button"
               className={styles.mobileBackArrowBtn}
-              onClick={triggerPrevPortion}
-              aria-label="Предыдущая порция"
+              onClick={triggerPrevMobilePost}
+              aria-label="Предыдущий пост"
             >
               <ChevronLeft size={18} />
             </button>
           )}
 
-          <div className={styles.portionPill}>
-            <span>Порция {portionIndex + 1} из {Math.max(1, mobilePortions.length)}</span>
-          </div>
-
           <button
             type="button"
             className={styles.mobileNextArrowBtn}
-            onClick={triggerNextPortion}
-            aria-label="Следующая порция"
+            onClick={triggerNextMobilePost}
+            aria-label="Следующий пост"
           >
             <ChevronRight size={20} className={styles.arrowIconPulse} />
           </button>
