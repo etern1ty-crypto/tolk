@@ -163,16 +163,39 @@
 
 .action {
   flex-shrink: 0;
-  padding: 7px 12px;
+  padding: 7px 14px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
   background: var(--accent);
   color: var(--text-on-accent);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .action:hover {
   background: #fff;
+  color: #000;
+}
+
+.actionJoined {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionJoined:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .postRow {

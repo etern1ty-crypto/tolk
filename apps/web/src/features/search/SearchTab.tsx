@@ -84,9 +84,9 @@ export function SearchTab() {
   }, [chats, query]);
 
   const discoverChannels = useMemo(() => {
-    // API already filtered by q; show joined + not joined
-    return publicChannels;
-  }, [publicChannels]);
+    const myIds = new Set(myChannels.map((c) => c.id));
+    return publicChannels.filter((c) => !myIds.has(c.id));
+  }, [publicChannels, myChannels]);
 
   const showPeople = filter === 'all' || filter === 'people';
   const showPosts = filter === 'all' || filter === 'posts';
@@ -194,22 +194,30 @@ export function SearchTab() {
                   Каналы и группы
                 </h2>
                 {myChannels.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={styles.rowMain}
-                    onClick={() => setActiveChat(c.id)}
-                  >
-                    <Avatar name={c.title} id={c.peerId || c.id} avatarUrl={c.avatarRef} size={44} />
-                    <div className={styles.meta}>
-                      <span className={styles.name}>{c.title}</span>
-                      <span className={styles.sub}>
-                        {c.type === 'channel' ? 'канал' : 'группа'}
-                        {c.memberCount ? ` · ${c.memberCount}` : ''}
-                        {c.preview ? ` · ${c.preview}` : ''}
-                      </span>
-                    </div>
-                  </button>
+                  <div key={c.id} className={styles.row}>
+                    <button
+                      type="button"
+                      className={styles.rowMain}
+                      onClick={() => setActiveChat(c.id)}
+                    >
+                      <Avatar name={c.title} id={c.peerId || c.id} avatarUrl={c.avatarRef} size={44} />
+                      <div className={styles.meta}>
+                        <span className={styles.name}>{c.title}</span>
+                        <span className={styles.sub}>
+                          {c.type === 'channel' ? 'канал' : 'группа'}
+                          {c.memberCount ? ` · ${c.memberCount} подп.` : ''}
+                          {c.preview ? ` · ${c.preview}` : ''}
+                        </span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.actionJoined}
+                      onClick={() => setActiveChat(c.id)}
+                    >
+                      Открыть
+                    </button>
+                  </div>
                 ))}
                 {discoverChannels.map((c) => (
                   <div key={c.id} className={styles.row}>
