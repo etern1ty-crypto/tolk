@@ -14,7 +14,7 @@ import {
   UserX,
   VolumeX,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { Avatar } from '../../shared/ui/Avatar';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
@@ -40,27 +40,13 @@ export function AdminPanel() {
   // Badge Manager state
   const [badgeInput, setBadgeInput] = useState('');
 
-  // Sample moderation tickets
-  const [reports, setReports] = useState([
-    {
-      id: 'rep_1',
-      targetType: 'user',
-      targetName: 'spammer_99',
-      reporterName: 'алексей',
-      reason: 'Спам в сообщениях и рекламные ссылки',
-      createdAt: Date.now() - 1000 * 60 * 15,
-      status: 'pending',
-    },
-    {
-      id: 'rep_2',
-      targetType: 'post',
-      targetName: 'Пост #p_102',
-      reporterName: 'мария',
-      reason: 'Некорректные высказывания на стене',
-      createdAt: Date.now() - 1000 * 60 * 45,
-      status: 'pending',
-    },
-  ]);
+  const reports = useAppStore((s) => s.reports);
+  const loadReports = useAppStore((s) => s.loadReports);
+  const resolveReport = useAppStore((s) => s.resolveReport);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
 
   const handleGrantBadge = (targetUsername: string) => {
     const u = Object.values(users).find(
@@ -120,8 +106,7 @@ export function AdminPanel() {
   };
 
   const handleResolveReport = (reportId: string, action: string) => {
-    setReports((prev) => prev.filter((r) => r.id !== reportId));
-    showToast(`Мера принята: ${action}`);
+    resolveReport(reportId, action);
   };
 
   if (!isAdmin) {

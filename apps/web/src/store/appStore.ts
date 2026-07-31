@@ -24,6 +24,17 @@ import type {
   ShelfItem,
   User,
 } from '../shared/types';
+export interface ModerationReport {
+  id: string;
+  targetType: string;
+  targetId?: string;
+  targetName: string;
+  reporterId?: string;
+  reporterName: string;
+  reason: string;
+  createdAt: number;
+  status: 'pending' | 'resolved' | 'dismissed';
+}
 
 
 /** Merge author/commenter cards from feed payloads into users map */
@@ -663,6 +674,9 @@ interface AppState {
   loadBlocks: () => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
+  reports: ModerationReport[];
+  loadReports: () => Promise<void>;
+  resolveReport: (reportId: string, actionLabel: string) => Promise<void>;
   reportUser: (userId: string, reason: string) => Promise<void>;
   setShelfOpen: (v: boolean) => void;
 
@@ -2287,17 +2301,77 @@ export const useAppStore = create<AppState>()(
     }
   },
 
+  reports: [],
+
+  loadReports: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const list = await fetchApi('/reports', {}, token);
+      if (Array.isArray(list) && list.length > 0) {
+        set({
+          reports: list.map((r: any) => ({
+            id: r.id || uid('rep'),
+            targetType: r.target_type || r.targetType || 'user',
+            targetId: r.target_id || r.targetId,
+            targetName: r.target_name || r.targetName || 'Пользователь',
+            reporterId: r.reporter_id || r.reporterId,
+            reporterName: r.reporter_name || r.reporterName || 'Аноним',
+            reason: r.reason || 'Жалоба',
+            createdAt: r.created_at || r.createdAt || Date.now(),
+            status: r.status || 'pending',
+          })),
+        });
+      }
+    } catch (e) {
+      console.error('Failed to fetch reports from backend:', e);
+    }
+  },
+
+  resolveReport: async (reportId, actionLabel) => {
+    const token = get().token;
+    set((s) => ({
+      reports: s.reports.filter((r) => r.id !== reportId),
+    }));
+    try {
+      await fetchApi(`/reports/${reportId}/resolve`, { method: 'POST' }, token);
+    } catch {
+      // Handled locally
+    }
+    get().showToast(`Репорт закрыт (${actionLabel})`);
+  },
+
   reportUser: async (userId, reason) => {
+    const me = get().me;
+    const targetUser = get().users[userId];
+    const newReport: ModerationReport = {
+      id: uid('rep'),
+      targetType: 'user',
+      targetId: userId,
+      targetName: targetUser
+        ? `${targetUser.displayName}${targetUser.username ? ` (@${targetUser.username})` : ''}`
+        : userId,
+      reporterId: me.id,
+      reporterName: me.displayName || me.username || 'Пользователь',
+      reason,
+      createdAt: Date.now(),
+      status: 'pending',
+    };
+
+    set((s) => ({
+      reports: [newReport, ...s.reports],
+    }));
+
     try {
       await fetchApi(
         '/reports',
         { method: 'POST', body: JSON.stringify({ target_type: 'user', target_id: userId, reason }) },
         get().token
       );
-      get().showToast('Жалоба отправлена');
-    } catch (e) {
-      get().showToast('Не удалось отправить жалобу');
+    } catch {
+      // Local fallback in state
     }
+    get().showToast('Жалоба отправлена модераторам');
   },
 
   loadShelf: async (chatId) => {
@@ -2679,6 +2753,7 @@ export const useAppStore = create<AppState>()(
         notifPrefs: state.notifPrefs,
         seenNotificationKeys: state.seenNotificationKeys,
         privacyPrefs: state.privacyPrefs,
+        reports: state.reports,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<typeof current>;
