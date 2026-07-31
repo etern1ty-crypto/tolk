@@ -501,6 +501,9 @@ export function ChatPanel() {
       voiceHold.current = true;
       setRecordSec(0);
       setVoiceRecording(true);
+      if (typeof document !== 'undefined') {
+        (document.activeElement as HTMLElement)?.blur();
+      }
     } catch (err) {
       console.error('Error starting audio recording:', err);
       // @ts-ignore
@@ -542,7 +545,7 @@ export function ChatPanel() {
 
   const onRecordPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
     if (isDesktop || !voiceRecording || swipeStartXRef.current === null) return;
-    const deltaX = e.clientX - swipeStartXRef.current;
+    const deltaX = swipeStartXRef.current - e.clientX;
     if (deltaX > 0) {
       setSwipeX(Math.min(deltaX, 160));
     } else {
@@ -558,7 +561,7 @@ export function ChatPanel() {
       return;
     }
     if (recordMode === 'voice' && voiceRecording) {
-      const deltaX = swipeStartXRef.current !== null ? e.clientX - swipeStartXRef.current : 0;
+      const deltaX = swipeStartXRef.current !== null ? swipeStartXRef.current - e.clientX : 0;
       swipeStartXRef.current = null;
       if (deltaX >= 110) {
         void endVoice(false);
@@ -1020,16 +1023,6 @@ export function ChatPanel() {
         )}
       </div>
 
-      {voiceRecording && (
-        <div className={styles.voiceBar}>
-          <span className={styles.recPulse} />
-          Запись… отпустите, чтобы отправить
-          <button type="button" onClick={() => endVoice(false)}>
-            Отмена
-          </button>
-        </div>
-      )}
-
       <div className={styles.composerStack}>
       {replyMsg && (
         <div className={styles.replyBar}>
@@ -1107,106 +1100,94 @@ export function ChatPanel() {
             </IconBtn>
           )}
 
-          {isDesktop && voiceRecording ? (
-            <div className={styles.pcVoiceRecordingBar}>
-              <div className={styles.pcVoiceMeta}>
-                <span className={styles.recPulse} />
+          {voiceRecording ? (
+            <div className={styles.voiceRecordingBar}>
+              <div className={styles.recMeta}>
+                <span className={styles.recDot} />
                 <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
                 <span className={styles.recLabel}>Запись…</span>
               </div>
-              <button
-                type="button"
-                className={styles.pcVoiceCancelBtn}
-                onClick={() => void endVoice(false)}
-                title="Отменить запись"
-              >
-                <X size={15} strokeWidth={iconProps.strokeWidth} />
-                <span>Отмена</span>
-              </button>
-            </div>
-          ) : (
-            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
-              {!isDesktop && voiceRecording && (
-                <div className={styles.mobileSwipeCancelBar}>
-                  <div
-                    className={styles.mobileSwipeTrack}
-                    style={{ transform: `translateX(${swipeX}px)` }}
-                  >
-                    <span className={styles.recPulse} />
-                    <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
-                    <span className={`${styles.mobileSwipeHint} ${swipeX >= 110 ? styles.mobileSwipeCancelActive : ''}`}>
-                      {swipeX >= 110 ? 'Отпустите для отмены' : 'Смахните вправо для отмены →'}
-                    </span>
-                  </div>
+              {isDesktop ? (
+                <button
+                  type="button"
+                  className={styles.pcVoiceCancelBtn}
+                  onClick={() => void endVoice(false)}
+                  title="Отменить запись"
+                >
+                  <X size={15} strokeWidth={iconProps.strokeWidth} />
+                  <span>Отмена</span>
+                </button>
+              ) : (
+                <div
+                  className={styles.mobileSwipeTrack}
+                  style={{ transform: `translateX(-${swipeX}px)` }}
+                >
+                  <span className={`${styles.mobileSwipeHint} ${swipeX >= 110 ? styles.mobileSwipeCancelActive : ''}`}>
+                    {swipeX >= 110 ? 'Отпустите для отмены' : '← Смахните влево для отмены'}
+                  </span>
                 </div>
               )}
-              <input
-                className={styles.input}
-                value={text}
-                onFocus={() => closeChatOverlays()}
-                onChange={(e) => {
-                  closeChatOverlays();
-                  setText(e.target.value);
-                  useAppStore.getState().sendTypingPresence();
-                }}
-                placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    submit();
-                  }
-                }}
-              />
             </div>
+          ) : (
+            <input
+              className={styles.input}
+              value={text}
+              onFocus={() => closeChatOverlays()}
+              onChange={(e) => {
+                closeChatOverlays();
+                setText(e.target.value);
+                useAppStore.getState().sendTypingPresence();
+              }}
+              placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
+            />
           )}
 
-          {isDesktop && voiceRecording ? (
-            <IconBtn
-              variant="mint"
-              className={styles.send}
-              onClick={() => void endVoice(true)}
-              aria-label="Отправить голосовое"
-              title="Отправить"
-            >
-              <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-            </IconBtn>
-          ) : text.trim() ? (
-            <IconBtn
-              variant="mint"
-              className={styles.send}
-              onClick={submit}
-              aria-label="Отправить"
-            >
-              <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-            </IconBtn>
-          ) : (
-            <IconBtn
-              variant="soft"
-              className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''} ${voiceRecording ? styles.recordingActive : ''}`}
-              aria-label={
-                recordMode === 'voice'
-                  ? 'Голосовое'
-                  : 'Кружок'
-              }
-              title={
-                isDesktop
-                  ? 'Нажмите для записи'
-                  : recordMode === 'voice'
-                    ? 'Удерживайте для записи · Смахните вправо для отмены'
-                    : 'Кружок'
-              }
-              onPointerDown={onRecordPointerDown}
-              onPointerMove={onRecordPointerMove}
-              onPointerUp={onRecordPointerUp}
-              onPointerCancel={onRecordPointerCancel}
-            >
-              {recordMode === 'voice' ? (
-                <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-              ) : (
-                <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-              )}
-            </IconBtn>
-          )}
+          <div
+            className={styles.iconSwap}
+            data-state={(isDesktop && voiceRecording) || text.trim() ? 'send' : 'mic'}
+          >
+            <div className={styles.iconSwapItem} data-icon="send">
+              <IconBtn
+                variant="mint"
+                className={styles.send}
+                onClick={() => (voiceRecording ? void endVoice(true) : submit())}
+                aria-label="Отправить"
+                title="Отправить"
+              >
+                <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+              </IconBtn>
+            </div>
+            <div className={styles.iconSwapItem} data-icon="mic">
+              <IconBtn
+                variant="soft"
+                className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''} ${voiceRecording ? styles.recordingActive : ''}`}
+                aria-label={recordMode === 'voice' ? 'Голосовое' : 'Кружок'}
+                title={
+                  isDesktop
+                    ? 'Нажмите для записи'
+                    : recordMode === 'voice'
+                      ? 'Удерживайте для записи · Смахните вправо для отмены'
+                      : 'Кружок'
+                }
+                onPointerDown={onRecordPointerDown}
+                onPointerMove={onRecordPointerMove}
+                onPointerUp={onRecordPointerUp}
+                onPointerCancel={onRecordPointerCancel}
+              >
+                {recordMode === 'voice' ? (
+                  <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                ) : (
+                  <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                )}
+              </IconBtn>
+            </div>
+          </div>
         </footer>
       )}
       </div>

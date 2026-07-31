@@ -231,7 +231,9 @@ export function ChatList() {
                   <div className={styles.rowBottom}>
                     <span className={styles.preview}>{chat.preview}</span>
                     {chat.unread > 0 && (
-                      <span className={styles.badge}>{chat.unread}</span>
+                      <span className={styles.tBadge} data-open={chat.unread > 0}>
+                        <span className={styles.tBadgeDot}>{chat.unread > 9 ? '9+' : chat.unread}</span>
+                      </span>
                     )}
                   </div>
                 </div>

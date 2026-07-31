@@ -172,7 +172,9 @@ export function WallFeed() {
                       fill={liked ? 'currentColor' : 'none'}
                       strokeWidth={iconProps.strokeWidth}
                     />
-                    {post.likedBy.length || ''}
+                    <span className={styles.tBadge} data-open={post.likedBy.length > 0}>
+                      <span className={styles.tBadgeDot}>{post.likedBy.length}</span>
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -183,7 +185,9 @@ export function WallFeed() {
                       size={iconProps.size.sm}
                       strokeWidth={iconProps.strokeWidth}
                     />
-                    {post.comments.length || ''}
+                    <span className={styles.tBadge} data-open={post.comments.length > 0}>
+                      <span className={styles.tBadgeDot}>{post.comments.length}</span>
+                    </span>
                   </button>
                   <button
                     type="button"

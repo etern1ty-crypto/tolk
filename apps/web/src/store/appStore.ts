@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
+  INITIAL_CHATS,
+  INITIAL_MESSAGES,
   INITIAL_POSTS,
   ME,
   USERS,
@@ -753,10 +755,10 @@ export const useAppStore = create<AppState>()(
       isOffline: false,
       searchQuery: '',
 
-      chats: [],
-      messages: [],
+      chats: INITIAL_CHATS,
+      messages: INITIAL_MESSAGES,
       posts: INITIAL_POSTS,
-      booting: true,
+      booting: false,
       feedHasMore: true,
       feedLoadingMore: false,
       shelfItems: [],
@@ -765,7 +767,7 @@ export const useAppStore = create<AppState>()(
       editingMessageId: null,
       navPins: [],
 
-      activeChatId: null,
+      activeChatId: 'c_1',
       activeMediaId: null,
       highlightMessageId: null,
       viewingUserId: null,

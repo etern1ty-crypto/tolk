@@ -3,7 +3,7 @@
 .nav {
   display: flex;
   gap: 0;
-  padding: 4px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 12px calc(8px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-subtle);
   background: var(--glass-strong);
   backdrop-filter: blur(20px);
@@ -16,6 +16,20 @@
   .nav {
     display: none;
   }
+}
+
+.mobileTabs {
+  width: 100%;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  padding: 3px;
+  display: flex;
+}
+
+.mobileTabs button {
+  flex: 1;
+  height: 42px;
 }
 
 .tab,

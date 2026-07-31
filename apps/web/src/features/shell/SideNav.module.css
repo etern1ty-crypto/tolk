@@ -12,6 +12,7 @@
   background: var(--bg-surface);
   z-index: 5;
   gap: 4px;
+  overflow: visible;
 }
 
 @media (min-width: 1024px) {
@@ -21,29 +22,91 @@
 }
 
 .brand {
-  display: grid;
-  place-items: center;
+  position: relative;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
   flex-shrink: 0;
+  z-index: 999;
 }
 
-.brand:hover {
-  background: var(--bg-hover);
+.logoWrap {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+  z-index: 9999;
+  overflow: hidden;
+  transition: all 0.32s cubic-bezier(0.34, 1.25, 0.64, 1);
 }
 
-.logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 15px;
-  color: var(--text-on-accent);
-  background: var(--accent);
+.logoDefaultText {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  transition: opacity 0.15s ease;
+}
+
+.logoLetter {
+  font-family: var(--font-brand);
+  font-weight: 900;
+  font-size: 21px;
+  line-height: 1;
+  color: #000000;
+}
+
+.logoDot {
+  font-family: var(--font-brand);
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1;
+  color: #000000;
+  opacity: 0.8;
+}
+
+.logoExpandedText {
+  font-family: var(--font-brand);
+  font-weight: 900;
+  font-size: 16px;
+  color: #000000;
+  letter-spacing: -0.02em;
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
+}
+
+/* Hover: expands rightward over workspace layers with constant left anchor */
+.brand:hover .logoWrap {
+  left: 2px;
+  padding: 0 16px;
+  background: #ffffff;
+  box-shadow: 8px 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.brand:hover .logoDefaultText {
+  display: none;
+}
+
+.brand:hover .logoExpandedText {
+  max-width: 140px;
+  opacity: 1;
 }
 
 .nav {

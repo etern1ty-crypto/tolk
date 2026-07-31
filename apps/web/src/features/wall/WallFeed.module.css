@@ -1,7 +1,7 @@
 /* Лента: только волосяные линейки, содержимое в колонке фиксированной ширины. */
 
 .root {
-  --feed-width: 620px;
+  --feed-width: 920px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -16,16 +16,14 @@
 }
 
 .header {
-  /* Ширина колонки. Всё — шапка, поле ввода, карточки — держит один предел,
-     поэтому волосяные линейки выстраиваются в одну вертикаль. */
   width: 100%;
   max-width: var(--feed-width);
   margin-inline: auto;
-  padding: 16px 16px 14px;
+  padding: 18px 20px 14px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--glass);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -33,17 +31,20 @@
 
 .header h1 {
   margin: 0;
+  font-family: var(--font-heading);
   font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #f5f5f5 0%, #a3a3a3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .composer {
   width: 100%;
   max-width: var(--feed-width);
   margin-inline: auto;
-  padding: 12px 16px 10px;
+  padding: 14px 20px 12px;
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
 }
@@ -66,7 +67,7 @@
   background: transparent;
   border: none;
   padding: 6px 0 8px;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -128,38 +129,46 @@
   opacity: 0.35;
 }
 
+/* Asymmetrical Masonry Grid for Wall Feed */
 .list {
   flex: 1;
   overflow-y: auto;
   width: 100%;
   max-width: var(--feed-width);
   margin-inline: auto;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+  padding: 16px;
+  column-count: 2;
+  column-gap: 16px;
   -webkit-overflow-scrolling: touch;
 }
 
 .empty {
+  column-span: all;
   text-align: center;
   color: var(--text-tertiary);
   padding: 40px 16px;
   font-size: 14px;
-  border-bottom: 1px solid var(--border-subtle);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 16px;
 }
 
 .card {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
-  padding: 12px 16px 8px;
-  box-shadow: none;
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--dur) var(--ease-spring), box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
 }
 
 .card:hover {
-  background: rgba(255, 255, 255, 0.02);
+  transform: translateY(-4px);
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
 
 .cardHead {
@@ -212,10 +221,8 @@
 
 .media {
   width: 100%;
-  height: 200px;
-  /* Предел выше заданной автором высоты: иначе один пост занимает весь экран
-     и лента перестаёт быть лентой. */
-  max-height: 48vh;
+  height: 240px;
+  max-height: 540px;
   border-radius: 14px;
   margin: 10px 0 4px;
   border: 1px solid var(--border-subtle);
@@ -298,6 +305,67 @@
   color: var(--accent) !important;
 }
 
+/* Transitions.dev — Notification badge for wall counters */
+@keyframes tBadgeSlideIn {
+  from { transform: translate(-6px, 8px); }
+  to   { transform: translate(0, 0); }
+}
+
+.tBadge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.tBadge[data-open="true"] {
+  animation: tBadgeSlideIn 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tBadgeDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  transform-origin: center;
+  transform: scale(1);
+  opacity: 1;
+  filter: blur(0);
+  transition:
+    transform 500ms cubic-bezier(0.34, 1.36, 0.64, 1),
+    opacity 400ms cubic-bezier(0.34, 1.36, 0.64, 1),
+    filter 500ms cubic-bezier(0.34, 1.36, 0.64, 1);
+  will-change: transform, opacity, filter;
+  line-height: 1;
+}
+
+.liked .tBadgeDot {
+  background: rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+}
+
+.tBadge[data-open="false"] .tBadgeDot {
+  transform: scale(0);
+  opacity: 0;
+  filter: blur(2px);
+  transition:
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 180ms cubic-bezier(0.4, 0, 0.2, 1),
+    filter 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tBadge, .tBadgeDot { animation: none !important; transition: none !important; }
+}
+
 /* Невидимая метка в конце ленты: пересечение с ней запускает подгрузку. */
 .sentinel {
   min-height: 1px;
@@ -318,6 +386,11 @@
 @media (max-width: 700px) {
   .root {
     --feed-width: none;
+  }
+
+  .list {
+    column-count: 1;
+    padding: 12px;
   }
 
   /* Палец не попадает по цели в 34 пикселя так же уверенно, как курсор. */

@@ -6,6 +6,7 @@ import { ProfileTab } from '../profile/ProfileTab';
 import { SearchTab } from '../search/SearchTab';
 import { BottomNav } from './BottomNav';
 import { SideNav } from './SideNav';
+import { ActivitySidePanel } from './ActivitySidePanel';
 import { useAppStore } from '../../store/appStore';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 import styles from './MainShell.module.css';
@@ -65,10 +66,11 @@ export function MainShell() {
 
       <div className={styles.workspace}>
         {mainTab === 'wall' && (
-          <div className={styles.pageCol}>
+          <div className={styles.pageCol} style={{ flexDirection: 'row' }}>
             <div className={styles.paper}>
               <WallFeed />
             </div>
+            {isDesktop && <ActivitySidePanel />}
           </div>
         )}
 

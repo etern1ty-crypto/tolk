@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { INITIAL_CHATS, INITIAL_MESSAGES } from '../../mocks/fixtures';
+import { SlidingTabs } from '../../shared/ui/SlidingTabs';
 import styles from './AuthScreen.module.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
@@ -172,27 +174,18 @@ export function AuthScreen() {
         </div>
 
         {!isSocialProfile && (
-          <div className={styles.toggle}>
-            <button
-              type="button"
-              className={authMode === 'login' ? styles.toggleActive : styles.toggleInactive}
-              onClick={() => {
-                setAuthMode('login');
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+            <SlidingTabs
+              tabs={[
+                { id: 'login', label: 'Войти' },
+                { id: 'register', label: 'Регистрация' },
+              ]}
+              activeId={authMode}
+              onChange={(id) => {
+                setAuthMode(id as any);
                 setError(null);
               }}
-            >
-              Войти
-            </button>
-            <button
-              type="button"
-              className={authMode === 'register' ? styles.toggleActive : styles.toggleInactive}
-              onClick={() => {
-                setAuthMode('register');
-                setError(null);
-              }}
-            >
-              Регистрация
-            </button>
+            />
           </div>
         )}
 
@@ -305,6 +298,52 @@ export function AuthScreen() {
                 : isRegister
                   ? 'Создать аккаунт'
                   : 'Войти'}
+          </button>
+
+          <button
+            type="button"
+            className={styles.demoBypassBtn}
+            onClick={() => {
+              useAppStore.setState({
+                isAuthenticated: true,
+                chats: INITIAL_CHATS,
+                messages: INITIAL_MESSAGES,
+                me: {
+                  id: 'u_me',
+                  username: 'demo_user',
+                  displayName: 'Демо Пользователь',
+                  bio: 'Тестовый профиль полигона Толк.',
+                  online: true,
+                  bannerPatternId: 'mint_wave',
+                },
+                mainTab: 'chats',
+                activeChatId: 'c_1',
+              });
+            }}
+          >
+            💬 Открыть Демо-Чат (1-Клик)
+          </button>
+
+          <button
+            type="button"
+            style={{ marginTop: '8px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}
+            className={styles.demoBypassBtn}
+            onClick={() => {
+              useAppStore.setState({
+                isAuthenticated: true,
+                me: {
+                  id: 'u-me',
+                  username: 'demo_user',
+                  displayName: 'Демо Пользователь',
+                  bio: 'Тестовый профиль полигона Толк.',
+                  online: true,
+                  bannerPatternId: 'mint_wave',
+                },
+                mainTab: 'wall',
+              });
+            }}
+          >
+            📰 Лента Новостей (Стена)
           </button>
 
           {isSocialProfile && (

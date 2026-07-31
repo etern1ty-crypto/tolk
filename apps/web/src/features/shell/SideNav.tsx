@@ -4,6 +4,7 @@ import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
+import { SlidingTabs } from '../../shared/ui/SlidingTabs';
 import styles from './SideNav.module.css';
 
 const TABS: {
@@ -49,33 +50,31 @@ export function SideNav() {
       <button
         type="button"
         className={styles.brand}
-        onClick={() => setMainTab('chats')}
-        title="Толк · чаты"
-        aria-label="Толк — к чатам"
+        onClick={() => setMainTab(mainTab === 'wall' ? 'chats' : 'wall')}
+        title="Толк. — Переключить стену"
+        aria-label="Толк — Переключить стену"
       >
-        <span className={styles.logo}>Т</span>
+        <div className={styles.logoWrap}>
+          <span className={styles.logoDefaultText}>
+            <span className={styles.logoLetter}>Т</span>
+            <span className={styles.logoDot}>.</span>
+          </span>
+          <span className={styles.logoExpandedText}>Толк.</span>
+        </div>
       </button>
 
       <nav className={styles.nav}>
-        {TABS.map((tab) => {
-          const active = mainTab === tab.id;
-          const n = badge(tab.id);
-          const Icon = tab.Icon;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              className={active ? styles.itemActive : styles.item}
-              onClick={() => setMainTab(tab.id)}
-              aria-current={active ? 'page' : undefined}
-              aria-label={tab.label}
-              title={tab.label}
-            >
-              <Icon size={iconProps.size.lg} strokeWidth={iconProps.strokeWidth} />
-              {n > 0 && <span className={styles.badge}>{n > 9 ? '9+' : n}</span>}
-            </button>
-          );
-        })}
+        <SlidingTabs
+          variant="vertical"
+          tabs={TABS.map((tab) => ({
+            id: tab.id,
+            label: '',
+            badge: badge(tab.id) > 0 ? (badge(tab.id) > 9 ? '9+' : badge(tab.id)) : undefined,
+            icon: <tab.Icon size={iconProps.size.lg} strokeWidth={iconProps.strokeWidth} />,
+          }))}
+          activeId={mainTab as MainTab}
+          onChange={(id) => setMainTab(id)}
+        />
       </nav>
 
       <button
