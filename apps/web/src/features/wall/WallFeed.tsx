@@ -76,6 +76,7 @@ export function WallFeed() {
   // Handle desktop mouse wheel stepping with smooth centering
   const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (!isDesktop) return;
+    e.preventDefault();
     const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
     if (Math.abs(delta) < 10) return;
     if (wheelThrottleRef.current) return;
