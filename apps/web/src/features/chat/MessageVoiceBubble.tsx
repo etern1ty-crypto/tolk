@@ -113,16 +113,26 @@ export function VoicePlayer({
     if (audio && !audio.paused) audio.pause();
   }, [activeMediaId, messageId]);
 
+  const [audioError, setAudioError] = useState(false);
+
   const togglePlay = () => {
     const audio = audioRef.current;
-    if (!audio || !src) return;
+    if (!audio || !src || audioError) {
+      useAppStore.getState().showToast('Аудио недоступно');
+      return;
+    }
     if (playing) {
       audio.pause();
     } else {
       if (messageId) setActiveMediaId(messageId);
       // Контекст создаётся приостановленным до жеста пользователя.
       resumeAudio();
-      void audio.play();
+      audio.play().catch((err) => {
+        console.warn('[VoicePlayer] play failed:', err);
+        setPlaying(false);
+        setAudioError(true);
+        useAppStore.getState().showToast('Не удалось воспроизвести аудио');
+      });
     }
   };
 
@@ -147,6 +157,10 @@ export function VoicePlayer({
           src={src}
           preload="metadata"
           data-media-id={messageId || undefined}
+          onError={() => {
+            setAudioError(true);
+            setPlaying(false);
+          }}
         />
       ) : null}
 

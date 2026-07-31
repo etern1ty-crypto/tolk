@@ -35,7 +35,7 @@
 
 .logoWrap {
   position: absolute;
-  left: 2px;
+  right: 2px;
   top: 2px;
   height: 40px;
   min-width: 40px;
@@ -92,12 +92,13 @@
   transition: max-width 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
 }
 
-/* Hover: expands rightward over workspace layers with constant left anchor */
+/* Hover: expands leftward over workspace layers with constant right anchor */
 .brand:hover .logoWrap {
-  left: 2px;
+  right: 2px;
+  left: auto;
   padding: 0 16px;
   background: #ffffff;
-  box-shadow: 8px 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.4);
+  box-shadow: -8px 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
 .brand:hover .logoDefaultText {
