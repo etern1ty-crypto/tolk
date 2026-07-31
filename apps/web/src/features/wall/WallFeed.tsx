@@ -69,6 +69,177 @@ export function WallFeed() {
     [posts]
   );
 
+  const renderPostCard = (post: typeof feed[0]) => {
+    const author = users[post.authorId];
+    const liked = post.likedBy.includes(me.id);
+    return (
+      <article key={post.id} className={styles.card}>
+        <header className={styles.cardHead}>
+          <button
+            type="button"
+            className={styles.avatarBtn}
+            onClick={() => openUserProfile(post.authorId)}
+          >
+            <Avatar
+              name={author?.displayName ?? '?'}
+              id={author?.id}
+              avatarUrl={author?.avatarRef}
+              size={40}
+              online={author?.online}
+            />
+          </button>
+          <div className={styles.meta}>
+            <button
+              type="button"
+              className={styles.name}
+              onClick={() => openUserProfile(post.authorId)}
+            >
+              {author?.displayName ?? '…'}
+            </button>
+            <div className={styles.metaRow}>
+              <time>{rel(post.createdAt)}</time>
+            </div>
+          </div>
+        </header>
+        {post.media?.kind === 'pattern' && (() => {
+          const pat = post.media.patternId === 'custom' && post.media.items
+            ? generateCustomPattern(post.media.items.join(' '), post.id)
+            : patternById(MEDIA_PATTERNS, post.media.patternId, MEDIA_PATTERNS[0]!);
+          return (
+            <div
+              className={styles.media}
+              role="img"
+              aria-label={post.media.alt ?? 'медиа'}
+              style={post.media.height ? { height: `${post.media.height}px` } : undefined}
+            >
+              <PatternBg
+                pattern={pat}
+                seed={post.id}
+                density="mid"
+                className={styles.mediaFill}
+              />
+            </div>
+          );
+        })()}
+        {post.media?.kind === 'image' && post.media?.url && (
+          <button
+            type="button"
+            className={styles.media}
+            style={post.media.height ? { height: `${post.media.height}px` } : undefined}
+            onClick={() => setLightboxSrc(post.media!.url!)}
+            aria-label="Открыть фото"
+          >
+            <PostImage src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+          </button>
+        )}
+        {post.text ? (
+          <p
+            className={styles.text}
+            style={{
+              fontSize: post.media?.fontSize ? `${post.media.fontSize}px` : undefined,
+              fontFamily: post.media?.fontFamily === 'serif' ? 'serif' : post.media?.fontFamily === 'mono' ? 'monospace' : undefined,
+            }}
+          >
+            {post.text}
+          </p>
+        ) : null}
+        <footer className={styles.actions}>
+          <button
+            type="button"
+            className={liked ? styles.liked : ''}
+            aria-label={liked ? 'Убрать отметку «нравится»' : 'Нравится'}
+            aria-pressed={liked}
+            onClick={() => toggleLike(post.id)}
+          >
+            <Heart
+              size={iconProps.size.sm}
+              fill={liked ? 'currentColor' : 'none'}
+              strokeWidth={iconProps.strokeWidth}
+            />
+            <span className={styles.tBadge} data-open={post.likedBy.length > 0}>
+              <span className={styles.tBadgeDot}>{post.likedBy.length}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Комментарии"
+            onClick={() => setCommentPostId(post.id)}
+          >
+            <MessageCircle
+              size={iconProps.size.sm}
+              strokeWidth={iconProps.strokeWidth}
+            />
+            <span className={styles.tBadge} data-open={post.comments.length > 0}>
+              <span className={styles.tBadgeDot}>{post.comments.length}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-label="Опубликовать у себя"
+            onClick={() => repostToProfile(post.id)}
+          >
+            <Repeat2
+              size={iconProps.size.sm}
+              strokeWidth={iconProps.strokeWidth}
+            />
+          </button>
+          <button
+            type="button"
+            aria-label="Переслать в чат"
+            onClick={() => setForwardPostId(post.id)}
+          >
+            <Forward
+              size={iconProps.size.sm}
+              strokeWidth={iconProps.strokeWidth}
+            />
+          </button>
+          <button
+            type="button"
+            title="Ссылка"
+            aria-label="Скопировать ссылку на пост"
+            onClick={async () => {
+              try {
+                await copyShareLink('post', post.id, token);
+                showToast('Ссылка на пост скопирована');
+              } catch (e: any) {
+                showToast(e.message || 'Ошибка');
+              }
+            }}
+          >
+            <Link2
+              size={iconProps.size.sm}
+              strokeWidth={iconProps.strokeWidth}
+            />
+          </button>
+        </footer>
+      </article>
+    );
+  };
+
+  // Bin-packing shortest-column post distribution
+  const col0: typeof feed = [];
+  const col1: typeof feed = [];
+  let h0 = 0;
+  let h1 = 0;
+
+  feed.forEach((post) => {
+    let estHeight = 120;
+    if (post.text) {
+      estHeight += Math.min(250, Math.ceil(post.text.length / 30) * 22);
+    }
+    if (post.media?.url || post.media?.patternId) {
+      estHeight += post.media?.height || 320;
+    }
+
+    if (h0 <= h1) {
+      col0.push(post);
+      h0 += estHeight + 16;
+    } else {
+      col1.push(post);
+      h1 += estHeight + 16;
+    }
+  });
+
   return (
     <div className={styles.root}>
       <header className={styles.header}>
@@ -85,152 +256,10 @@ export function WallFeed() {
         ) : feed.length === 0 ? (
           <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
         ) : (
-          feed.map((post) => {
-            const author = users[post.authorId];
-            const liked = post.likedBy.includes(me.id);
-            return (
-              <article key={post.id} className={styles.card}>
-                <header className={styles.cardHead}>
-                  <button
-                    type="button"
-                    className={styles.avatarBtn}
-                    onClick={() => openUserProfile(post.authorId)}
-                  >
-                    <Avatar
-                      name={author?.displayName ?? '?'}
-                      id={author?.id}
-                      avatarUrl={author?.avatarRef}
-                      size={40}
-                      online={author?.online}
-                    />
-                  </button>
-                  <div className={styles.meta}>
-                    <button
-                      type="button"
-                      className={styles.name}
-                      onClick={() => openUserProfile(post.authorId)}
-                    >
-                      {author?.displayName ?? '…'}
-                    </button>
-                    <div className={styles.metaRow}>
-                      <time>{rel(post.createdAt)}</time>
-                    </div>
-                  </div>
-                </header>
-                {post.media?.kind === 'pattern' && (() => {
-                  const pat = post.media.patternId === 'custom' && post.media.items
-                    ? generateCustomPattern(post.media.items.join(' '), post.id)
-                    : patternById(MEDIA_PATTERNS, post.media.patternId, MEDIA_PATTERNS[0]!);
-                  return (
-                    <div
-                      className={styles.media}
-                      role="img"
-                      aria-label={post.media.alt ?? 'медиа'}
-                      style={post.media.height ? { height: `${post.media.height}px` } : undefined}
-                    >
-                      <PatternBg
-                        pattern={pat}
-                        seed={post.id}
-                        density="mid"
-                        className={styles.mediaFill}
-                      />
-                    </div>
-                  );
-                })()}
-                {post.media?.kind === 'image' && post.media?.url && (
-                  <button
-                    type="button"
-                    className={styles.media}
-                    style={post.media.height ? { height: `${post.media.height}px` } : undefined}
-                    onClick={() => setLightboxSrc(post.media!.url!)}
-                    aria-label="Открыть фото"
-                  >
-                    <PostImage src={post.media.url} alt={post.media.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
-                  </button>
-                )}
-                {post.text ? (
-                  <p
-                    className={styles.text}
-                    style={{
-                      fontSize: post.media?.fontSize ? `${post.media.fontSize}px` : undefined,
-                      fontFamily: post.media?.fontFamily === 'serif' ? 'serif' : post.media?.fontFamily === 'mono' ? 'monospace' : undefined,
-                    }}
-                  >
-                    {post.text}
-                  </p>
-                ) : null}
-                <footer className={styles.actions}>
-                  <button
-                    type="button"
-                    className={liked ? styles.liked : ''}
-                    aria-label={liked ? 'Убрать отметку «нравится»' : 'Нравится'}
-                    aria-pressed={liked}
-                    onClick={() => toggleLike(post.id)}
-                  >
-                    <Heart
-                      size={iconProps.size.sm}
-                      fill={liked ? 'currentColor' : 'none'}
-                      strokeWidth={iconProps.strokeWidth}
-                    />
-                    <span className={styles.tBadge} data-open={post.likedBy.length > 0}>
-                      <span className={styles.tBadgeDot}>{post.likedBy.length}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Комментарии"
-                    onClick={() => setCommentPostId(post.id)}
-                  >
-                    <MessageCircle
-                      size={iconProps.size.sm}
-                      strokeWidth={iconProps.strokeWidth}
-                    />
-                    <span className={styles.tBadge} data-open={post.comments.length > 0}>
-                      <span className={styles.tBadgeDot}>{post.comments.length}</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Опубликовать у себя"
-                    onClick={() => repostToProfile(post.id)}
-                  >
-                    <Repeat2
-                      size={iconProps.size.sm}
-                      strokeWidth={iconProps.strokeWidth}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Переслать в чат"
-                    onClick={() => setForwardPostId(post.id)}
-                  >
-                    <Forward
-                      size={iconProps.size.sm}
-                      strokeWidth={iconProps.strokeWidth}
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    title="Ссылка"
-                    aria-label="Скопировать ссылку на пост"
-                    onClick={async () => {
-                      try {
-                        await copyShareLink('post', post.id, token);
-                        showToast('Ссылка на пост скопирована');
-                      } catch (e: any) {
-                        showToast(e.message || 'Ошибка');
-                      }
-                    }}
-                  >
-                    <Link2
-                      size={iconProps.size.sm}
-                      strokeWidth={iconProps.strokeWidth}
-                    />
-                  </button>
-                </footer>
-              </article>
-            );
-          })
+          <div className={styles.columnsWrap}>
+            <div className={styles.column}>{col0.map(renderPostCard)}</div>
+            <div className={styles.column}>{col1.map(renderPostCard)}</div>
+          </div>
         )}
 
         {feed.length > 0 && feedHasMore && (
