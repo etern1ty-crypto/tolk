@@ -101,10 +101,11 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px;
+  padding: 20px 24px 40px;
 }
 
 @media (max-width: 1023px) {
@@ -133,13 +134,15 @@
 /* ── PC Desktop Centered Fluid Deck ─────────────────────────────────────── */
 .desktopDeckContainer {
   width: 100%;
+  max-width: 920px;
+  margin-inline: auto;
   height: 100%;
   display: flex;
-  align-items: center;
-  overflow: hidden;
+  align-items: flex-start;
+  overflow: visible;
   perspective: 1200px;
-  padding-top: 30px;
-  padding-bottom: 30px;
+  padding-top: 24px;
+  padding-bottom: 40px;
 }
 
 .desktopDeckTrack {
@@ -148,8 +151,8 @@
   align-items: flex-start;
   will-change: transform;
   transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-  padding-left: calc(50vw - 220px);
-  padding-right: calc(50vw - 220px);
+  padding-left: calc(50% - 220px);
+  padding-right: calc(50% - 220px);
 }
 
 /* Desktop Cards */
