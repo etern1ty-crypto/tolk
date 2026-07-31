@@ -1144,3 +1144,81 @@
   pointer-events: none;
 }
 
+/* Selection Mode Header */
+.selectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.selectionCount {
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selectionActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selectionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.selectionBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.selectionBtnDanger {
+  color: #f87171 !important;
+  background: rgba(248, 113, 113, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.25) !important;
+}
+
+.selectionBtnDanger:hover {
+  background: rgba(248, 113, 113, 0.22) !important;
+}
+
+/* Selection Checkbox & Bubble Outline */
+.selectCheckbox {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  margin-right: 8px;
+}
+
+.selectCheckboxActive {
+  background: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  color: #000;
+}
+
+.bubbleSelected {
+  outline: 2px solid #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3) !important;
+}
+

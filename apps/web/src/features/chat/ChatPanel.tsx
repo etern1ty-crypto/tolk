@@ -1,11 +1,14 @@
 import {
   ArrowLeft,
   Bookmark,
+  Check,
   CircleDot,
   Mic,
   MoreVertical,
   Palette,
   SendHorizontal,
+  Share2,
+  Trash2,
   X,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -75,6 +78,16 @@ export function ChatPanel() {
   const toggleReaction = useAppStore((s) => s.toggleReaction);
   const defaultReaction = useAppStore((s) => s.defaultReaction);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
+  // @ts-ignore
+  const selectionMode = useAppStore((s) => s.selectionMode);
+  // @ts-ignore
+  const selectedMessageIds = useAppStore((s) => s.selectedMessageIds || []);
+  // @ts-ignore
+  const toggleMessageSelection = useAppStore((s) => s.toggleMessageSelection);
+  // @ts-ignore
+  const clearMessageSelection = useAppStore((s) => s.clearMessageSelection);
+  // @ts-ignore
+  const deleteSelectedMessages = useAppStore((s) => s.deleteSelectedMessages);
   const editingMessageId = useAppStore((s) => s.editingMessageId);
   const setEditingMessage = useAppStore((s) => s.setEditingMessage);
   const editMessage = useAppStore((s) => s.editMessage);
@@ -604,135 +617,176 @@ export function ChatPanel() {
         />
       )}
       <header className={styles.header}>
-        <IconBtn
-          className={styles.mobileOnly}
-          onClick={() => setActiveChat(null)}
-          aria-label="К списку"
-        >
-          <ArrowLeft size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-        </IconBtn>
-        <button
-          type="button"
-          className={styles.headerInfo}
-          onClick={(e) => {
-            e.preventDefault();
-            if (chat.type === 'dm' && chat.peerId) {
-              openUserProfile(chat.peerId);
-              return;
-            }
-            window.setTimeout(() => setChatInfoOpen(true), 0);
-          }}
-        >
-          <Avatar
-            name={headerAvatarName}
-            id={headerAvatarId}
-            avatarUrl={headerAvatarUrl}
-            size={36}
-            online={chat.type === 'dm' ? chat.online : undefined}
-          />
-          <div className={styles.headerText}>
-            <div className={styles.headerTitle}>
-              <span>{chat.title}</span>
-              {chat.peerId && (users[chat.peerId]?.verified || users[chat.peerId]?.username === 'nekach' || users[chat.peerId]?.username === 'admin') && (
-                <VerifiedBadge size="sm" />
-              )}
+        {selectionMode ? (
+          <div className={styles.selectionHeader}>
+            <div className={styles.selectionCount}>
+              <IconBtn
+                aria-label="Закрыть выбор"
+                onClick={() => clearMessageSelection()}
+              >
+                <X size={20} strokeWidth={iconProps.strokeWidth} />
+              </IconBtn>
+              <span>{selectedMessageIds.length}</span>
             </div>
-            <div className={styles.headerSub}>
-              {typingChatId === activeChatId ? (
-                <span className={styles.typingLive}>печатает…</span>
-              ) : chat.online ? (
-                <span className={styles.online}>в сети</span>
-              ) : chat.type === 'group' || chat.type === 'channel' ? (
-                `${chat.type === 'channel' ? 'канал' : 'группа'}${
-                  chat.memberCount ? ` · ${chat.memberCount}` : ''
-                }`
-              ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
-                formatLastSeen(users[chat.peerId].lastSeenAt)
-              ) : (
-                'был(а) недавно'
-              )}
+            <div className={styles.selectionActions}>
+              <button
+                type="button"
+                className={styles.selectionBtn}
+                onClick={() => {
+                  const selectedTexts = messages
+                    .filter((m) => selectedMessageIds.includes(m.id))
+                    .map((m) => m.text || (m.kind === 'voice' ? '[Голосовое]' : '[Вложение]'))
+                    .join('\n');
+                  void navigator.clipboard?.writeText(selectedTexts);
+                  useAppStore.getState().showToast('Скопировано');
+                }}
+              >
+                <Share2 size={15} />
+                <span>Переслать</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.selectionBtn} ${styles.selectionBtnDanger}`}
+                onClick={() => void deleteSelectedMessages()}
+              >
+                <Trash2 size={15} />
+                <span>Удалить</span>
+              </button>
             </div>
           </div>
-        </button>
-        <div className={styles.headerActions} ref={headerMenuRef}>
-          <IconBtn
-            aria-label="Ещё"
-            title="Ещё"
-            onClick={() => {
-              setThemeOpen(false);
-              setHeaderMenuOpen((v) => !v);
-            }}
-          >
-            <MoreVertical size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
-          {headerMenuOpen && (
-            <div className={styles.headerMenu} role="menu">
-              <button
-                type="button"
-                role="menuitem"
+        ) : (
+          <>
+            <IconBtn
+              className={styles.mobileOnly}
+              onClick={() => setActiveChat(null)}
+              aria-label="К списку"
+            >
+              <ArrowLeft size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+            <button
+              type="button"
+              className={styles.headerInfo}
+              onClick={(e) => {
+                e.preventDefault();
+                if (chat.type === 'dm' && chat.peerId) {
+                  openUserProfile(chat.peerId);
+                  return;
+                }
+                window.setTimeout(() => setChatInfoOpen(true), 0);
+              }}
+            >
+              <Avatar
+                name={headerAvatarName}
+                id={headerAvatarId}
+                avatarUrl={headerAvatarUrl}
+                size={36}
+                online={chat.type === 'dm' ? chat.online : undefined}
+              />
+              <div className={styles.headerText}>
+                <div className={styles.headerTitle}>
+                  <span>{chat.title}</span>
+                  {chat.peerId && (users[chat.peerId]?.verified || users[chat.peerId]?.username === 'nekach' || users[chat.peerId]?.username === 'admin') && (
+                    <VerifiedBadge size="sm" />
+                  )}
+                </div>
+                <div className={styles.headerSub}>
+                  {typingChatId === activeChatId ? (
+                    <span className={styles.typingLive}>печатает…</span>
+                  ) : chat.online ? (
+                    <span className={styles.online}>в сети</span>
+                  ) : chat.type === 'group' || chat.type === 'channel' ? (
+                    `${chat.type === 'channel' ? 'канал' : 'группа'}${
+                      chat.memberCount ? ` · ${chat.memberCount}` : ''
+                    }`
+                  ) : chat.peerId && users[chat.peerId]?.lastSeenAt ? (
+                    formatLastSeen(users[chat.peerId].lastSeenAt)
+                  ) : (
+                    'был(а) недавно'
+                  )}
+                </div>
+              </div>
+            </button>
+            <div className={styles.headerActions} ref={headerMenuRef}>
+              <IconBtn
+                aria-label="Ещё"
+                title="Ещё"
                 onClick={() => {
-                  setHeaderMenuOpen(false);
-                  setThemeOpen(true);
+                  setThemeOpen(false);
+                  setHeaderMenuOpen((v) => !v);
                 }}
               >
-                <Palette size={16} /> Оформление
-              </button>
-              {!isPreview && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setHeaderMenuOpen(false);
-                    setThemeOpen(false);
-                    setShelfOpen(true);
-                  }}
-                >
-                  <Bookmark size={16} /> Полка
-                  {shelfCount > 0 ? ` · ${shelfCount}` : ''}
-                </button>
-              )}
-              {(chat.type === 'group' || chat.type === 'channel') && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setHeaderMenuOpen(false);
-                    setThemeOpen(false);
-                    window.setTimeout(() => setChatInfoOpen(true), 0);
-                  }}
-                >
-                  Инфо
-                </button>
-              )}
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setHeaderMenuOpen(false);
-                  // @ts-ignore
-                  useAppStore.getState().clearChatMessages(chat.id);
-                }}
-              >
-                Очистить чат
-              </button>
-              {chat.peerId && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={styles.dangerMenuItem}
-                  onClick={() => {
-                    setHeaderMenuOpen(false);
-                    useAppStore.getState().blockUser(chat.peerId!);
-                  }}
-                >
-                  Заблокировать
-                </button>
+                <MoreVertical size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+              </IconBtn>
+              {headerMenuOpen && (
+                <div className={styles.headerMenu} role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setHeaderMenuOpen(false);
+                      setThemeOpen(true);
+                    }}
+                  >
+                    <Palette size={16} /> Оформление
+                  </button>
+                  {!isPreview && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        setThemeOpen(false);
+                        setShelfOpen(true);
+                      }}
+                    >
+                      <Bookmark size={16} /> Полка
+                      {shelfCount > 0 ? ` · ${shelfCount}` : ''}
+                    </button>
+                  )}
+                  {(chat.type === 'group' || chat.type === 'channel') && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setHeaderMenuOpen(false);
+                        setThemeOpen(false);
+                        window.setTimeout(() => setChatInfoOpen(true), 0);
+                      }}
+                    >
+                      Инфо
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setHeaderMenuOpen(false);
+                      // @ts-ignore
+                      useAppStore.getState().clearChatMessages(chat.id);
+                    }}
+                  >
+                    Очистить чат
+                  </button>
+                  {chat.peerId && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={styles.dangerMenuItem}
+                      onClick={() => {
+                        setHeaderMenuOpen(false);
+                        useAppStore.getState().blockUser(chat.peerId!);
+                      }}
+                    >
+                      Заблокировать
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </header>
 
       {themeOpen && (
@@ -799,6 +853,8 @@ export function ChatPanel() {
             // Ширина, которую надо освободить в конце последней строки:
             // время, плюс галочки у своих, плюс пометка о правке.
             const metaWidth = 46 + (mine ? 22 : 0) + (m.editedAt ? 34 : 0);
+            const isSelected = selectedMessageIds.includes(m.id);
+
             return (
               <div
                 key={m.id}
@@ -813,6 +869,19 @@ export function ChatPanel() {
                   .filter(Boolean)
                   .join(' ')}
               >
+                {selectionMode && (
+                  <button
+                    type="button"
+                    className={`${styles.selectCheckbox} ${isSelected ? styles.selectCheckboxActive : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleMessageSelection(m.id);
+                    }}
+                    aria-label={isSelected ? 'Снять выделение' : 'Выделить'}
+                  >
+                    {isSelected && <Check size={14} strokeWidth={3} />}
+                  </button>
+                )}
                 <div
                   className={[
                     styles.bubble,
@@ -822,6 +891,7 @@ export function ChatPanel() {
                     m.status === 'failed' ? styles.failed : '',
                     m.isEcho ? styles.echoBubble : '',
                     m.kind === 'circle' ? styles.circleBubble : '',
+                    isSelected ? styles.bubbleSelected : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -835,9 +905,19 @@ export function ChatPanel() {
                         }
                       : {}),
                   }}
+                  onClick={(e) => {
+                    if (selectionMode) {
+                      e.stopPropagation();
+                      toggleMessageSelection(m.id);
+                    }
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
+                    if (selectionMode) {
+                      toggleMessageSelection(m.id);
+                    } else {
+                      setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
+                    }
                   }}
                   onDoubleClick={() => {
                     // Quick reaction (default from settings) — full picker is in long-press menu

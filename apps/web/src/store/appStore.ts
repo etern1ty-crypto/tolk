@@ -542,6 +542,12 @@ interface AppState {
   showCircleEffects: boolean;
   reactionPicker: { messageId: string; x: number; y: number } | null;
   contextMenu: { messageId: string; x: number; y: number } | null;
+  selectionMode: boolean;
+  selectedMessageIds: string[];
+  startMessageSelection: (initialId?: string) => void;
+  toggleMessageSelection: (id: string) => void;
+  clearMessageSelection: () => void;
+  deleteSelectedMessages: () => Promise<void>;
   commentPostId: string | null;
   forwardPostId: string | null;
   shelfOpen: boolean;
@@ -1141,12 +1147,50 @@ export const useAppStore = create<AppState>()(
           viewingUserId: null,
           contextMenu: null,
           reactionPicker: null,
+          selectionMode: false,
+          selectedMessageIds: [],
           chats: [],
           messages: [],
           posts: [],
           shelfItems: [],
           echoes: [],
         });
+      },
+
+      selectionMode: false,
+      selectedMessageIds: [],
+      startMessageSelection: (initialId) =>
+        set({
+          selectionMode: true,
+          selectedMessageIds: initialId ? [initialId] : [],
+        }),
+      toggleMessageSelection: (id) =>
+        set((s) => {
+          const exists = s.selectedMessageIds.includes(id);
+          const next = exists
+            ? s.selectedMessageIds.filter((x) => x !== id)
+            : [...s.selectedMessageIds, id];
+          return {
+            selectedMessageIds: next,
+            selectionMode: next.length > 0 ? true : s.selectionMode,
+          };
+        }),
+      clearMessageSelection: () =>
+        set({
+          selectionMode: false,
+          selectedMessageIds: [],
+        }),
+      deleteSelectedMessages: async () => {
+        const ids = get().selectedMessageIds;
+        if (ids.length === 0) return;
+        for (const id of ids) {
+          try {
+            await get().deleteMessage(id);
+          } catch {
+            /* ignore */
+          }
+        }
+        set({ selectionMode: false, selectedMessageIds: [] });
       },
       updateMe: async (patch) => {
         const token = get().token;

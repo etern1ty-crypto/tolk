@@ -1,4 +1,4 @@
-import { Bookmark, Copy, Pencil, Reply, Trash2 } from 'lucide-react';
+import { Bookmark, CheckSquare, Copy, Pencil, Reply, Trash2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import styles from './MessageContextMenu.module.css';
@@ -9,6 +9,8 @@ export function MessageContextMenu() {
   const pinToShelf = useAppStore((s) => s.pinToShelf);
   const deleteMessage = useAppStore((s) => s.deleteMessage);
   const setEditingMessage = useAppStore((s) => s.setEditingMessage);
+  // @ts-ignore
+  const startMessageSelection = useAppStore((s) => s.startMessageSelection);
   const me = useAppStore((s) => s.me);
   const setReplyTo = useAppStore((s) => s.setReplyTo);
   const toggleReaction = useAppStore((s) => s.toggleReaction);
@@ -75,6 +77,16 @@ export function MessageContextMenu() {
       </div>
       <button type="button" role="menuitem" onClick={() => setReplyTo(msg.id)}>
         <Reply size={16} /> Ответить
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          setContextMenu(null);
+          startMessageSelection(msg.id);
+        }}
+      >
+        <CheckSquare size={16} /> Выделить
       </button>
       <button
         type="button"
