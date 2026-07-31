@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
-import { INITIAL_CHATS, INITIAL_MESSAGES } from '../../mocks/fixtures';
 import { SlidingTabs } from '../../shared/ui/SlidingTabs';
 import styles from './AuthScreen.module.css';
 
@@ -300,51 +299,7 @@ export function AuthScreen() {
                   : 'Войти'}
           </button>
 
-          <button
-            type="button"
-            className={styles.demoBypassBtn}
-            onClick={() => {
-              useAppStore.setState({
-                isAuthenticated: true,
-                chats: INITIAL_CHATS,
-                messages: INITIAL_MESSAGES,
-                me: {
-                  id: 'u_me',
-                  username: 'demo_user',
-                  displayName: 'Демо Пользователь',
-                  bio: 'Тестовый профиль полигона Толк.',
-                  online: true,
-                  bannerPatternId: 'mint_wave',
-                },
-                mainTab: 'chats',
-                activeChatId: 'c_1',
-              });
-            }}
-          >
-            💬 Открыть Демо-Чат (1-Клик)
-          </button>
 
-          <button
-            type="button"
-            style={{ marginTop: '8px', background: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }}
-            className={styles.demoBypassBtn}
-            onClick={() => {
-              useAppStore.setState({
-                isAuthenticated: true,
-                me: {
-                  id: 'u-me',
-                  username: 'demo_user',
-                  displayName: 'Демо Пользователь',
-                  bio: 'Тестовый профиль полигона Толк.',
-                  online: true,
-                  bannerPatternId: 'mint_wave',
-                },
-                mainTab: 'wall',
-              });
-            }}
-          >
-            📰 Лента Новостей (Стена)
-          </button>
 
           {isSocialProfile && (
             <button
