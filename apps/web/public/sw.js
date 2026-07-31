@@ -21,6 +21,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (!req || req.method !== 'GET') return;
+
   const url = new URL(req.url);
   // Do not intercept cross-origin requests (avatars, fonts, external media)
   if (url.origin !== self.location.origin) return;
