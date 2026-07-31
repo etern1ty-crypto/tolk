@@ -108,6 +108,10 @@
 .empty {
   padding: 48px 24px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .emptyTitle {
@@ -245,14 +249,20 @@
 .emptyActions {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  margin-top: 16px;
+  margin: 16px auto 0;
   width: 100%;
   max-width: 260px;
 }
 
 .emptyPrimary {
   /* Белая pill-кнопка — единственный акцент по Visual_Language. */
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: var(--text-primary);
   color: var(--bg-primary);
   border: none;
@@ -266,6 +276,11 @@
 .emptyPrimary:active { opacity: 0.75; }
 
 .emptyGhost {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);

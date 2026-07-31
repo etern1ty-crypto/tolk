@@ -34,6 +34,7 @@ import { VoicePlayer } from './MessageVoiceBubble';
 import { formatLastSeen } from '../profile/PeerProfile';
 import { PostImage } from '../../shared/ui/PostImage';
 import { uploadFile } from '../../shared/lib/api';
+import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 
 /** How many newest messages stay mounted. Expand on scroll-up. */
 const MSG_WINDOW = 48;
@@ -178,6 +179,11 @@ export function ChatPanel() {
   const holdArmTimer = useRef<number | null>(null);
   const voiceHold = useRef(false);
   const didHoldRecord = useRef(false);
+
+  const isDesktop = useIsDesktop();
+  const [recordSec, setRecordSec] = useState(0);
+  const [swipeX, setSwipeX] = useState(0);
+  const swipeStartXRef = useRef<number | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -388,10 +394,29 @@ export function ChatPanel() {
     }
   };
 
+  useEffect(() => {
+    if (!voiceRecording) {
+      setRecordSec(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRecordSec((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [voiceRecording]);
+
+  const formatRecordTime = (totalSec: number) => {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
   const endVoice = async (send: boolean) => {
     if (!voiceHold.current && !voiceRecording) return;
     voiceHold.current = false;
     setVoiceRecording(false);
+    setSwipeX(0);
+    swipeStartXRef.current = null;
     
     const recorder = mediaRecorderRef.current;
     const stream = streamRef.current;
@@ -445,74 +470,114 @@ export function ChatPanel() {
     }
   };
 
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: true,
+          noiseSuppression: true,
+          echoCancellation: true,
+        },
+      });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+      
+      let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 };
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, options);
+      } catch {
+        recorder = new MediaRecorder(stream);
+      }
+      
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.start();
+      recordStartTimeRef.current = Date.now();
+      voiceHold.current = true;
+      setRecordSec(0);
+      setVoiceRecording(true);
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      // @ts-ignore
+      useAppStore.getState().showToast('Доступ к микрофону отклонен');
+      didHoldRecord.current = false;
+    }
+  };
+
   const onRecordPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    if (isDesktop) {
+      if (recordMode === 'voice') {
+        if (!voiceRecording) {
+          void startVoiceRecording();
+        } else {
+          void endVoice(true);
+        }
+      } else {
+        setCircleSheetOpen(true);
+      }
+      return;
+    }
+
     didHoldRecord.current = false;
     clearHoldArm();
+    swipeStartXRef.current = e.clientX;
+    setSwipeX(0);
     (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+
     holdArmTimer.current = window.setTimeout(async () => {
       didHoldRecord.current = true;
       if (recordMode === 'voice') {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              // Автоусиление вытягивает тихий голос ещё на источнике: дешевле и
-              // чище, чем потом поднимать готовую запись.
-              autoGainControl: true,
-              noiseSuppression: true,
-              echoCancellation: true,
-            },
-          });
-          streamRef.current = stream;
-          audioChunksRef.current = [];
-          
-          let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 };
-          let recorder: MediaRecorder;
-          try {
-            recorder = new MediaRecorder(stream, options);
-          } catch {
-            recorder = new MediaRecorder(stream);
-          }
-          
-          mediaRecorderRef.current = recorder;
-          recorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-              audioChunksRef.current.push(event.data);
-            }
-          };
-          recorder.start();
-          recordStartTimeRef.current = Date.now();
-          voiceHold.current = true;
-          setVoiceRecording(true);
-        } catch (err) {
-          console.error('Error starting audio recording:', err);
-          // @ts-ignore
-          useAppStore.getState().showToast('Доступ к микрофону отклонен');
-          didHoldRecord.current = false;
-        }
+        await startVoiceRecording();
       } else {
         setCircleSheetOpen(true);
       }
     }, 180);
   };
 
-  const onRecordPointerUp = () => {
+  const onRecordPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (isDesktop || !voiceRecording || swipeStartXRef.current === null) return;
+    const deltaX = e.clientX - swipeStartXRef.current;
+    if (deltaX > 0) {
+      setSwipeX(Math.min(deltaX, 160));
+    } else {
+      setSwipeX(0);
+    }
+  };
+
+  const onRecordPointerUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (isDesktop) return;
     clearHoldArm();
     if (!didHoldRecord.current) {
       setRecordMode((m) => (m === 'voice' ? 'circle' : 'voice'));
       return;
     }
-    if (recordMode === 'voice') {
-      void endVoice(true);
+    if (recordMode === 'voice' && voiceRecording) {
+      const deltaX = swipeStartXRef.current !== null ? e.clientX - swipeStartXRef.current : 0;
+      swipeStartXRef.current = null;
+      if (deltaX >= 110) {
+        void endVoice(false);
+      } else {
+        void endVoice(true);
+      }
+      setSwipeX(0);
     }
   };
 
   const onRecordPointerCancel = () => {
+    if (isDesktop) return;
     clearHoldArm();
-    if (didHoldRecord.current && recordMode === 'voice') {
+    if (didHoldRecord.current && recordMode === 'voice' && voiceRecording) {
       void endVoice(false);
     }
     didHoldRecord.current = false;
+    swipeStartXRef.current = null;
+    setSwipeX(0);
   };
 
   return (
@@ -1036,28 +1101,76 @@ export function ChatPanel() {
             style={{ display: 'none' }}
             onChange={handleImageSelect}
           />
-          <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Фото">
-            <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
-          {/* File / attach menu removed (YAGNI) — only photo for now */}
-          <input
-            className={styles.input}
-            value={text}
-            onFocus={() => closeChatOverlays()}
-            onChange={(e) => {
-              closeChatOverlays();
-              setText(e.target.value);
-              useAppStore.getState().sendTypingPresence();
-            }}
-            placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-          />
-          {text.trim() ? (
+          {!voiceRecording && (
+            <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Фото">
+              <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+          )}
+
+          {isDesktop && voiceRecording ? (
+            <div className={styles.pcVoiceRecordingBar}>
+              <div className={styles.pcVoiceMeta}>
+                <span className={styles.recPulse} />
+                <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
+                <span className={styles.recLabel}>Запись…</span>
+              </div>
+              <button
+                type="button"
+                className={styles.pcVoiceCancelBtn}
+                onClick={() => void endVoice(false)}
+                title="Отменить запись"
+              >
+                <X size={15} strokeWidth={iconProps.strokeWidth} />
+                <span>Отмена</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+              {!isDesktop && voiceRecording && (
+                <div className={styles.mobileSwipeCancelBar}>
+                  <div
+                    className={styles.mobileSwipeTrack}
+                    style={{ transform: `translateX(${swipeX}px)` }}
+                  >
+                    <span className={styles.recPulse} />
+                    <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
+                    <span className={`${styles.mobileSwipeHint} ${swipeX >= 110 ? styles.mobileSwipeCancelActive : ''}`}>
+                      {swipeX >= 110 ? 'Отпустите для отмены' : 'Смахните вправо для отмены →'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <input
+                className={styles.input}
+                value={text}
+                onFocus={() => closeChatOverlays()}
+                onChange={(e) => {
+                  closeChatOverlays();
+                  setText(e.target.value);
+                  useAppStore.getState().sendTypingPresence();
+                }}
+                placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {isDesktop && voiceRecording ? (
+            <IconBtn
+              variant="mint"
+              className={styles.send}
+              onClick={() => void endVoice(true)}
+              aria-label="Отправить голосовое"
+              title="Отправить"
+            >
+              <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+          ) : text.trim() ? (
             <IconBtn
               variant="mint"
               className={styles.send}
@@ -1069,18 +1182,21 @@ export function ChatPanel() {
           ) : (
             <IconBtn
               variant="soft"
-              className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''}`}
+              className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''} ${voiceRecording ? styles.recordingActive : ''}`}
               aria-label={
                 recordMode === 'voice'
-                  ? 'Голосовое. Нажмите — кружок'
-                  : 'Кружок. Нажмите — голосовое'
+                  ? 'Голосовое'
+                  : 'Кружок'
               }
               title={
-                recordMode === 'voice'
-                  ? 'Тап — кружок · Удержание — войс'
-                  : 'Тап — войс · Удержание — кружок'
+                isDesktop
+                  ? 'Нажмите для записи'
+                  : recordMode === 'voice'
+                    ? 'Удерживайте для записи · Смахните вправо для отмены'
+                    : 'Кружок'
               }
               onPointerDown={onRecordPointerDown}
+              onPointerMove={onRecordPointerMove}
               onPointerUp={onRecordPointerUp}
               onPointerCancel={onRecordPointerCancel}
             >
