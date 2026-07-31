@@ -13,6 +13,7 @@ import type { WheelEvent, TouchEvent } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
 import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { Avatar } from '../../shared/ui/Avatar';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -231,7 +232,10 @@ export function WallFeed() {
               className={styles.name}
               onClick={() => openUserProfile(post.authorId)}
             >
-              {author?.displayName ?? '…'}
+              <span>{author?.displayName ?? '…'}</span>
+              {(author?.verified || author?.username === 'nekach' || author?.username === 'admin') && (
+                <VerifiedBadge size="sm" />
+              )}
             </button>
             <div className={styles.metaRow}>
               <time>{rel(post.createdAt)}</time>

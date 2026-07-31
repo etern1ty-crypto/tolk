@@ -47,13 +47,76 @@
   color: #fff !important;
 }
 
-.share {
-  position: absolute !important;
+.topRightActions {
+  position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 3;
+  z-index: 10;
+}
+
+.moreBtn {
   background: rgba(0, 0, 0, 0.4) !important;
   color: #fff !important;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  min-width: 210px;
+  background: rgba(20, 24, 35, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  animation: dropdownPop 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes dropdownPop {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.dropdownMenu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  text-align: left;
+}
+
+.dropdownMenu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dangerMenuItem {
+  color: #f87171 !important;
+}
+
+.dangerMenuItem:hover {
+  background: rgba(248, 113, 113, 0.15) !important;
+}
+
+.nameRow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .avatarWrap {

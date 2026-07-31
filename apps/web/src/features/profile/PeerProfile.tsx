@@ -1,11 +1,12 @@
-import { ArrowLeft, Link2, MessageCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, Link2, MessageCircle, MoreVertical, Flag, Ban } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
 import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './PeerProfile.module.css';
 import { PostImage } from '../../shared/ui/PostImage';
@@ -36,6 +37,7 @@ export function PeerProfile() {
   const blockedUsers = useAppStore((st) => st.blockedUsers);
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const userId = useAppStore((s) => s.viewingUserId);
   const users = useAppStore((s) => s.users);
@@ -47,9 +49,24 @@ export function PeerProfile() {
   const token = useAppStore((s) => s.token);
   const showToast = useAppStore((s) => s.showToast);
 
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [menuOpen]);
+
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
   const blocked = !!user && blockedUsers.some((b) => b.id === user.id);
+  const isVerified = !!user && (user.verified || user.username === 'nekach' || user.username === 'admin');
+  
   const banner = user
     ? patternById(BANNER_PATTERNS, user.bannerPatternId)
     : BANNER_PATTERNS[0]!;
@@ -89,27 +106,78 @@ export function PeerProfile() {
           <IconBtn className={styles.close} onClick={closeUserProfile} aria-label="Назад">
             <ArrowLeft size={18} strokeWidth={iconProps.strokeWidth} />
           </IconBtn>
-          <IconBtn
-            className={styles.share}
-            aria-label="Поделиться"
-            title="Поделиться"
-            onClick={async () => {
-              try {
-                await copyShareLink('user', user.id, token);
-                showToast('Ссылка скопирована');
-              } catch (e: any) {
-                showToast(e.message || 'Ошибка');
-              }
-            }}
-          >
-            <Link2 size={18} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
+          
+          <div className={styles.topRightActions} ref={menuRef}>
+            <IconBtn
+              className={styles.moreBtn}
+              aria-label="Еще"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreVertical size={18} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+
+            {menuOpen && (
+              <div className={styles.dropdownMenu}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    try {
+                      await copyShareLink('user', user.id, token);
+                      showToast('Ссылка скопирована');
+                    } catch (e: any) {
+                      showToast(e.message || 'Ошибка');
+                    }
+                  }}
+                >
+                  <Link2 size={16} />
+                  <span>Поделиться профилем</span>
+                </button>
+
+                {!isSelf && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setReporting(true);
+                      }}
+                    >
+                      <Flag size={16} />
+                      <span>Пожаловаться</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={styles.dangerMenuItem}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        if (blocked) {
+                          unblockUser(user.id);
+                        } else {
+                          blockUser(user.id);
+                        }
+                      }}
+                    >
+                      <Ban size={16} />
+                      <span>{blocked ? 'Разблокировать' : 'Заблокировать'}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
         <div className={styles.avatarWrap}>
           <Avatar name={user.displayName} id={user.id} avatarUrl={user.avatarRef} size={84} online={user.online} />
         </div>
+        
         <div className={styles.body}>
-          <h1>{user.displayName}</h1>
+          <h1 className={styles.nameRow}>
+            <span>{user.displayName}</span>
+            {isVerified && <VerifiedBadge size="lg" />}
+          </h1>
           {user.username?.trim() ? (
             <p className={styles.uname}>@{user.username}</p>
           ) : (
@@ -142,21 +210,7 @@ export function PeerProfile() {
                 <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
                 Написать
               </button>
-              {/* Безопасность до сих пор существовала только на сервере: пожаловаться
-                  или заблокировать было нечем. Тон приглушённый — это не то, чем
-                  пользуются каждый день, но найти нужно сразу. */}
-              <div className={styles.safety}>
-                <button
-                  type="button"
-                  onClick={() => (blocked ? unblockUser(user.id) : blockUser(user.id))}
-                >
-                  {blocked ? 'Разблокировать' : 'Заблокировать'}
-                </button>
-                <span aria-hidden>·</span>
-                <button type="button" onClick={() => setReporting(true)}>
-                  Пожаловаться
-                </button>
-              </div>
+              
               {reporting && (
                 <form
                   className={styles.reportBox}
@@ -201,11 +255,19 @@ export function PeerProfile() {
                     ? generateCustomPattern(p.media.items.join(' '), p.id)
                     : patternById(MEDIA_PATTERNS, p.media.patternId, MEDIA_PATTERNS[0]!)
                   : null;
+
               return (
-                <article key={p.id} className={styles.post}>
-                  <time>{rel(p.createdAt)}</time>
+                <article key={p.id} className={styles.card}>
+                  <header>
+                    <div className={styles.metaRow}>
+                      <time>{rel(p.createdAt)}</time>
+                    </div>
+                  </header>
                   {mediaPat && (
-                    <div className={styles.media} style={p.media?.height ? { height: `${p.media.height}px` } : undefined}>
+                    <div
+                      className={styles.media}
+                      style={p.media?.height ? { height: `${p.media.height}px` } : undefined}
+                    >
                       <PatternBg
                         pattern={mediaPat}
                         seed={p.id}
@@ -215,16 +277,29 @@ export function PeerProfile() {
                     </div>
                   )}
                   {p.media?.kind === 'image' && p.media?.url && (
-                    <div className={styles.media} style={p.media.height ? { height: `${p.media.height}px` } : undefined}>
-                      <PostImage src={p.media.url} alt={p.media?.alt ?? 'медиа'} className={styles.mediaFill} style={{ objectFit: 'cover' }} />
+                    <div
+                      className={styles.media}
+                      style={p.media.height ? { height: `${p.media.height}px` } : undefined}
+                    >
+                      <PostImage
+                        src={p.media.url}
+                        alt={p.media.alt ?? 'медиа'}
+                        className={styles.mediaFill}
+                        style={{ objectFit: 'cover' }}
+                      />
                     </div>
                   )}
                   {p.text ? (
-                    <p 
+                    <p
+                      className={styles.text}
                       style={{
                         fontSize: p.media?.fontSize ? `${p.media.fontSize}px` : undefined,
-                        fontFamily: p.media?.fontFamily === 'serif' ? 'serif' : p.media?.fontFamily === 'mono' ? 'monospace' : undefined,
-                        lineHeight: 1.45
+                        fontFamily:
+                          p.media?.fontFamily === 'serif'
+                            ? 'serif'
+                            : p.media?.fontFamily === 'mono'
+                            ? 'monospace'
+                            : undefined,
                       }}
                     >
                       {p.text}

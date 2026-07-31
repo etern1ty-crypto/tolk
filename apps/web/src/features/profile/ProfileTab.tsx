@@ -3,6 +3,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
 import { patternById, MEDIA_PATTERNS, generateCustomPattern } from '../../shared/patterns';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -475,7 +476,12 @@ export function ProfileTab() {
       </div>
 
       <div className={styles.info}>
-        <h1>{me.displayName}</h1>
+        <h1 style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <span>{me.displayName}</span>
+          {(me.verified || me.username === 'nekach' || me.username === 'admin') && (
+            <VerifiedBadge size="lg" />
+          )}
+        </h1>
         <p className={styles.uname}>@{me.username}</p>
         {bioEdit ? (
           <div className={styles.bioEdit}>

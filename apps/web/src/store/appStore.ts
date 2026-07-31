@@ -1461,6 +1461,13 @@ export const useAppStore = create<AppState>()(
     }
   },
 
+  clearChatMessages: (chatId: string) => {
+    set((s) => ({
+      messages: s.messages.filter((m) => m.chatId !== chatId),
+    }));
+    get().showToast('История сообщений очищена');
+  },
+
   setPrivacyPref: (key, value) =>
     set((s) => ({
       privacyPrefs: { ...s.privacyPrefs, [key]: value },

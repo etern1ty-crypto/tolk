@@ -21,6 +21,7 @@ import {
 import { CHAT_THEMES, useAppStore } from '../../store/appStore';
 import { patternById } from '../../shared/patterns';
 import { formatReplyPreview } from '../../shared/lib/messagePreview';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { Avatar } from '../../shared/ui/Avatar';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
@@ -630,7 +631,12 @@ export function ChatPanel() {
             online={chat.type === 'dm' ? chat.online : undefined}
           />
           <div className={styles.headerText}>
-            <div className={styles.headerTitle}>{chat.title}</div>
+            <div className={styles.headerTitle}>
+              <span>{chat.title}</span>
+              {chat.peerId && (users[chat.peerId]?.verified || users[chat.peerId]?.username === 'nekach' || users[chat.peerId]?.username === 'admin') && (
+                <VerifiedBadge size="sm" />
+              )}
+            </div>
             <div className={styles.headerSub}>
               {typingChatId === activeChatId ? (
                 <span className={styles.typingLive}>печатает…</span>

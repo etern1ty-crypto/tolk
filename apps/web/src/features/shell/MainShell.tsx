@@ -1,3 +1,4 @@
+import { AdminPanel } from '../admin/AdminPanel';
 import { useEffect } from 'react';
 import { ChatList } from '../chat-list/ChatList';
 import { ChatPanel } from '../chat/ChatPanel';
@@ -120,6 +121,14 @@ export function MainShell() {
           <div className={styles.pageCol}>
             <div className={`${styles.paper} ${styles.paperProfile}`}>
               <ProfileTab />
+            </div>
+          </div>
+        )}
+
+        {mainTab === 'admin' && (
+          <div className={styles.pageCol}>
+            <div className={styles.paper}>
+              <AdminPanel />
             </div>
           </div>
         )}

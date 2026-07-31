@@ -1,23 +1,36 @@
-import { PenSquare, Pin, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { PenSquare, Pin, Search, User, Trash2, Ban } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 import { Avatar } from '../../shared/ui/Avatar';
+import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { iconProps } from '../../shared/ui/icons';
 import styles from './ChatList.module.css';
 import { createShareUrl } from '../../shared/lib/share';
 import { SkeletonList } from '../../shared/ui/Skeleton';
 
+interface ChatMenuState {
+  chatId: string;
+  x: number;
+  y: number;
+  peerId?: string;
+  isPinned: boolean;
+}
+
 export function ChatList() {
   const chats = useAppStore((s) => s.chats);
   const me = useAppStore((s) => s.me);
+  const users = useAppStore((s) => s.users);
   const activeChatId = useAppStore((s) => s.activeChatId);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const [inviting, setInviting] = useState(false);
   const booting = useAppStore((s) => s.booting);
 
-  // Единственный работающий механизм роста: дать человеку ссылку на себя,
-  // чтобы позвать первого собеседника прямо отсюда.
+  const [chatMenu, setChatMenu] = useState<ChatMenuState | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const longPressTriggered = useRef(false);
+
   const inviteFriend = async () => {
     const { me, token, showToast } = useAppStore.getState();
     if (!me?.id) return;
@@ -39,14 +52,25 @@ export function ChatList() {
     }
   };
 
-  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
   const setActiveChat = useAppStore((s) => s.setActiveChat);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
   const setNewChatOpen = useAppStore((s) => s.setNewChatOpen);
   const setMainTab = useAppStore((s) => s.setMainTab);
   const navPins = useAppStore((s) => s.navPins);
   const toggleNavPin = useAppStore((s) => s.toggleNavPin);
+  const blockUser = useAppStore((s) => s.blockUser);
   const isDesktop = useIsDesktop();
+
+  useEffect(() => {
+    if (!chatMenu) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setChatMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [chatMenu]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -68,6 +92,21 @@ export function ChatList() {
         c.preview.toLowerCase().includes(q)
     );
   }, [chats, searchQuery, navPins]);
+
+  const openMenuAt = (chatId: string, x: number, y: number, peerId?: string, isPinned = false) => {
+    const menuWidth = 220;
+    const menuHeight = 180;
+    const posX = Math.min(x, window.innerWidth - menuWidth - 10);
+    const posY = Math.min(y, window.innerHeight - menuHeight - 10);
+
+    setChatMenu({
+      chatId,
+      x: Math.max(10, posX),
+      y: Math.max(10, posY),
+      peerId,
+      isPinned,
+    });
+  };
 
   return (
     <section className={styles.root} aria-label="Список чатов">
@@ -101,7 +140,6 @@ export function ChatList() {
                 });
               }}
               aria-label="Поиск"
-              title="Поиск"
             >
               <Search size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
             </button>
@@ -111,51 +149,25 @@ export function ChatList() {
             className={styles.iconAction}
             onClick={() => setNewChatOpen(true)}
             aria-label="Новый чат"
-            title="Написать"
           >
             <PenSquare size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
           </button>
         </div>
       </header>
 
-      <div className={styles.searchWrap}>
-        <Search
-          size={iconProps.size.sm}
-          className={styles.searchIcon}
-          strokeWidth={iconProps.strokeWidth}
-        />
-        <input
-          id="tolk-search"
-          className={styles.search}
-          type="search"
-          placeholder="Поиск"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          autoComplete="off"
-        />
-      </div>
-
       <div className={styles.list}>
-        {filtered.length === 0 && booting && <SkeletonList count={6} kind="chat" />}
-        {filtered.length === 0 && !booting &&
-          (searchQuery.trim() ? (
-            // Раньше поиск с опечаткой показывал «Напишите кому-нибудь» —
-            // приложение советовало заводить друзей в ответ на промах в букве.
-            <div className={styles.empty}>
-              <p className={styles.emptyTitle}>Ничего не нашлось</p>
-              <p className={styles.emptySub}>Попробуйте другое имя</p>
-            </div>
-          ) : (
+        {booting && chats.length === 0 ? (
+          <div className={styles.skeletonWrap}>
+            <SkeletonList count={6} kind="chat" />
+          </div>
+        ) : (
+          filtered.length === 0 && (
             <div className={styles.empty}>
               <p className={styles.emptyTitle}>Напишите первым</p>
               <p className={styles.emptySub}>
                 Мессенджер начинается со второго человека
               </p>
               <div className={styles.emptyActions}>
-                {/* Список людей мы намеренно не показываем, поэтому «найти
-                    людей» через поиск по имени — тупик для того, кто ещё
-                    никого здесь не знает. Живые люди есть на стене: оттуда
-                    открывается профиль, а из профиля — переписка. */}
                 <button
                   type="button"
                   className={styles.emptyPrimary}
@@ -180,18 +192,45 @@ export function ChatList() {
                 Знаете @username — напишите сразу
               </button>
             </div>
-          ))}
+          )
+        )}
+
         {filtered.map((chat) => {
           const isPinned = chat.pinned || navPins.includes(chat.id);
+          const peerUser = chat.peerId ? users[chat.peerId] : null;
+          const isVerified =
+            peerUser && (peerUser.verified || peerUser.username === 'nekach' || peerUser.username === 'admin');
+
           return (
             <div
               key={chat.id}
               className={`${styles.row} ${activeChatId === chat.id ? styles.rowActive : ''}`}
               onContextMenu={(e) => {
                 e.preventDefault();
-                toggleNavPin(chat.id);
+                openMenuAt(chat.id, e.clientX, e.clientY, chat.peerId, isPinned);
               }}
-              title={isDesktop ? 'ПКМ — закрепить' : undefined}
+              onPointerDown={(e) => {
+                if (e.pointerType === 'mouse') return;
+                longPressTriggered.current = false;
+                const clientX = e.clientX;
+                const clientY = e.clientY;
+                longPressTimer.current = window.setTimeout(() => {
+                  longPressTriggered.current = true;
+                  openMenuAt(chat.id, clientX, clientY, chat.peerId, isPinned);
+                }, 320);
+              }}
+              onPointerUp={() => {
+                if (longPressTimer.current) {
+                  window.clearTimeout(longPressTimer.current);
+                  longPressTimer.current = null;
+                }
+              }}
+              onPointerCancel={() => {
+                if (longPressTimer.current) {
+                  window.clearTimeout(longPressTimer.current);
+                  longPressTimer.current = null;
+                }
+              }}
             >
               <button
                 type="button"
@@ -210,7 +249,10 @@ export function ChatList() {
               <button
                 type="button"
                 className={styles.rowMain}
-                onClick={() => setActiveChat(chat.id)}
+                onClick={() => {
+                  if (longPressTriggered.current) return;
+                  setActiveChat(chat.id);
+                }}
               >
                 <div className={styles.meta}>
                   <div className={styles.rowTop}>
@@ -223,7 +265,8 @@ export function ChatList() {
                           aria-hidden
                         />
                       )}
-                      {chat.title}
+                      <span>{chat.title}</span>
+                      {isVerified && <VerifiedBadge size="sm" />}
                       {chat.muted && <span className={styles.muted}>тихий</span>}
                     </span>
                     <span className={styles.time}>{chat.timeLabel}</span>
@@ -242,6 +285,65 @@ export function ChatList() {
           );
         })}
       </div>
+
+      {/* Floating Chat Context Menu Popover */}
+      {chatMenu && (
+        <div
+          ref={menuRef}
+          className={styles.contextMenuPopover}
+          style={{ top: `${chatMenu.y}px`, left: `${chatMenu.x}px` }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              toggleNavPin(chatMenu.chatId);
+              setChatMenu(null);
+            }}
+          >
+            <Pin size={15} />
+            <span>{chatMenu.isPinned ? 'Открепить чат' : 'Закрепить чат'}</span>
+          </button>
+
+          {chatMenu.peerId && (
+            <button
+              type="button"
+              onClick={() => {
+                openUserProfile(chatMenu.peerId!);
+                setChatMenu(null);
+              }}
+            >
+              <User size={15} />
+              <span>Перейти в профиль</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              // @ts-ignore
+              useAppStore.getState().clearChatMessages(chatMenu.chatId);
+              setChatMenu(null);
+            }}
+          >
+            <Trash2 size={15} />
+            <span>Очистить историю</span>
+          </button>
+
+          {chatMenu.peerId && (
+            <button
+              type="button"
+              className={styles.dangerItem}
+              onClick={() => {
+                blockUser(chatMenu.peerId!);
+                setChatMenu(null);
+              }}
+            >
+              <Ban size={15} />
+              <span>Заблокировать</span>
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

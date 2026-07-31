@@ -1,6 +1,6 @@
 export type Id = string;
 
-export type MainTab = 'wall' | 'chats' | 'search' | 'profile';
+export type MainTab = 'wall' | 'chats' | 'search' | 'profile' | 'admin';
 export type MessageStatus = 'pending' | 'sent' | 'failed' | 'read';
 export type MessageKind = 'text' | 'media' | 'voice' | 'circle' | 'file';
 export type AuthStep = 'phone' | 'otp' | 'profile' | 'done';
@@ -29,6 +29,8 @@ export interface User {
   avatarRef?: string;
   /** Custom banner photo URL above avatar */
   bannerRef?: string;
+  verified?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface Chat {

@@ -1,4 +1,4 @@
-import { MessageCircle, Newspaper, Search } from 'lucide-react';
+import { MessageCircle, Newspaper, Search, ShieldCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
@@ -6,16 +6,6 @@ import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
 import { SlidingTabs } from '../../shared/ui/SlidingTabs';
 import styles from './SideNav.module.css';
-
-const TABS: {
-  id: MainTab;
-  label: string;
-  Icon: typeof Newspaper;
-}[] = [
-  { id: 'chats', label: 'Чаты', Icon: MessageCircle },
-  { id: 'wall', label: 'Стена', Icon: Newspaper },
-  { id: 'search', label: 'Поиск', Icon: Search },
-];
 
 /** Desktop-only thin icon rail — not a TG folder tree */
 export function SideNav() {
@@ -26,6 +16,20 @@ export function SideNav() {
   const posts = useAppStore((s) => s.posts);
   const wallSeenAt = useAppStore((s) => s.wallSeenAt);
   const openSettings = useAppStore((s) => s.openSettings);
+
+  const isAdmin = me.username === 'nekach' || me.username === 'admin' || me.isAdmin;
+
+  const tabsList = useMemo(() => {
+    const list = [
+      { id: 'chats' as MainTab, label: 'Чаты', Icon: MessageCircle },
+      { id: 'wall' as MainTab, label: 'Стена', Icon: Newspaper },
+      { id: 'search' as MainTab, label: 'Поиск', Icon: Search },
+    ];
+    if (isAdmin) {
+      list.push({ id: 'admin' as MainTab, label: 'Админка', Icon: ShieldCheck });
+    }
+    return list;
+  }, [isAdmin]);
 
   const unreadChats = useMemo(
     () => chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0),
@@ -66,7 +70,7 @@ export function SideNav() {
       <nav className={styles.nav}>
         <SlidingTabs
           variant="vertical"
-          tabs={TABS.map((tab) => ({
+          tabs={tabsList.map((tab) => ({
             id: tab.id,
             label: '',
             badge: badge(tab.id) > 0 ? (badge(tab.id) > 9 ? '9+' : badge(tab.id)) : undefined,
