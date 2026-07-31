@@ -19,7 +19,6 @@ interface ChatMenuState {
 
 export function ChatList() {
   const chats = useAppStore((s) => s.chats);
-  const me = useAppStore((s) => s.me);
   const users = useAppStore((s) => s.users);
   const activeChatId = useAppStore((s) => s.activeChatId);
   const searchQuery = useAppStore((s) => s.searchQuery);
@@ -111,22 +110,6 @@ export function ChatList() {
   return (
     <section className={styles.root} aria-label="Список чатов">
       <header className={styles.header}>
-        {!isDesktop && (
-          <button
-            type="button"
-            className={styles.meBtn}
-            onClick={() => setMainTab('profile')}
-            aria-label="Профиль"
-          >
-            <Avatar
-              name={me.displayName}
-              id={me.id}
-              avatarUrl={me.avatarRef}
-              size={36}
-              online={me.online}
-            />
-          </button>
-        )}
         <h1 className={styles.title}>Чаты</h1>
         <div className={styles.headerActions}>
           {!isDesktop && (
