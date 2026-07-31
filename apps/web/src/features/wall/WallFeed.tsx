@@ -211,6 +211,7 @@ export function WallFeed() {
     }
 
     const hasPhoto = post.media?.kind === 'image' && !!post.media?.url;
+    const pat = post.media?.kind === 'pattern' && post.media?.patternId ? patternById(MEDIA_PATTERNS, post.media.patternId) : null;
 
     return (
       <article key={post.id} className={cardClass} style={cardStyle}>
@@ -220,8 +221,14 @@ export function WallFeed() {
             style={{ backgroundImage: `url(${post.media!.url})` }}
             aria-hidden
           />
+        ) : pat ? (
+          <div
+            className={styles.ambientLedBackdrop}
+            style={{ background: pat.base }}
+            aria-hidden
+          />
         ) : (
-          <div className={styles.ambientStandardGlow} aria-hidden />
+          <div className={styles.ambientTextGlow} aria-hidden />
         )}
         <header className={styles.cardHead}>
           <button
