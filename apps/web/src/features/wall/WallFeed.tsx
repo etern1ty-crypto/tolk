@@ -76,6 +76,24 @@ export function WallFeed() {
   // Handle desktop mouse wheel stepping with smooth centering
   const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (!isDesktop) return;
+
+    // Resolve wheel conflict with scrollable text inside post cards
+    const target = e.target as HTMLElement | null;
+    const scrollableText = target?.closest('.' + styles.text);
+    if (scrollableText) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollableText;
+      const isScrollable = scrollHeight > clientHeight;
+      if (isScrollable) {
+        const delta = e.deltaY;
+        const atTop = scrollTop <= 0 && delta < 0;
+        const atBottom = Math.ceil(scrollTop + clientHeight) >= scrollHeight && delta > 0;
+        if (!atTop && !atBottom) {
+          // Allow native vertical text scrolling inside the post!
+          return;
+        }
+      }
+    }
+
     e.preventDefault();
     const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
     if (Math.abs(delta) < 10) return;
@@ -396,7 +414,7 @@ export function WallFeed() {
             <div
               className={styles.desktopDeckTrack}
               style={{
-                transform: `translateX(calc(-${desktopIndex * 468}px))`,
+                transform: `translateX(calc(-${desktopIndex * 552}px))`,
               }}
             >
               {feed.map((post, idx) => renderPostCard(post, idx))}

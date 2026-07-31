@@ -767,7 +767,7 @@ export const useAppStore = create<AppState>()(
       editingMessageId: null,
       navPins: [],
 
-      activeChatId: 'c_1',
+      activeChatId: null,
       activeMediaId: null,
       highlightMessageId: null,
       viewingUserId: null,
@@ -1225,10 +1225,13 @@ export const useAppStore = create<AppState>()(
         // Полка живёт на сервере — до этого она была локальной и умирала
         // вместе с устройством.
         get().loadShelf(id);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to fetch messages or mark read:', err);
-        get().showToast('Не удалось загрузить сообщения');
-        // do not wipe existing local messages for this chat
+        if (err?.status === 403 || err?.message?.includes('Not a member')) {
+          set({ activeChatId: null });
+        } else {
+          get().showToast('Не удалось загрузить сообщения');
+        }
       }
     }
   },
