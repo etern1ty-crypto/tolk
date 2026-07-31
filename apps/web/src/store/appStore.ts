@@ -674,6 +674,9 @@ interface AppState {
   loadBlocks: () => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
+  verifiedUsers: string[];
+  grantVerification: (userId: string) => Promise<void>;
+  revokeVerification: (userId: string) => Promise<void>;
   reports: ModerationReport[];
   loadReports: () => Promise<void>;
   resolveReport: (reportId: string, actionLabel: string) => Promise<void>;
@@ -2301,6 +2304,44 @@ export const useAppStore = create<AppState>()(
     }
   },
 
+  verifiedUsers: [],
+
+  grantVerification: async (userId: string) => {
+    const token = get().token;
+    set((s) => ({
+      verifiedUsers: Array.from(new Set([...(s.verifiedUsers || []), userId])),
+      users: {
+        ...s.users,
+        [userId]: { ...s.users[userId], verified: true },
+      },
+    }));
+    try {
+      await fetchApi(`/admin/users/${userId}/verify`, { method: 'POST', body: JSON.stringify({ verified: true }) }, token);
+    } catch {
+      // Endpoint fallback
+    }
+    const u = get().users[userId];
+    get().showToast(`Галочка верификации выдана @${u?.username || u?.displayName || userId}`);
+  },
+
+  revokeVerification: async (userId: string) => {
+    const token = get().token;
+    set((s) => ({
+      verifiedUsers: (s.verifiedUsers || []).filter((id) => id !== userId),
+      users: {
+        ...s.users,
+        [userId]: { ...s.users[userId], verified: false },
+      },
+    }));
+    try {
+      await fetchApi(`/admin/users/${userId}/verify`, { method: 'POST', body: JSON.stringify({ verified: false }) }, token);
+    } catch {
+      // Endpoint fallback
+    }
+    const u = get().users[userId];
+    get().showToast(`Галочка верификации забрана у @${u?.username || u?.displayName || userId}`);
+  },
+
   reports: [],
 
   loadReports: async () => {
@@ -2754,6 +2795,7 @@ export const useAppStore = create<AppState>()(
         seenNotificationKeys: state.seenNotificationKeys,
         privacyPrefs: state.privacyPrefs,
         reports: state.reports,
+        verifiedUsers: state.verifiedUsers,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<typeof current>;

@@ -257,7 +257,7 @@ export function WallFeed() {
               onClick={() => openUserProfile(post.authorId)}
             >
               <span>{author?.displayName ?? '…'}</span>
-              {(author?.verified || author?.username === 'nekach' || author?.username === 'admin') && (
+              {(author?.verified || (author?.id && useAppStore.getState().verifiedUsers?.includes(author.id)) || author?.username === 'nekach' || author?.username === 'admin') && (
                 <VerifiedBadge size="sm" />
               )}
             </button>

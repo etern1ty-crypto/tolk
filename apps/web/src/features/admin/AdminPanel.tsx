@@ -48,6 +48,9 @@ export function AdminPanel() {
     void loadReports();
   }, [loadReports]);
 
+  const grantVerification = useAppStore((s) => s.grantVerification);
+  const revokeVerification = useAppStore((s) => s.revokeVerification);
+
   const handleGrantBadge = (targetUsername: string) => {
     const u = Object.values(users).find(
       (x) => x.username.toLowerCase() === targetUsername.trim().toLowerCase()
@@ -56,13 +59,7 @@ export function AdminPanel() {
       showToast(`Пользователь @${targetUsername} не найден`);
       return;
     }
-    useAppStore.setState((s) => ({
-      users: {
-        ...s.users,
-        [u.id]: { ...s.users[u.id], verified: true },
-      },
-    }));
-    showToast(`Галочка верификации выдана @${u.username}`);
+    void grantVerification(u.id);
     setBadgeInput('');
   };
 
@@ -74,13 +71,7 @@ export function AdminPanel() {
       showToast(`Пользователь @${targetUsername} не найден`);
       return;
     }
-    useAppStore.setState((s) => ({
-      users: {
-        ...s.users,
-        [u.id]: { ...s.users[u.id], verified: false },
-      },
-    }));
-    showToast(`Галочка забрана у @${u.username}`);
+    void revokeVerification(u.id);
     setBadgeInput('');
   };
 

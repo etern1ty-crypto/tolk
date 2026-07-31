@@ -65,7 +65,8 @@ export function PeerProfile() {
   const user = userId ? users[userId] : null;
   const isSelf = user?.id === me.id;
   const blocked = !!user && blockedUsers.some((b) => b.id === user.id);
-  const isVerified = !!user && (user.verified || user.username === 'nekach' || user.username === 'admin');
+  const verifiedUsers = useAppStore((s) => s.verifiedUsers || []);
+  const isVerified = !!user && (user.verified || verifiedUsers.includes(user.id) || user.username === 'nekach' || user.username === 'admin');
   
   const banner = user
     ? patternById(BANNER_PATTERNS, user.bannerPatternId)
