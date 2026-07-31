@@ -74,3 +74,15 @@ export function resumeAudio(): void {
   const ac = ctx;
   if (ac && ac.state === 'suspended') void ac.resume();
 }
+
+export async function prepareAudioContext(): Promise<AudioContext | null> {
+  const ac = audioContext();
+  if (ac && ac.state === 'suspended') {
+    try {
+      await ac.resume();
+    } catch {
+      /* ignore */
+    }
+  }
+  return ac;
+}

@@ -3,7 +3,8 @@ import { Play, Pause, X, SkipBack, SkipForward } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import styles from './GlobalMediaPlayer.module.css';
 import { iconProps } from '../../shared/ui/icons';
-import { boostAudio, resumeAudio } from '../../shared/audioBoost';
+import { boostAudio, prepareAudioContext } from '../../shared/audioBoost';
+
 function formatTime(sec: number) {
   if (!isFinite(sec)) return '0:00';
   const m = Math.floor(sec / 60);
@@ -50,7 +51,12 @@ export function GlobalMediaPlayer() {
 
     const bind = (el: HTMLMediaElement) => {
       mediaRef.current = el;
-      if (el.paused) { boostAudio(el); resumeAudio(); el.play().catch(() => {}); }
+      if (el.paused) {
+        void prepareAudioContext().then(() => {
+          boostAudio(el);
+          el.play().catch(() => {});
+        });
+      }
       setPlaying(!el.paused);
       setDuration(el.duration || 0);
 
@@ -132,7 +138,12 @@ export function GlobalMediaPlayer() {
   const togglePlay = () => {
     if (mediaRef.current) {
       if (playing) mediaRef.current.pause();
-      else { boostAudio(mediaRef.current); resumeAudio(); mediaRef.current.play(); }
+      else {
+        void prepareAudioContext().then(() => {
+          boostAudio(mediaRef.current);
+          mediaRef.current?.play().catch(() => {});
+        });
+      }
     }
   };
 
