@@ -10,7 +10,8 @@
   padding: 12px 0 10px;
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  z-index: 5;
+  position: relative;
+  z-index: 100;
   gap: 4px;
   overflow: visible;
 }
@@ -30,7 +31,7 @@
   justify-content: center;
   margin-bottom: 12px;
   flex-shrink: 0;
-  z-index: 999;
+  z-index: 1000;
 }
 
 .logoWrap {
@@ -92,12 +93,16 @@
   transition: max-width 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease;
 }
 
-/* Hover: expands leftward over workspace layers with constant right anchor */
+.brand:hover {
+  z-index: 99999;
+}
+
 .brand:hover .logoWrap {
   right: 2px;
   left: auto;
   padding: 0 16px;
   background: #ffffff;
+  z-index: 99999;
   box-shadow: -8px 12px 32px rgba(0, 0, 0, 0.6), 0 0 24px rgba(56, 189, 248, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
