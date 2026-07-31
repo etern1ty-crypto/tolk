@@ -1,13 +1,13 @@
 .root {
-  width: 300px;
+  width: 320px;
   flex-shrink: 0;
   height: 100%;
   border-left: 1px solid var(--border-subtle);
   background: var(--bg-surface);
   display: flex;
   flex-direction: column;
-  padding: 18px 16px;
-  gap: 20px;
+  padding: 20px 16px;
+  gap: 22px;
   overflow-y: auto;
 }
 
@@ -21,43 +21,44 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .header h2 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-primary);
-}
-
-.outlineDot {
-  color: #2dd4bf;
-  margin-right: 2px;
 }
 
 .sub {
   margin: 0;
   font-size: 12px;
   color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .sectionTitle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 750;
   color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.sectionIcon {
+  color: #38bdf8;
 }
 
 .cardList {
@@ -68,58 +69,56 @@
 
 .activityItem {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   font-size: 13px;
-  line-height: 1.4;
-  transition: transform var(--dur) var(--ease-spring), border-color var(--dur) var(--ease-out);
+  line-height: 1.35;
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .activityItem:hover {
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
   border-color: rgba(56, 189, 248, 0.3);
-}
-
-.pulseDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
-  margin-top: 5px;
-  flex-shrink: 0;
-}
-
-.iconAccent {
-  color: #2dd4bf;
-  margin-top: 2px;
-  flex-shrink: 0;
+  transform: translateX(2px);
 }
 
 .activityText {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex: 1;
+  min-width: 0;
   color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activityText strong {
   color: var(--text-primary);
+  font-weight: 700;
 }
 
 .time {
   font-size: 11px;
   color: var(--text-tertiary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.iconAccent {
+  color: #38bdf8;
+  flex-shrink: 0;
 }
 
 .friendList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .friendItem {
@@ -129,13 +128,16 @@
   padding: 8px 10px;
   border-radius: 12px;
   background: transparent;
-  width: 100%;
+  border: 1px solid transparent;
+  cursor: pointer;
   text-align: left;
-  transition: background var(--dur-fast) var(--ease-out);
+  width: 100%;
+  transition: all 0.18s ease;
 }
 
 .friendItem:hover {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .friendInfo {
@@ -144,8 +146,8 @@
 }
 
 .friendName {
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 650;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -153,12 +155,37 @@
 }
 
 .friendStatus {
-  font-size: 11.5px;
-  color: #2dd4bf;
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+.onlineBadge {
+  color: #34d399;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.onlineBadge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+
+.offlineText {
+  color: var(--text-tertiary);
 }
 
 .empty {
   font-size: 12px;
   color: var(--text-tertiary);
-  padding: 8px 0;
+  text-align: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
 }

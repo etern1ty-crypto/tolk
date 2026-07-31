@@ -1,8 +1,9 @@
-import { Bell, Circle, Heart, MessageCircle, Sparkles } from 'lucide-react';
+import { Bell, Heart, MessageCircle, Sparkles, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { Avatar } from '../../shared/ui/Avatar';
 import { iconProps } from '../../shared/ui/icons';
+import { formatLastSeen } from '../profile/PeerProfile';
 import styles from './ActivitySidePanel.module.css';
 
 function rel(ts: number) {
@@ -17,19 +18,32 @@ function rel(ts: number) {
 export function ActivitySidePanel() {
   const users = useAppStore((s) => s.users);
   const posts = useAppStore((s) => s.posts);
+  const chats = useAppStore((s) => s.chats);
   const me = useAppStore((s) => s.me);
   const notifications = useAppStore((s) => s.notifications);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
 
-  const onlineFriends = useMemo(
-    () => Object.values(users).filter((u) => u.online && u.id !== me.id).slice(0, 5),
-    [users, me.id]
-  );
+  // All peers user has EVER messaged with, sorted: Online first, then by lastSeenAt
+  const chatPeers = useMemo(() => {
+    const peerIdsSet = new Set<string>();
+    for (const c of chats) {
+      if (c.peerId) peerIdsSet.add(c.peerId);
+    }
+    const list = Array.from(peerIdsSet)
+      .map((id) => users[id])
+      .filter((u): u is NonNullable<typeof u> => Boolean(u) && u.id !== me.id);
 
-  // Dynamic real social activity feed (likes, comments, new wall posts)
+    return list.sort((a, b) => {
+      if (a.online && !b.online) return -1;
+      if (!a.online && b.online) return 1;
+      return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
+    });
+  }, [chats, users, me.id]);
+
+  // Dynamic real social activity feed
   const activityList = useMemo(() => {
     if (notifications && notifications.length > 0) {
-      return notifications.slice(0, 5).map((n: any) => ({
+      return notifications.slice(0, 6).map((n: any) => ({
         id: n.id || `${n.type}-${n.postId}-${n.createdAt}`,
         userId: n.userId,
         userName: n.displayName || n.username || 'Пользователь',
@@ -72,9 +86,9 @@ export function ActivitySidePanel() {
             userId: comm.userId,
             userName: commUser?.displayName || commUser?.username || 'Пользователь',
             avatarUrl: commUser?.avatarRef,
-            actionText: `прокомментировал(а): «${comm.text.slice(0, 26)}${
-              comm.text.length > 26 ? '…' : ''
-            }»`,
+            actionText: `комментарий: ${comm.text.slice(0, 28)}${
+              comm.text.length > 28 ? '…' : ''
+            }`,
             time: rel(comm.createdAt),
             kind: 'comment',
           });
@@ -86,13 +100,13 @@ export function ActivitySidePanel() {
       derived.push({
         id: 'system-ready',
         userName: 'Толк',
-        actionText: 'Активность и лайки будут отображаться здесь',
+        actionText: 'События и отклики будут отображаться здесь',
         time: 'сейчас',
         kind: 'sparkles',
       });
     }
 
-    return derived.slice(0, 5);
+    return derived.slice(0, 6);
   }, [notifications, posts, users, me.id]);
 
   return (
@@ -104,7 +118,7 @@ export function ActivitySidePanel() {
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
-          <Bell size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+          <Bell size={15} strokeWidth={iconProps.strokeWidth} className={styles.sectionIcon} />
           <span>Уведомления</span>
         </div>
 
@@ -131,9 +145,9 @@ export function ActivitySidePanel() {
                 <Sparkles size={16} className={styles.iconAccent} />
               )}
               <div className={styles.activityText}>
-                <strong>{act.userName}</strong> {act.actionText}
-                <span className={styles.time}>{act.time}</span>
+                <strong>{act.userName}</strong> <span>{act.actionText}</span>
               </div>
+              <span className={styles.time}>{act.time}</span>
             </div>
           ))}
         </div>
@@ -141,12 +155,12 @@ export function ActivitySidePanel() {
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
-          <Circle size={10} strokeWidth={2.5} className={styles.outlineDot} />
-          <span>В сети сейчас</span>
+          <Users size={15} strokeWidth={iconProps.strokeWidth} className={styles.sectionIcon} />
+          <span>Собеседники ({chatPeers.length})</span>
         </div>
         <div className={styles.friendList}>
-          {onlineFriends.length > 0 ? (
-            onlineFriends.map((u) => (
+          {chatPeers.length > 0 ? (
+            chatPeers.map((u) => (
               <button
                 key={u.id}
                 type="button"
@@ -162,7 +176,15 @@ export function ActivitySidePanel() {
                 />
                 <div className={styles.friendInfo}>
                   <div className={styles.friendName}>{u.displayName}</div>
-                  <div className={styles.friendStatus}>в сети</div>
+                  <div className={styles.friendStatus}>
+                    {u.online ? (
+                      <span className={styles.onlineBadge}>в сети</span>
+                    ) : (
+                      <span className={styles.offlineText}>
+                        {u.lastSeenAt ? formatLastSeen(u.lastSeenAt) : 'был(а) недавно'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             ))
