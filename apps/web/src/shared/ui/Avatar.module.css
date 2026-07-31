@@ -10,6 +10,12 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   user-select: none;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+  transition: box-shadow 0.3s ease;
+}
+
+.root:hover {
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.35);
 }
 
 .img {

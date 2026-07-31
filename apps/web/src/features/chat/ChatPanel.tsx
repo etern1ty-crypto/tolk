@@ -969,6 +969,11 @@ export function ChatPanel() {
                       onClick={() => setLightboxSrc(m.media!.url)}
                       aria-label="Открыть фото"
                     >
+                      <div
+                        className={styles.mediaThumbAmbient}
+                        style={{ backgroundImage: `url(${m.media.url})` }}
+                        aria-hidden
+                      />
                       <PostImage src={m.media.url} alt="Вложение" />
                     </button>
                   )}
