@@ -706,6 +706,30 @@ export function ChatPanel() {
                   Инфо
                 </button>
               )}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setHeaderMenuOpen(false);
+                  // @ts-ignore
+                  useAppStore.getState().clearChatMessages(chat.id);
+                }}
+              >
+                Очистить чат
+              </button>
+              {chat.peerId && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={styles.dangerMenuItem}
+                  onClick={() => {
+                    setHeaderMenuOpen(false);
+                    useAppStore.getState().blockUser(chat.peerId!);
+                  }}
+                >
+                  Заблокировать
+                </button>
+              )}
             </div>
           )}
         </div>

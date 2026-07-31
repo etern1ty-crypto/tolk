@@ -210,8 +210,19 @@ export function WallFeed() {
       }
     }
 
+    const hasPhoto = post.media?.kind === 'image' && !!post.media?.url;
+
     return (
       <article key={post.id} className={cardClass} style={cardStyle}>
+        {hasPhoto ? (
+          <div
+            className={styles.ambientLedBackdrop}
+            style={{ backgroundImage: `url(${post.media!.url})` }}
+            aria-hidden
+          />
+        ) : (
+          <div className={styles.ambientStandardGlow} aria-hidden />
+        )}
         <header className={styles.cardHead}>
           <button
             type="button"

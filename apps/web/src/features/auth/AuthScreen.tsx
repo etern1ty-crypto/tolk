@@ -1,15 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { SlidingTabs } from '../../shared/ui/SlidingTabs';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import styles from './AuthScreen.module.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 const OAUTH_PROVIDER_KEY = 'tolk_oauth_provider';
 
-function oauthConfigured(provider: 'yandex' | 'vk'): boolean {
-  if (provider === 'yandex') return Boolean(import.meta.env.VITE_YANDEX_CLIENT_ID);
-  return Boolean(import.meta.env.VITE_VK_CLIENT_ID);
-}
+const INTRO_SLIDES = [
+  {
+    tag: 'ТОЛК 2.0',
+    title: 'Добро пожаловать',
+    subtitle: 'Наконец-то ТОЛКовый мессенджер..',
+    accentColor: '#38bdf8',
+  },
+  {
+    tag: 'КОМФОРТ',
+    title: 'Здесь начинается ваше удобство',
+    subtitle: 'Мгновенный обмен идеями, эмоциями и вдохновением без шума',
+    accentColor: '#c084fc',
+  },
+  {
+    tag: 'ЭСТЕРИКА & СВОБОДА',
+    title: 'Абсолютная эстетика',
+    subtitle: 'Безграничная Стена, кастомные фоны, эффекты и живые эмоции',
+    accentColor: '#f472b6',
+  },
+  {
+    tag: 'ЛИЧНОЕ ПРОСТРАНСТВО',
+    title: 'Ваше личное пространство',
+    subtitle: 'Быстрый · чистый · свой — добро пожаловать в Толк',
+    accentColor: '#4ade80',
+  },
+];
 
 export function AuthScreen() {
   const authMode = useAppStore((s) => s.authMode);
@@ -28,6 +51,9 @@ export function AuthScreen() {
   const cancelSocialProfile = useAppStore((s) => s.cancelSocialProfile);
   const socialPending = useAppStore((s) => s.socialPending);
 
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +62,16 @@ export function AuthScreen() {
   const isRegister = authMode === 'register';
   const isSocialProfile = authMode === 'social_profile';
 
-  // OAuth redirect callback: #access_token=...&user_id=... (VK) or without user_id (Yandex)
+  // Auto-advance slides every 5.5s
+  useEffect(() => {
+    if (showForm) return;
+    const timer = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % INTRO_SLIDES.length);
+    }, 5500);
+    return () => clearInterval(timer);
+  }, [showForm]);
+
+  // OAuth redirect callback
   useEffect(() => {
     const hash = window.location.hash;
     if (!hash || hash.length < 2) return;
@@ -45,7 +80,6 @@ export function AuthScreen() {
     const accessToken = params.get('access_token');
     const err = params.get('error_description') || params.get('error');
 
-    // Clean URL immediately (token must not stay in history)
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
     if (err) {
@@ -66,11 +100,11 @@ export function AuthScreen() {
       /* ignore */
     }
 
-    // Fallback: VK implicit often includes user_id
     if (!provider) {
       provider = params.has('user_id') ? 'vk' : 'yandex';
     }
 
+    setShowForm(true);
     setOauthBusy(true);
     setError(null);
     const run = provider === 'vk' ? loginWithVK(accessToken) : loginWithYandex(accessToken);
@@ -84,7 +118,7 @@ export function AuthScreen() {
     const clientId = import.meta.env.VITE_YANDEX_CLIENT_ID as string | undefined;
     if (!clientId) {
       setError(
-        'Яндекс ID не настроен (VITE_YANDEX_CLIENT_ID). Войдите по username/паролю или попросите админа добавить ключи.'
+        'Яндекс ID не настроен (VITE_YANDEX_CLIENT_ID). Войдите по username/паролю.'
       );
       return;
     }
@@ -93,15 +127,10 @@ export function AuthScreen() {
     } catch {
       /* ignore */
     }
-    // Только origin, без пути: провайдер сверяет redirect_uri с точностью до
-    // символа, и регистрировать каждый /s/<slug> невозможно. Цель приглашения
-    // переживает переход через sessionStorage — оно привязано к вкладке и
-    // origin, а не к странице, так что уцелеет и на обратном пути от провайдера.
     const redirectUri = window.location.origin;
-    const url =
-      `https://oauth.yandex.ru/authorize?response_type=token` +
-      `&client_id=${encodeURIComponent(clientId)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const url = `https://oauth.yandex.ru/authorize?response_type=token&client_id=${encodeURIComponent(
+      clientId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = url;
   };
 
@@ -109,9 +138,7 @@ export function AuthScreen() {
     setError(null);
     const clientId = import.meta.env.VITE_VK_CLIENT_ID as string | undefined;
     if (!clientId) {
-      setError(
-        'VK ID не настроен (VITE_VK_CLIENT_ID). Войдите по username/паролю или попросите админа добавить ключи.'
-      );
+      setError('VK ID не настроен (VITE_VK_CLIENT_ID). Войдите по username/паролю.');
       return;
     }
     try {
@@ -119,237 +146,253 @@ export function AuthScreen() {
     } catch {
       /* ignore */
     }
-    // Только origin, без пути: провайдер сверяет redirect_uri с точностью до
-    // символа, и регистрировать каждый /s/<slug> невозможно. Цель приглашения
-    // переживает переход через sessionStorage — оно привязано к вкладке и
-    // origin, а не к странице, так что уцелеет и на обратном пути от провайдера.
     const redirectUri = window.location.origin;
-    const url =
-      `https://oauth.vk.com/authorize?client_id=${encodeURIComponent(clientId)}` +
-      `&display=page&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&scope=offline&response_type=token&v=5.131`;
+    const url = `https://oauth.vk.com/authorize?client_id=${encodeURIComponent(
+      clientId
+    )}&redirect_uri=${encodeURIComponent(
+      redirectUri
+    )}&display=page&scope=email&response_type=token&v=5.131`;
     window.location.href = url;
   };
 
-  const submit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const u = draftUsername.trim();
+    if (!USERNAME_RE.test(u)) {
+      setError('Имя пользователя: 3–30 символов (латиница, цифры, _)');
+      return;
+    }
+
+    if (isSocialProfile) {
+      setLoading(true);
+      try {
+        await completeSocialProfile();
+      } catch (err: any) {
+        setError(err.message || 'Не удалось завершить профиль');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (!draftPassword) {
+      setError('Введите пароль');
+      return;
+    }
+
     setLoading(true);
     try {
-      if (isSocialProfile) {
-        await completeSocialProfile();
-      } else if (isRegister) {
+      if (isRegister) {
         await register();
       } else {
         await login();
       }
     } catch (err: any) {
-      setError(err?.message || 'Ошибка');
+      setError(err.message || 'Ошибка авторизации');
     } finally {
       setLoading(false);
     }
   };
 
-  const providerLabel =
-    socialPending?.provider === 'vk'
-      ? 'VK'
-      : socialPending?.provider === 'yandex'
-        ? 'Яндекс'
-        : 'соцсеть';
+  const currentSlide = INTRO_SLIDES[slideIndex];
 
   return (
     <div className={styles.root}>
-      <div className={styles.glow} />
+      {!showForm ? (
+        /* Intro Welcome Carousel View */
+        <div className={styles.introContainer}>
+          <div className={styles.introCard}>
+            <div
+              className={styles.introGlow}
+              style={{ background: currentSlide.accentColor }}
+            />
+            
+            <span
+              className={styles.introTag}
+              style={{ color: currentSlide.accentColor, borderColor: `${currentSlide.accentColor}44` }}
+            >
+              <Sparkles size={13} />
+              <span>{currentSlide.tag}</span>
+            </span>
 
-      <div className={styles.card}>
-        <div className={styles.brand}>
-          <div className={styles.logo}>Т</div>
-          <h1>Толк.</h1>
-          <p className={styles.tagline}>
-            {isSocialProfile
-              ? `Почти готово · ${providerLabel}`
-              : 'Быстрый · чистый · свой'}
-          </p>
+            <h1 className={styles.introTitle}>{currentSlide.title}</h1>
+            <p className={styles.introSub}>{currentSlide.subtitle}</p>
+
+            <div className={styles.introDots}>
+              {INTRO_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`${styles.dot} ${i === slideIndex ? styles.dotActive : ''}`}
+                  onClick={() => setSlideIndex(i)}
+                  aria-label={`Слайд ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <div className={styles.introActions}>
+              <button
+                type="button"
+                className={styles.skipBtn}
+                onClick={() => setShowForm(true)}
+              >
+                Пропустить
+              </button>
+
+              <button
+                type="button"
+                className={styles.nextBtn}
+                onClick={() => {
+                  if (slideIndex < INTRO_SLIDES.length - 1) {
+                    setSlideIndex((s) => s + 1);
+                  } else {
+                    setShowForm(true);
+                  }
+                }}
+              >
+                <span>{slideIndex === INTRO_SLIDES.length - 1 ? 'Начать' : 'Далее'}</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
+      ) : (
+        /* Login / Register Form View */
+        <div className={styles.card}>
+          <header className={styles.header}>
+            <span className={styles.logoMark}>Т.</span>
+            <p className={styles.subtitle}>Быстрый · чистый · свой</p>
+          </header>
 
-        {!isSocialProfile && (
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          {isSocialProfile ? (
+            <div className={styles.socialNotice}>
+              <p className={styles.socialTitle}>Почти готово!</p>
+              <p className={styles.socialSub}>
+                {socialPending?.provider === 'yandex' ? 'Яндекс ID' : 'VK ID'} подключен. Укажите логин и имя для профиля.
+              </p>
+            </div>
+          ) : (
             <SlidingTabs
+              className={styles.tabs}
               tabs={[
-                { id: 'login', label: 'Войти' },
+                { id: 'login', label: 'Вход' },
                 { id: 'register', label: 'Регистрация' },
               ]}
               activeId={authMode}
               onChange={(id) => {
-                setAuthMode(id as any);
                 setError(null);
+                setAuthMode(id as 'login' | 'register');
               }}
             />
-          </div>
-        )}
+          )}
 
-        {isSocialProfile && (
-          <p className={styles.socialHint}>
-            Придумайте, как вас будут видеть в Толке. Никаких авто-имён вроде «yandex_…» —
-            только ваше имя и username.
-          </p>
-        )}
+          {error && <div className={styles.error}>{error}</div>}
 
-        {error && (
-          <div className={styles.error} role="alert">
-            {error}
-          </div>
-        )}
-
-        {oauthBusy && (
-          <div className={styles.oauthBusy}>Завершаем вход…</div>
-        )}
-
-        <form className={styles.form} onSubmit={submit} autoComplete="on">
-          {(isRegister || isSocialProfile) && (
+          <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.field}>
-              <label className={styles.label} htmlFor="firstName">
-                Имя
-              </label>
+              <label htmlFor="auth-username">Имя пользователя (@username)</label>
               <input
-                id="firstName"
-                className={styles.input}
+                id="auth-username"
                 type="text"
-                placeholder="Как вас зовут?"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                autoComplete="name"
-                maxLength={64}
+                value={draftUsername}
+                onChange={(e) => setDraftUsername(e.target.value.toLowerCase())}
+                placeholder="например: alex"
+                autoComplete="username"
+                autoCapitalize="none"
                 required
-                autoFocus={isSocialProfile}
               />
             </div>
-          )}
 
-          <div className={styles.field}>
-            <label className={styles.label} htmlFor="username">
-              Имя пользователя
-            </label>
-            <input
-              id="username"
-              className={styles.input}
-              type="text"
-              placeholder={isRegister || isSocialProfile ? 'username (3–30, a–z, 0–9, _)' : 'username'}
-              value={draftUsername}
-              onChange={(e) =>
-                setDraftUsername(
-                  e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30)
-                )
-              }
-              autoComplete="username"
-              spellCheck={false}
-              required
-              autoFocus={!isRegister && !isSocialProfile}
-            />
-            {(isRegister || isSocialProfile) && draftUsername && !USERNAME_RE.test(draftUsername) && (
-              <span className={styles.fieldHint}>3–30 символов: латиница, цифры, _</span>
-            )}
-          </div>
-
-          {!isSocialProfile && (
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="password">
-                Пароль
-              </label>
-              <div className={styles.pwWrap}>
+            {(isRegister || isSocialProfile) && (
+              <div className={styles.field}>
+                <label htmlFor="auth-display-name">Отображаемое имя</label>
                 <input
-                  id="password"
-                  className={`${styles.input} ${styles.pwInput}`}
-                  type={showPw ? 'text' : 'password'}
-                  placeholder={isRegister ? 'Минимум 8 символов' : '••••••'}
-                  value={draftPassword}
-                  onChange={(e) => setDraftPassword(e.target.value)}
-                  autoComplete={isRegister ? 'new-password' : 'current-password'}
-                  required
-                  minLength={isRegister ? 8 : 1}
+                  id="auth-display-name"
+                  type="text"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="Алексей"
+                  autoComplete="name"
                 />
-                <button
-                  type="button"
-                  className={styles.eyeBtn}
-                  tabIndex={-1}
-                  onClick={() => setShowPw((v) => !v)}
-                  aria-label={showPw ? 'Скрыть' : 'Показать'}
-                >
-                  {showPw ? '🙈' : '👁'}
-                </button>
               </div>
-            </div>
-          )}
+            )}
 
-          <button
-            type="submit"
-            className={styles.primary}
-            disabled={loading || oauthBusy}
-          >
-            {loading
-              ? isSocialProfile
-                ? 'Сохраняем…'
+            {!isSocialProfile && (
+              <div className={styles.field}>
+                <label htmlFor="auth-password">Пароль</label>
+                <div className={styles.pwWrap}>
+                  <input
+                    id="auth-password"
+                    type={showPw ? 'text' : 'password'}
+                    value={draftPassword}
+                    onChange={(e) => setDraftPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className={styles.pwToggle}
+                    onClick={() => setShowPw(!showPw)}
+                    tabIndex={-1}
+                    aria-label={showPw ? 'Скрыть пароль' : 'Показать пароль'}
+                  >
+                    {showPw ? '🙈' : '👁'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button type="submit" className={styles.submitBtn} disabled={loading || oauthBusy}>
+              {loading
+                ? 'Минутку…'
+                : isSocialProfile
+                ? 'Завершить вход'
                 : isRegister
-                  ? 'Создаём…'
-                  : 'Входим…'
-              : isSocialProfile
-                ? 'Продолжить'
-                : isRegister
-                  ? 'Создать аккаунт'
-                  : 'Войти'}
-          </button>
-
-
+                ? 'Создать аккаунт'
+                : 'Войти'}
+            </button>
+          </form>
 
           {isSocialProfile && (
-            <button
-              type="button"
-              className={styles.secondary}
-              onClick={() => {
-                cancelSocialProfile();
-                setError(null);
-              }}
-              disabled={loading}
-            >
+            <button type="button" className={styles.cancelBtn} onClick={() => cancelSocialProfile()}>
               Отмена
             </button>
           )}
-        </form>
 
-        {!isSocialProfile &&
-          (oauthConfigured('yandex') || oauthConfigured('vk')) && (
-          <>
-            <div className={styles.divider}>
-              <span>или</span>
-            </div>
+          {!isSocialProfile && (
+            <>
+              <div className={styles.divider}>
+                <span>или через</span>
+              </div>
 
-            <div className={styles.oauthButtons}>
-              {oauthConfigured('yandex') && (
+              <div className={styles.oauthRow}>
                 <button
                   type="button"
-                  className={styles.yandexBtn}
+                  className={styles.oauthBtnYandex}
                   onClick={startYandex}
                   disabled={loading || oauthBusy}
                 >
-                  <span className={styles.yandexIcon}>Я</span>
-                  Войти через Яндекс
+                  <span className={styles.yandexBadge}>Я</span>
+                  <span>Яндекс</span>
                 </button>
-              )}
-              {oauthConfigured('vk') && (
+
                 <button
                   type="button"
-                  className={styles.vkBtn}
+                  className={styles.oauthBtnVK}
                   onClick={startVK}
                   disabled={loading || oauthBusy}
                 >
-                  <span className={styles.vkIcon}>VK</span>
-                  Войти через VK
+                  <span className={styles.vkBadge}>VK</span>
+                  <span>ВКонтакте</span>
                 </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

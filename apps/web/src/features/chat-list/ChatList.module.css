@@ -353,3 +353,56 @@
 .emptyQuiet:hover {
   color: var(--text-primary);
 }
+
+/* Floating Chat Context Menu Popover */
+.contextMenuPopover {
+  position: fixed;
+  min-width: 220px;
+  background: #030303bd;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 9999;
+  animation: contextMenuPop 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes contextMenuPop {
+  from { opacity: 0; transform: scale(0.9) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.contextMenuPopover button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  text-align: left;
+}
+
+.contextMenuPopover button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(2px);
+}
+
+.dangerItem {
+  color: #f87171 !important;
+}
+
+.dangerItem:hover {
+  background: rgba(248, 113, 113, 0.18) !important;
+}
