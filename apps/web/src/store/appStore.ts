@@ -1,13 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
-  INITIAL_CHATS,
-  INITIAL_MESSAGES,
-  INITIAL_POSTS,
-  ME,
-  USERS,
-} from '../mocks/fixtures';
-import {
   BANNER_PATTERNS,
   CHAT_THEMES,
   DEFAULT_CHAT_THEME_ID,
@@ -748,16 +741,16 @@ export const useAppStore = create<AppState>()(
       token: null,
       isAuthenticated: false,
       authStep: 'phone',
-      me: { ...ME },
-      users: { ...USERS },
+      me: { id: '', username: '', displayName: '', bannerPatternId: 'mint_wave' },
+      users: {},
 
       mainTab: 'chats',
       isOffline: false,
       searchQuery: '',
 
-      chats: INITIAL_CHATS,
-      messages: INITIAL_MESSAGES,
-      posts: INITIAL_POSTS,
+      chats: [],
+      messages: [],
+      posts: [],
       booting: false,
       feedHasMore: true,
       feedLoadingMore: false,
@@ -1150,7 +1143,7 @@ export const useAppStore = create<AppState>()(
           reactionPicker: null,
           chats: [],
           messages: [],
-          posts: INITIAL_POSTS,
+          posts: [],
           shelfItems: [],
           echoes: [],
         });
