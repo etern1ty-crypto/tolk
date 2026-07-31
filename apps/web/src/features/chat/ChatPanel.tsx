@@ -358,6 +358,17 @@ export function ChatPanel() {
     if (m) setText(m.text);
   }, [editingMessageId]);
 
+  useEffect(() => {
+    if (!voiceRecording) {
+      setRecordSec(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setRecordSec((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [voiceRecording]);
+
   if (!activeChatId || !chat) {
     return (
       <section className={styles.root} aria-label="Чат">
@@ -393,17 +404,6 @@ export function ChatPanel() {
       holdArmTimer.current = null;
     }
   };
-
-  useEffect(() => {
-    if (!voiceRecording) {
-      setRecordSec(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      setRecordSec((s) => s + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [voiceRecording]);
 
   const formatRecordTime = (totalSec: number) => {
     const m = Math.floor(totalSec / 60);
