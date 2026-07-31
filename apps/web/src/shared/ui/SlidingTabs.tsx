@@ -55,7 +55,6 @@ export function SlidingTabs<T extends string>({
       setPillStyle({
         transform: `translateX(${offsetLeft}px)`,
         width: `${offsetWidth}px`,
-        height: '100%',
         opacity: 1,
         transition: animate ? undefined : 'none',
       });
