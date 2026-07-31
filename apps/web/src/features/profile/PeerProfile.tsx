@@ -200,6 +200,15 @@ export function PeerProfile() {
             >
               Мой профиль
             </button>
+          ) : blocked ? (
+            <button
+              type="button"
+              className={styles.unblockCta}
+              onClick={() => unblockUser(user.id)}
+            >
+              <Ban size={17} strokeWidth={iconProps.strokeWidth} />
+              Разблокировать
+            </button>
           ) : (
             <>
               <button

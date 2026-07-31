@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Ban,
   Bookmark,
   Check,
   CircleDot,
@@ -257,6 +258,9 @@ export function ChatPanel() {
       : users[replyMsg.senderId]
     : null;
   const headerPeer = chat?.peerId ? users[chat.peerId] : null;
+  const blockedUsers = useAppStore((s) => s.blockedUsers);
+  const unblockUser = useAppStore((s) => s.unblockUser);
+  const isPeerBlocked = !!headerPeer && blockedUsers.some((b) => b.id === headerPeer.id);
   const headerAvatarName = headerPeer?.displayName || chat?.title || '?';
   const headerAvatarUrl = headerPeer?.avatarRef || chat?.avatarRef;
   const headerAvatarId = headerPeer?.id || chat?.id;
@@ -1187,8 +1191,20 @@ export function ChatPanel() {
         />
       )}
 
-      {/* Preview: only Subscribe. Subscribed channel members (non-admin): no footer at all. */}
-      {isPreview ? (
+      {/* Preview: only Subscribe. Blocked user: unblock banner. Subscribed channel members (non-admin): no footer at all. */}
+      {isPeerBlocked ? (
+        <footer className={styles.blockedComposer}>
+          <span>Вы заблокировали этого пользователя</span>
+          <button
+            type="button"
+            className={styles.unblockBannerBtn}
+            onClick={() => unblockUser(headerPeer!.id)}
+          >
+            <Ban size={15} strokeWidth={iconProps.strokeWidth} />
+            Разблокировать
+          </button>
+        </footer>
+      ) : isPreview ? (
         <footer className={styles.composer}>
           <button
             type="button"
