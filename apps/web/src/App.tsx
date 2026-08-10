@@ -15,6 +15,7 @@ import { ForwardSheet } from './features/wall/ForwardSheet';
 import { MainShell } from './features/shell/MainShell';
 import { OfflineBanner } from './features/shell/OfflineBanner';
 import { Toast } from './features/shell/Toast';
+import { CallOverlay } from './features/call/CallOverlay';
 import { fetchApi, useAppStore } from './store/appStore';
 import { AMBIENT_PATTERN } from './shared/patterns';
 import { PatternBg } from './shared/ui/PatternBg';
@@ -144,6 +145,7 @@ export default function App() {
       <ForwardSheet />
       <SettingsOverlay />
       <PeerProfile />
+      <CallOverlay />
       <Toast />
     </div>
   );

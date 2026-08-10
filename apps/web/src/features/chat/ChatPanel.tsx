@@ -7,9 +7,11 @@ import {
   Mic,
   MoreVertical,
   Palette,
+  Phone,
   SendHorizontal,
   Share2,
   Trash2,
+  Video,
   X,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -87,6 +89,7 @@ export function ChatPanel() {
   const toggleMessageSelection = useAppStore((s) => s.toggleMessageSelection);
   // @ts-ignore
   const clearMessageSelection = useAppStore((s) => s.clearMessageSelection);
+  const startCall = useAppStore((s) => s.startCall);
   // @ts-ignore
   const deleteSelectedMessages = useAppStore((s) => s.deleteSelectedMessages);
   const editingMessageId = useAppStore((s) => s.editingMessageId);
@@ -711,6 +714,24 @@ export function ChatPanel() {
               </div>
             </button>
             <div className={styles.headerActions} ref={headerMenuRef}>
+              {chat.type === 'dm' && chat.peerId && (
+                <>
+                  <IconBtn
+                    aria-label="Аудиозвонок"
+                    title="Аудиозвонок"
+                    onClick={() => startCall(chat.peerId!, { video: false })}
+                  >
+                    <Phone size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                  </IconBtn>
+                  <IconBtn
+                    aria-label="Видеозвонок"
+                    title="Видеозвонок"
+                    onClick={() => startCall(chat.peerId!, { video: true })}
+                  >
+                    <Video size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                  </IconBtn>
+                </>
+              )}
               <IconBtn
                 aria-label="Ещё"
                 title="Ещё"

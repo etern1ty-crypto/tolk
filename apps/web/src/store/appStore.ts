@@ -9,6 +9,7 @@ import {
 import { soundEffects, THEME_SOUND_PACK, type SoundPackId } from '../shared/soundEffects';
 import { prepareImage } from '../shared/lib/imagePrep';
 import { fetchApi, socketUrl, uploadFile } from '../shared/lib/api';
+import { fetchIceConfig, getMic, getCam, getDisplay, stopStream } from '../shared/lib/webrtc';
 
 // Слой работы с сервером живёт в shared/lib/api. Здесь он переэкспортируется,
 // потому что на этот путь импорта ссылается вся остальная часть приложения.
@@ -34,6 +35,19 @@ export interface ModerationReport {
   reason: string;
   createdAt: number;
   status: 'pending' | 'resolved' | 'dismissed';
+}
+
+/** 1:1 call. Ephemeral — never persisted (like messages). */
+export interface CallState {
+  id: string;
+  peerId: string;
+  direction: 'in' | 'out';
+  status: 'ringing' | 'connecting' | 'active' | 'ended';
+  video: boolean;
+  screen: boolean;
+  muted: boolean;
+  camOff: boolean;
+  hasRemote: boolean; // remote stream attached — flips UI from "connecting" to live
 }
 
 
@@ -138,6 +152,66 @@ let activeSocket: WebSocket | null = null;
 let lastTypingSent = 0;
 let typingTimeout: number | undefined;
 let reconnectCount = 0;
+
+// WebRTC 1:1 call — live objects (peer, streams) stay outside the reactive
+// store, exactly like activeSocket. The store holds only serialisable call
+// descriptors (id, peer, status, flags); the store never persists any of this.
+let pc: RTCPeerConnection | null = null;
+let localStream: MediaStream | null = null;
+let remoteStream: MediaStream | null = null;
+let screenStream: MediaStream | null = null; // active display-capture, if any
+let pendingIce: RTCIceCandidateInit[] = []; // ICE that arrived before setRemoteDescription
+let ringTimer: number | undefined;
+
+// CallOverlay reads the live streams through these — MediaStream objects can't
+// live in Zustand state (not serialisable, and would trigger renders on frames).
+export const callMedia = {
+  local: () => localStream,
+  remote: () => remoteStream,
+};
+
+// One signaling frame → REST → gateway relays to the peer's sockets over WS.
+// Fire-and-forget: a lost frame ends the call, which is the correct outcome.
+function postSignal(token: string | null, to: string, callId: string, kind: string, payload?: any) {
+  fetchApi('/calls/signal', {
+    method: 'POST',
+    body: JSON.stringify({ to, callId, kind, payload }),
+  }, token).catch(() => {});
+}
+
+// Build the RTCPeerConnection and wire the three handlers every call needs:
+// trickle ICE out, remote track in, and connection-state for teardown.
+function wirePeer(iceServers: RTCIceServer[], callId: string, peerId: string, token: string | null): RTCPeerConnection {
+  const conn = new RTCPeerConnection({ iceServers });
+  remoteStream = new MediaStream();
+  conn.onicecandidate = (e) => {
+    if (e.candidate) postSignal(token, peerId, callId, 'ice', e.candidate.toJSON());
+  };
+  conn.ontrack = (e) => {
+    e.streams[0]?.getTracks().forEach((t) => remoteStream!.addTrack(t));
+    const call = useAppStore.getState().call;
+    if (call && call.id === callId) {
+      useAppStore.setState({ call: { ...call, status: 'active', hasRemote: true } });
+    }
+  };
+  conn.onconnectionstatechange = () => {
+    if (conn.connectionState === 'failed' || conn.connectionState === 'disconnected') {
+      const call = useAppStore.getState().call;
+      if (call && call.id === callId) useAppStore.getState().endCall();
+    }
+  };
+  return conn;
+}
+
+// Stop every track and drop the peer. Idempotent — endCall may run twice.
+function teardownPeer() {
+  if (ringTimer) { clearTimeout(ringTimer); ringTimer = undefined; }
+  stopStream(localStream); localStream = null;
+  stopStream(screenStream); screenStream = null;
+  remoteStream = null;
+  pendingIce = [];
+  if (pc) { try { pc.close(); } catch { /* already closed */ } pc = null; }
+}
 // Первое подключение сопровождается загрузкой из initApi; повторные должны
 // догонять пропущенное сами.
 let firstConnection = true;
@@ -441,6 +515,8 @@ function connectWebSocket(token: string, store: any) {
         }
       } else if (wsEvent === 'session.revoked') {
         store.getState().logout();
+      } else if (wsEvent === 'call.signal') {
+        store.getState().onCallSignal(data);
       }
     } catch (err) {
       console.error('[WS] Error processing message:', err);
@@ -605,6 +681,17 @@ interface AppState {
 
   initApi: () => Promise<void>;
   sendTypingPresence: () => void;
+
+  // WebRTC 1:1 calls
+  call: CallState | null;
+  startCall: (peerId: string, opts?: { video?: boolean }) => Promise<void>;
+  acceptCall: () => Promise<void>;
+  rejectCall: () => void;
+  endCall: () => void;
+  toggleMute: () => void;
+  toggleCamera: () => void;
+  toggleScreenShare: () => Promise<void>;
+  onCallSignal: (data: any) => void;
 
   setMainTab: (tab: MainTab) => void;
   setActiveChat: (id: string | null) => Promise<void>;
@@ -1986,6 +2073,184 @@ export const useAppStore = create<AppState>()(
       event: 'presence.typing',
       data: { chat_id: chatId }
     }));
+  },
+
+  // ── WebRTC 1:1 calls ──────────────────────────────────────────────────────
+  call: null,
+
+  startCall: async (peerId, opts = {}) => {
+    if (get().call) return; // one call at a time
+    const token = get().token;
+    const video = !!opts.video;
+    const callId = uid('call');
+    try {
+      localStream = video ? await getCam() : await getMic();
+    } catch {
+      get().showToast('Нет доступа к микрофону/камере');
+      return;
+    }
+    const ice = await fetchIceConfig(token);
+    pc = wirePeer(ice, callId, peerId, token);
+    localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
+    set({ call: { id: callId, peerId, direction: 'out', status: 'ringing', video, screen: false, muted: false, camOff: false, hasRemote: false } });
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    postSignal(token, peerId, callId, 'offer', { sdp: pc.localDescription, video });
+    ringTimer = window.setTimeout(() => {
+      if (get().call?.id === callId && get().call?.status === 'ringing') {
+        postSignal(token, peerId, callId, 'hangup');
+        get().endCall();
+        get().showToast('Не отвечает');
+      }
+    }, 35000);
+  },
+
+  acceptCall: async () => {
+    const call = get().call;
+    const token = get().token;
+    if (!call || call.direction !== 'in' || call.status !== 'ringing' || !pc) return;
+    if (ringTimer) { clearTimeout(ringTimer); ringTimer = undefined; }
+    try {
+      localStream = call.video ? await getCam() : await getMic();
+    } catch {
+      get().showToast('Нет доступа к микрофону/камере');
+      postSignal(token, call.peerId, call.id, 'reject', { reason: 'nomedia' });
+      get().endCall();
+      return;
+    }
+    localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    postSignal(token, call.peerId, call.id, 'answer', { sdp: pc.localDescription });
+    set({ call: { ...call, status: 'connecting' } });
+  },
+
+  rejectCall: () => {
+    const call = get().call;
+    if (!call) return;
+    postSignal(get().token, call.peerId, call.id, 'reject', { reason: 'declined' });
+    get().endCall();
+  },
+
+  endCall: () => {
+    const call = get().call;
+    if (call && call.status !== 'ended') {
+      // Harmless if the peer already left — no matching call there to end.
+      postSignal(get().token, call.peerId, call.id, 'hangup');
+    }
+    teardownPeer();
+    set({ call: null });
+  },
+
+  toggleMute: () => {
+    const call = get().call;
+    if (!call || !localStream) return;
+    const muted = !call.muted;
+    localStream.getAudioTracks().forEach((t) => (t.enabled = !muted));
+    set({ call: { ...call, muted } });
+  },
+
+  toggleCamera: () => {
+    const call = get().call;
+    if (!call || !localStream) return;
+    const camOff = !call.camOff;
+    localStream.getVideoTracks().forEach((t) => (t.enabled = !camOff));
+    set({ call: { ...call, camOff } });
+  },
+
+  toggleScreenShare: async () => {
+    const call = get().call;
+    if (!call || !pc) return;
+    const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+    if (!sender) {
+      // No video m-line to swap into; adding one needs renegotiation.
+      // ponytail: screen-share only in video calls; audio-call upgrade = renegotiate.
+      get().showToast('Демонстрация доступна в видеозвонке');
+      return;
+    }
+    if (!call.screen) {
+      let screen: MediaStream;
+      try {
+        screen = await getDisplay();
+      } catch {
+        return; // user dismissed the picker
+      }
+      const track = screen.getVideoTracks()[0];
+      if (!track) { stopStream(screen); return; }
+      // Stopping the share from the browser's own bar reverts us too.
+      track.onended = () => { if (get().call?.screen) get().toggleScreenShare(); };
+      screenStream = screen;
+      await sender.replaceTrack(track);
+      set({ call: { ...call, screen: true } });
+    } else {
+      const camTrack = localStream?.getVideoTracks()[0] || null;
+      await sender.replaceTrack(camTrack);
+      stopStream(screenStream);
+      screenStream = null;
+      set({ call: { ...call, screen: false } });
+    }
+  },
+
+  onCallSignal: (data) => {
+    const from = data?.from as string;
+    const callId = data?.callId as string;
+    const kind = data?.kind as string;
+    const payload = data?.payload;
+    if (!from || !callId || !kind) return;
+    const token = get().token;
+    const call = get().call;
+
+    if (kind === 'offer') {
+      if (call && call.id !== callId) { postSignal(token, from, callId, 'reject', { reason: 'busy' }); return; }
+      if (call && call.id === callId) return; // duplicate
+      (async () => {
+        const ice = await fetchIceConfig(token);
+        pc = wirePeer(ice, callId, from, token);
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+          for (const c of pendingIce) { try { await pc.addIceCandidate(c); } catch { /* stale */ } }
+          pendingIce = [];
+        } catch {
+          get().endCall();
+          return;
+        }
+        set({ call: { id: callId, peerId: from, direction: 'in', status: 'ringing', video: !!payload?.video, screen: false, muted: false, camOff: false, hasRemote: false } });
+        ringTimer = window.setTimeout(() => {
+          if (get().call?.id === callId && get().call?.status === 'ringing') {
+            postSignal(token, from, callId, 'reject', { reason: 'timeout' });
+            get().endCall();
+          }
+        }, 35000);
+      })();
+      return;
+    }
+
+    // "answered on another device": the caller relays this to the callee's user
+    // id, so every ringing sibling device dismisses.
+    if (kind === 'invite' && payload?.taken) {
+      if (call && call.id === callId && call.direction === 'in' && call.status === 'ringing') get().endCall();
+      return;
+    }
+
+    if (!call || call.id !== callId) return; // not our call
+
+    if (kind === 'answer') {
+      if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(() => {});
+      set({ call: { ...call, status: 'connecting' } });
+      postSignal(token, from, callId, 'invite', { taken: true }); // silence callee's other devices
+      return;
+    }
+    if (kind === 'ice') {
+      const cand = payload as RTCIceCandidateInit;
+      if (pc && pc.remoteDescription) pc.addIceCandidate(cand).catch(() => {});
+      else pendingIce.push(cand);
+      return;
+    }
+    if (kind === 'reject' || kind === 'hangup') {
+      get().endCall();
+      get().showToast(kind === 'reject' ? 'Звонок отклонён' : 'Звонок завершён');
+      return;
+    }
   },
 
   sendVoiceMock: () => {
