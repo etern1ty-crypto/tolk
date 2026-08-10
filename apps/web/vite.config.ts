@@ -15,7 +15,7 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
-      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions)': {
+      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions|echoes|tolk-media)': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },
@@ -31,7 +31,7 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
-      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions)': {
+      '^/(auth|chats|posts|me|media|users|wall|blocks|reports|sessions|echoes|tolk-media)': {
         target: 'http://127.0.0.1:3000',
         changeOrigin: true,
       },

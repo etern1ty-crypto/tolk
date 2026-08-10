@@ -1,0 +1,524 @@
+.root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: var(--bg-primary, #000000);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ── Beautiful Ambient Glow Aura (Тот самый живой фон) ── */
+.ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.ambient::before {
+  content: '';
+  position: absolute;
+  top: -25%;
+  left: 20%;
+  width: 65vmax;
+  height: 65vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 60, 255, 0.14) 0%, rgba(56, 189, 248, 0.06) 45%, transparent 70%);
+  animation: driftOne 22s ease-in-out infinite alternate;
+}
+
+.ambient::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  right: 15%;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.09) 0%, rgba(99, 102, 241, 0.05) 50%, transparent 70%);
+  animation: driftTwo 28s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes driftOne {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(40px, -30px) scale(1.08); }
+}
+
+@keyframes driftTwo {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-35px, 25px) scale(1.06); }
+}
+
+.noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px;
+}
+
+/* Main 2-column showcase container */
+.showcase {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 72px;
+  max-width: 960px;
+  width: 100%;
+  margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .showcase {
+    flex-direction: column;
+    gap: 32px;
+    margin-bottom: 24px;
+  }
+}
+
+/* ── Phone Mockup ── */
+.phone {
+  width: 324px;
+  height: 524px;
+  background: rgba(17, 19, 25, 0.94);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.statusBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.statusTime {
+  font-size: 11px;
+}
+
+.statusMore {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.phoneHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 18px 10px;
+}
+
+.phoneHeaderTitle {
+  font-family: var(--font-brand, 'Unbounded', sans-serif);
+  font-weight: 900;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.phoneHeaderActions {
+  display: flex;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.headerIconBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.screenContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  animation: contentFade 0.25s ease;
+}
+
+@keyframes contentFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chat list */
+.chatList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chatRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.chatAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.chatBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.chatTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.chatName {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pinIcon {
+  color: #818cf8;
+}
+
+.chatTime {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.chatPreview {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unreadBadge {
+  background: #6366f1;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+}
+
+/* Wall preview */
+.wallList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wallCard {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.wallCardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.wallAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  color: #ffffff;
+}
+
+.wallMeta {
+  display: flex;
+  flex-direction: column;
+}
+
+.wallName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.wallTime {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.wallText {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.35;
+  margin: 0 0 8px;
+}
+
+.wallActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wallActionBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+/* Profile preview */
+.profileScreen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profileHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.profileAvatarLg {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.profileDisplayName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.profileUsername {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.settingsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.settingLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.settingDanger .settingLeft {
+  color: #ef4444;
+}
+
+.settingChevron {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Bottom phone bar */
+.bottomNav {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 12px 10px;
+  background: #0d0f15;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.navTab, .navActive {
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.navTab {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.navActive {
+  color: #ffffff;
+}
+
+.navIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navLabel {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* ── Right Column (Title & Description) ── */
+.textSide {
+  max-width: 380px;
+  animation: textSlide 0.3s ease;
+}
+
+@keyframes textSlide {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.sideTitle {
+  font-family: var(--font-brand, 'Unbounded', sans-serif);
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  margin: 0 0 16px;
+  line-height: 1.12;
+}
+
+.sideDesc {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Bottom Controls ── */
+.bottomControls {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s ease;
+}
+
+.dotActive {
+  width: 20px;
+  background: #ffffff;
+}
+
+.startBtn {
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 44px;
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.15);
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.startBtn:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.startBtn:active {
+  transform: translateY(0);
+}
+
+.skipBtn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 12px;
+  transition: color 0.15s;
+}
+
+.skipBtn:hover {
+  color: #ffffff;
+}
