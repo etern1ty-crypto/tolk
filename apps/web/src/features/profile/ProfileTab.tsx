@@ -1,4 +1,4 @@
-import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell, Users, UserCheck } from 'lucide-react';
+import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';

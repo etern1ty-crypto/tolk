@@ -2585,10 +2585,6 @@ export const useAppStore = create<AppState>()(
   },
 
   // ── Friends system ──────────────────────────────────────────────
-  friends: [],
-  friendRequestsIn: [],
-  friendRequestsOut: [],
-
   loadFriends: async () => {
     const token = get().token;
     if (!token) return;

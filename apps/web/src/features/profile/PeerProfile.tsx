@@ -1,4 +1,4 @@
-import { ArrowLeft, Link2, MessageCircle, MoreVertical, Flag, Ban, UserPlus, UserCheck, UserMinus } from 'lucide-react';
+import { ArrowLeft, Link2, MessageCircle, MoreVertical, Flag, Ban, UserPlus, UserCheck } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
