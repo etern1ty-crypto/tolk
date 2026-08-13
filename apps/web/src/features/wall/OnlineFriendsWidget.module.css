@@ -1,147 +1,101 @@
+/* Floating avatar-bubbles OUTSIDE main content area (left gutter) */
 .root {
-  width: 260px;
-  flex-shrink: 0;
+  position: fixed;
+  left: 80px; /* offset from SideNav rail */
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px 14px;
-  border-radius: var(--lg-radius, 20px);
-  background: var(--lg-bg, rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--lg-border, rgba(255, 255, 255, 0.08));
-  backdrop-filter: blur(var(--lg-blur, 24px));
-  -webkit-backdrop-filter: blur(var(--lg-blur, 24px));
-  box-shadow: var(--lg-shadow, 0 4px 24px rgba(0, 0, 0, 0.12));
-  height: fit-content;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
+  gap: 14px;
+  pointer-events: none; /* allow clicks through gaps */
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   .root {
     display: none;
   }
 }
 
-.requestsBadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  font-size: 12px;
-  font-weight: 700;
-  color: #38bdf8;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.requestsBadge:hover {
-  background: rgba(56, 189, 248, 0.2);
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.header h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 750;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.icon {
-  color: #38bdf8;
-}
-
-.count {
-  font-size: 11px;
-  font-weight: 600;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 8px;
-  border-radius: 12px;
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: all 0.18s ease;
-}
-
-.item:hover {
+/* Each friend is a floating bubble with glass pill tooltip on hover */
+.bubble {
+  pointer-events: auto;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.info {
-  min-width: 0;
-  flex: 1;
-}
-
-.name {
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.status {
-  font-size: 11px;
-  color: #34d399;
-  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.22s ease-out, box-shadow 0.22s ease-out;
+  animation: floatBubble 4s ease-in-out infinite;
 }
 
-.status::before {
-  content: '';
-  width: 5px;
-  height: 5px;
+.bubble:nth-child(2) { animation-delay: -1.2s; }
+.bubble:nth-child(3) { animation-delay: -2.5s; }
+.bubble:nth-child(4) { animation-delay: -0.7s; }
+.bubble:nth-child(5) { animation-delay: -3.1s; }
+
+.bubble:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes floatBubble {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    animation: none;
+  }
+  .bubble:hover {
+    transform: scale(1.08);
+  }
+}
+
+/* Tooltip pill that appears on hover */
+.tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  opacity: 0;
+  pointer-events: none;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(15, 15, 15, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+  z-index: 50;
+}
+
+.bubble:hover .tooltip {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.onlineDot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #34d399;
-  box-shadow: 0 0 6px #34d399;
-}
-
-.statusOffline {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.separator {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  margin: 4px 0;
-}
-
-.offlineLabel {
-  font-size: 11px;
-  font-weight: 650;
-  color: var(--text-tertiary);
-  padding: 0 8px;
-  letter-spacing: 0.02em;
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
 }

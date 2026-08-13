@@ -5,6 +5,7 @@ import {
   Heart,
   Link2,
   MessageCircle,
+  Plus,
   Repeat2,
   Sparkles,
 } from 'lucide-react';
@@ -396,7 +397,30 @@ export function WallFeed() {
         </div>
       </header>
 
-      <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
+      <div id="wall-composer-anchor">
+        <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
+      </div>
+
+      {/* Floating Create Post Button */}
+      <button
+        type="button"
+        className={styles.floatingCreateBtn}
+        onClick={() => {
+          const anchor = document.getElementById('wall-composer-anchor');
+          if (anchor) {
+            anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Trigger expansion of collapsed composer
+            requestAnimationFrame(() => {
+              const collapsedBtn = anchor.querySelector('button[class*="collapsed"]') as HTMLButtonElement | null;
+              if (collapsedBtn) collapsedBtn.click();
+            });
+          }
+        }}
+        aria-label="Создать пост"
+      >
+        <Plus size={18} strokeWidth={2.5} />
+        <span>Пост</span>
+      </button>
 
       {/* Main Viewport Container */}
       <div

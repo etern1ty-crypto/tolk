@@ -1,58 +1,36 @@
-import { Users, UserPlus } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { Avatar } from '../../shared/ui/Avatar';
-import { iconProps } from '../../shared/ui/icons';
-import { formatLastSeen } from '../profile/PeerProfile';
 import styles from './OnlineFriendsWidget.module.css';
 
+/**
+ * Floating avatar-bubbles positioned OUTSIDE the main content area (left gutter).
+ * Shows only online friends as glass bubbles with tooltip on hover.
+ */
 export function OnlineFriendsWidget() {
   const friends = useAppStore((s) => s.friends);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
-  const friendRequestsIn = useAppStore((s) => s.friendRequestsIn);
 
   const onlineFriends = useMemo(
     () =>
       [...friends]
         .filter((f) => f.online)
-        .sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0)),
-    [friends],
-  );
-
-  const offlineFriends = useMemo(
-    () =>
-      [...friends]
-        .filter((f) => !f.online)
         .sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0))
-        .slice(0, 8),
+        .slice(0, 6),
     [friends],
   );
 
-  if (friends.length === 0 && friendRequestsIn.length === 0) return null;
+  if (onlineFriends.length === 0) return null;
 
   return (
     <aside className={styles.root} aria-label="Друзья в сети">
-      {friendRequestsIn.length > 0 && (
-        <div className={styles.requestsBadge}>
-          <UserPlus size={14} strokeWidth={iconProps.strokeWidth} />
-          <span>{friendRequestsIn.length} заявок</span>
-        </div>
-      )}
-
-      <header className={styles.header}>
-        <Users size={15} strokeWidth={iconProps.strokeWidth} className={styles.icon} />
-        <h2>Друзья</h2>
-        <span className={styles.count}>{onlineFriends.length} в сети</span>
-      </header>
-
-      {onlineFriends.length > 0 && (
-        <div className={styles.list}>
-          {onlineFriends.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={styles.item}
-              onClick={() => openUserProfile(f.id)}
+      {onlineFriends.map((f) => (
+        <button
+          key={f.id}
+          type="button"
+          className={styles.bubble}
+          onClick={() => openUserProfile(f.id)}
+          aria-label={`${f.displayName}, в сети`}
             >
               <Avatar
                 name={f.displayName}

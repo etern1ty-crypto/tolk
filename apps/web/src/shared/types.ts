@@ -1,6 +1,6 @@
 export type Id = string;
 
-export type MainTab = 'wall' | 'chats' | 'search' | 'profile' | 'admin';
+export type MainTab = 'wall' | 'chats' | 'search' | 'profile' | 'admin' | 'demo';
 export type MessageStatus = 'pending' | 'sent' | 'failed' | 'read';
 export type MessageKind = 'text' | 'media' | 'voice' | 'circle' | 'file';
 export type AuthStep = 'phone' | 'otp' | 'profile' | 'done';
