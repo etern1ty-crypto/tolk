@@ -18,27 +18,19 @@ function rel(ts: number) {
 export function ActivitySidePanel() {
   const users = useAppStore((s) => s.users);
   const posts = useAppStore((s) => s.posts);
-  const chats = useAppStore((s) => s.chats);
   const me = useAppStore((s) => s.me);
   const notifications = useAppStore((s) => s.notifications);
   const openUserProfile = useAppStore((s) => s.openUserProfile);
+  const friends = useAppStore((s) => s.friends);
 
-  // All peers user has EVER messaged with, sorted: Online first, then by lastSeenAt
-  const chatPeers = useMemo(() => {
-    const peerIdsSet = new Set<string>();
-    for (const c of chats) {
-      if (c.peerId) peerIdsSet.add(c.peerId);
-    }
-    const list = Array.from(peerIdsSet)
-      .map((id) => users[id])
-      .filter((u): u is NonNullable<typeof u> => Boolean(u) && u.id !== me.id);
-
-    return list.sort((a, b) => {
+  // Real friends list, sorted: Online first, then by lastSeenAt
+  const sortedFriends = useMemo(() => {
+    return [...friends].sort((a, b) => {
       if (a.online && !b.online) return -1;
       if (!a.online && b.online) return 1;
       return (b.lastSeenAt || 0) - (a.lastSeenAt || 0);
     });
-  }, [chats, users, me.id]);
+  }, [friends]);
 
   // Dynamic real social activity feed
   const activityList = useMemo(() => {
@@ -156,32 +148,32 @@ export function ActivitySidePanel() {
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           <Users size={15} strokeWidth={iconProps.strokeWidth} className={styles.sectionIcon} />
-          <span>Собеседники ({chatPeers.length})</span>
+          <span>Друзья ({sortedFriends.length})</span>
         </div>
         <div className={styles.friendList}>
-          {chatPeers.length > 0 ? (
-            chatPeers.map((u) => (
+          {sortedFriends.length > 0 ? (
+            sortedFriends.map((f) => (
               <button
-                key={u.id}
+                key={f.id}
                 type="button"
                 className={styles.friendItem}
-                onClick={() => openUserProfile(u.id)}
+                onClick={() => openUserProfile(f.id)}
               >
                 <Avatar
-                  name={u.displayName}
-                  id={u.id}
-                  avatarUrl={u.avatarRef}
+                  name={f.displayName}
+                  id={f.id}
+                  avatarUrl={f.avatarRef}
                   size={32}
-                  online={u.online}
+                  online={f.online}
                 />
                 <div className={styles.friendInfo}>
-                  <div className={styles.friendName}>{u.displayName}</div>
+                  <div className={styles.friendName}>{f.displayName}</div>
                   <div className={styles.friendStatus}>
-                    {u.online ? (
+                    {f.online ? (
                       <span className={styles.onlineBadge}>в сети</span>
                     ) : (
                       <span className={styles.offlineText}>
-                        {u.lastSeenAt ? formatLastSeen(u.lastSeenAt) : 'был(а) недавно'}
+                        {f.lastSeenAt ? formatLastSeen(f.lastSeenAt) : 'был(а) недавно'}
                       </span>
                     )}
                   </div>
@@ -189,7 +181,7 @@ export function ActivitySidePanel() {
               </button>
             ))
           ) : (
-            <div className={styles.empty}>Все друзья были недавно</div>
+            <div className={styles.empty}>Пока нет друзей</div>
           )}
         </div>
       </div>

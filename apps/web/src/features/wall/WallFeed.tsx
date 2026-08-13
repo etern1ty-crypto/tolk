@@ -12,7 +12,7 @@ import { useRef, useState, useMemo } from 'react';
 import type { WheelEvent, TouchEvent } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
-import { BANNER_PATTERNS, MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
+import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { Avatar } from '../../shared/ui/Avatar';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
@@ -210,32 +210,8 @@ export function WallFeed() {
       }
     }
 
-    const hasPhoto = post.media?.kind === 'image' && !!post.media?.url;
-    const pat = post.media?.kind === 'pattern'
-      ? (post.media.patternId === 'custom' && post.media.items
-          ? generateCustomPattern(post.media.items.join(' '), post.id)
-          : (MEDIA_PATTERNS.find((p) => p.id === post.media?.patternId) ||
-             BANNER_PATTERNS.find((p) => p.id === post.media?.patternId) ||
-             patternById(MEDIA_PATTERNS, post.media?.patternId, MEDIA_PATTERNS[0]!)))
-      : null;
-
     return (
       <article key={post.id} className={cardClass} style={cardStyle}>
-        {hasPhoto ? (
-          <div
-            className={styles.ambientLedBackdrop}
-            style={{ backgroundImage: `url(${post.media!.url})` }}
-            aria-hidden
-          />
-        ) : pat ? (
-          <div
-            className={styles.ambientLedBackdrop}
-            style={{ background: pat.base }}
-            aria-hidden
-          />
-        ) : (
-          <div className={styles.ambientTextGlow} aria-hidden />
-        )}
         <header className={styles.cardHead}>
           <button
             type="button"

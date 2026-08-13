@@ -1,4 +1,4 @@
-import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell } from 'lucide-react';
+import { ImagePlus, Link2, MoreHorizontal, Settings, X, Paperclip, Bell, Users, UserCheck } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { BANNER_PATTERNS, useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
@@ -58,6 +58,14 @@ export function ProfileTab() {
   const seenNotifs = notifications.filter((n) => seenNotificationKeys.includes(notifKey(n)));
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [isComposeExpanded, setIsComposeExpanded] = useState(false);
+  const [profileSubTab, setProfileSubTab] = useState<'posts' | 'friends'>('posts');
+
+  const friends = useAppStore((s) => s.friends);
+  const friendRequestsIn = useAppStore((s) => s.friendRequestsIn);
+  const openUserProfile = useAppStore((s) => s.openUserProfile);
+  const acceptFriendRequest = useAppStore((s) => s.acceptFriendRequest);
+  const declineFriendRequest = useAppStore((s) => s.declineFriendRequest);
+  const removeFriend = useAppStore((s) => s.removeFriend);
 
   useEffect(() => {
     if (!token) return;
@@ -869,10 +877,120 @@ export function ProfileTab() {
           )}
         </div>
 
-        <h2>Посты</h2>
-        {myPosts.length === 0 ? (
+        {/* Sub-tabs: Posts / Friends */}
+        <div className={styles.subTabs}>
+          <button
+            type="button"
+            className={`${styles.subTab} ${profileSubTab === 'posts' ? styles.subTabActive : ''}`}
+            onClick={() => setProfileSubTab('posts')}
+          >
+            Посты
+            <span className={styles.subTabCount}>{myPosts.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`${styles.subTab} ${profileSubTab === 'friends' ? styles.subTabActive : ''}`}
+            onClick={() => setProfileSubTab('friends')}
+          >
+            Друзья
+            <span className={styles.subTabCount}>{friends.length}</span>
+            {friendRequestsIn.length > 0 && (
+              <span className={styles.subTabBadge}>{friendRequestsIn.length}</span>
+            )}
+          </button>
+        </div>
+
+        {profileSubTab === 'friends' && (
+          <div className={styles.friendsSection}>
+            {friendRequestsIn.length > 0 && (
+              <div className={styles.friendRequestsBlock}>
+                <h3 className={styles.friendSectionTitle}>
+                  Заявки в друзья ({friendRequestsIn.length})
+                </h3>
+                <div className={styles.friendGrid}>
+                  {friendRequestsIn.map((f) => (
+                    <div key={f.id} className={styles.friendCard}>
+                      <Avatar name={f.displayName} id={f.id} avatarUrl={f.avatarRef} size={48} />
+                      <div className={styles.friendCardInfo}>
+                        <div
+                          className={styles.friendCardName}
+                          onClick={() => openUserProfile(f.id)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {f.displayName}
+                        </div>
+                        {f.username && <div className={styles.friendCardUser}>@{f.username}</div>}
+                      </div>
+                      <div className={styles.friendCardActions}>
+                        <button
+                          type="button"
+                          className={styles.friendAcceptBtn}
+                          onClick={() => acceptFriendRequest(f.id)}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.friendDeclineBtn}
+                          onClick={() => declineFriendRequest(f.id)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <h3 className={styles.friendSectionTitle}>
+              Мои друзья ({friends.length})
+            </h3>
+            {friends.length === 0 ? (
+              <p className={styles.empty}>У вас пока нет друзей</p>
+            ) : (
+              <div className={styles.friendGrid}>
+                {friends.map((f) => (
+                  <div key={f.id} className={styles.friendCard}>
+                    <Avatar
+                      name={f.displayName}
+                      id={f.id}
+                      avatarUrl={f.avatarRef}
+                      size={48}
+                      online={f.online}
+                    />
+                    <div className={styles.friendCardInfo}>
+                      <div
+                        className={styles.friendCardName}
+                        onClick={() => openUserProfile(f.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {f.displayName}
+                      </div>
+                      {f.username && <div className={styles.friendCardUser}>@{f.username}</div>}
+                      <div className={styles.friendCardStatus}>
+                        {f.online ? 'в сети' : f.lastSeenAt ? rel(f.lastSeenAt) : 'был(а) недавно'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.friendRemoveBtn}
+                      onClick={() => removeFriend(f.id)}
+                      title="Удалить из друзей"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {profileSubTab === 'posts' && myPosts.length === 0 && (
           <p className={styles.empty}>Пока пусто</p>
-        ) : (
+        )}
+        {profileSubTab === 'posts' && myPosts.length > 0 && (
           <div className={styles.postsGrid}>
           {myPosts.map((p) => {
             const mediaPat =

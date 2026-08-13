@@ -33,6 +33,17 @@ export interface User {
   isAdmin?: boolean;
 }
 
+export interface Friend {
+  id: Id;
+  displayName: string;
+  username?: string;
+  avatarRef?: string;
+  online?: boolean;
+  lastSeenAt?: number;
+  /** When friendship was established (ms) */
+  friendsSince?: number;
+}
+
 export interface Chat {
   id: Id;
   type: 'dm' | 'group' | 'channel';

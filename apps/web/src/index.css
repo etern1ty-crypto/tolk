@@ -18,6 +18,22 @@
   --glass: rgba(10, 10, 10, 0.88);
   --glass-strong: rgba(0, 0, 0, 0.94);
 
+  /* Liquid Glass — new design system */
+  --lg-bg: rgba(255, 255, 255, 0.06);
+  --lg-bg-hover: rgba(255, 255, 255, 0.1);
+  --lg-border: rgba(255, 255, 255, 0.12);
+  --lg-border-hover: rgba(255, 255, 255, 0.2);
+  --lg-blur: 24px;
+  --lg-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --lg-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  --lg-radius: 24px;
+  --lg-radius-sm: 16px;
+  --lg-radius-pill: 9999px;
+  /* Ambient blob colors (dark) */
+  --blob-1: rgba(99, 102, 241, 0.15);
+  --blob-2: rgba(168, 85, 247, 0.12);
+  --blob-3: rgba(59, 130, 246, 0.1);
+
   /* Accent = white CTA */
   --accent: #f5f5f5;
   --accent-dim: rgba(255, 255, 255, 0.1);
@@ -136,6 +152,22 @@ html[data-theme='light'] {
 
   --glass: rgba(255, 255, 255, 0.9);
   --glass-strong: rgba(255, 255, 255, 0.96);
+
+  /* Liquid Glass — light theme */
+  --lg-bg: rgba(255, 255, 255, 0.6);
+  --lg-bg-hover: rgba(255, 255, 255, 0.75);
+  --lg-border: rgba(0, 0, 0, 0.08);
+  --lg-border-hover: rgba(0, 0, 0, 0.14);
+  --lg-blur: 24px;
+  --lg-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --lg-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --lg-radius: 24px;
+  --lg-radius-sm: 16px;
+  --lg-radius-pill: 9999px;
+  /* Ambient blob colors (light) */
+  --blob-1: rgba(99, 102, 241, 0.12);
+  --blob-2: rgba(168, 85, 247, 0.1);
+  --blob-3: rgba(59, 130, 246, 0.08);
 
   --accent: #0a0a0a;
   --accent-dim: rgba(0, 0, 0, 0.08);
@@ -302,4 +334,104 @@ a {
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ── Liquid Glass — ambient blobs ─────────────────────────────── */
+.ambientBlobs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambientBlob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.7;
+  animation: blobFloat 20s ease-in-out infinite alternate;
+}
+
+.ambientBlob:nth-child(1) {
+  width: 400px;
+  height: 400px;
+  background: var(--blob-1);
+  top: -10%;
+  left: -5%;
+  animation-duration: 22s;
+}
+
+.ambientBlob:nth-child(2) {
+  width: 350px;
+  height: 350px;
+  background: var(--blob-2);
+  bottom: -8%;
+  right: -5%;
+  animation-duration: 18s;
+  animation-delay: -5s;
+}
+
+.ambientBlob:nth-child(3) {
+  width: 300px;
+  height: 300px;
+  background: var(--blob-3);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-duration: 25s;
+  animation-delay: -10s;
+}
+
+@keyframes blobFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -20px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.95); }
+  100% { transform: translate(10px, -10px) scale(1.02); }
+}
+
+/* ── Liquid Glass — utility classes ───────────────────────────── */
+.lg-panel {
+  background: var(--lg-bg);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
+  border: 1px solid var(--lg-border);
+  border-radius: var(--lg-radius);
+  box-shadow: var(--lg-shadow);
+  transition: background var(--dur) var(--ease-out),
+              border-color var(--dur) var(--ease-out),
+              box-shadow var(--dur) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lg-panel:hover {
+    background: var(--lg-bg-hover);
+    border-color: var(--lg-border-hover);
+    box-shadow: var(--lg-shadow-hover);
+  }
+}
+
+.lg-pill {
+  background: var(--lg-bg);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
+  border: 1px solid var(--lg-border);
+  border-radius: var(--lg-radius-pill);
+  box-shadow: var(--lg-shadow);
+  transition: background var(--dur) var(--ease-out),
+              border-color var(--dur) var(--ease-out),
+              box-shadow var(--dur) var(--ease-out),
+              transform var(--dur-fast) var(--ease-spring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lg-pill:hover {
+    background: var(--lg-bg-hover);
+    border-color: var(--lg-border-hover);
+    box-shadow: var(--lg-shadow-hover);
+  }
+}
+
+.lg-pill:active {
+  transform: scale(0.96);
 }

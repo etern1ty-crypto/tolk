@@ -125,7 +125,12 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      {/* No full-viewport PatternBg when authed — pure black shell, zero lag */}
+      {/* Liquid Glass ambient blobs */}
+      <div className="ambientBlobs" aria-hidden="true">
+        <div className="ambientBlob" />
+        <div className="ambientBlob" />
+        <div className="ambientBlob" />
+      </div>
       <OfflineBanner />
       <div className={styles.main}>
         <div className={styles.shell}>

@@ -761,6 +761,17 @@ interface AppState {
   loadBlocks: () => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
+
+  /** Friends system */
+  friends: import('../shared/types').Friend[];
+  friendRequestsIn: import('../shared/types').Friend[];
+  friendRequestsOut: import('../shared/types').Friend[];
+  loadFriends: () => Promise<void>;
+  addFriend: (userId: string) => Promise<void>;
+  removeFriend: (userId: string) => Promise<void>;
+  acceptFriendRequest: (userId: string) => Promise<void>;
+  declineFriendRequest: (userId: string) => Promise<void>;
+  isFriend: (userId: string) => boolean;
   verifiedUsers: string[];
   grantVerification: (userId: string) => Promise<void>;
   revokeVerification: (userId: string) => Promise<void>;
@@ -867,6 +878,9 @@ export const useAppStore = create<AppState>()(
       shelfItems: [],
       echoes: [],
       blockedUsers: [],
+      friends: [],
+      friendRequestsIn: [],
+      friendRequestsOut: [],
       editingMessageId: null,
       navPins: [],
 
@@ -1960,6 +1974,7 @@ export const useAppStore = create<AppState>()(
         get().refreshNotifications(),
         get().syncEchoes(),
         get().loadBlocks(),
+        get().loadFriends(),
       ]);
 
       const chatsList = chatsRes.status === 'fulfilled' && Array.isArray(chatsRes.value)
@@ -2568,6 +2583,112 @@ export const useAppStore = create<AppState>()(
       get().showToast('Не удалось разблокировать');
     }
   },
+
+  // ── Friends system ──────────────────────────────────────────────
+  friends: [],
+  friendRequestsIn: [],
+  friendRequestsOut: [],
+
+  loadFriends: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const data = await fetchApi('/friends', {}, token);
+      if (data && typeof data === 'object') {
+        const mapFriend = (f: any): import('../shared/types').Friend => ({
+          id: f.userId || f.id,
+          displayName: f.displayName || f.username || 'Без имени',
+          username: f.username,
+          avatarRef: f.avatarRef,
+          online: f.online,
+          lastSeenAt: f.lastSeenAt,
+          friendsSince: f.friendsSince || f.created_at,
+        });
+        set({
+          friends: Array.isArray(data.friends) ? data.friends.map(mapFriend) : [],
+          friendRequestsIn: Array.isArray(data.requestsIn) ? data.requestsIn.map(mapFriend) : [],
+          friendRequestsOut: Array.isArray(data.requestsOut) ? data.requestsOut.map(mapFriend) : [],
+        });
+      } else if (Array.isArray(data)) {
+        // Fallback: server returns flat array
+        set({
+          friends: data.map((f: any) => ({
+            id: f.userId || f.id,
+            displayName: f.displayName || f.username || 'Без имени',
+            username: f.username,
+            avatarRef: f.avatarRef,
+            online: f.online,
+            lastSeenAt: f.lastSeenAt,
+            friendsSince: f.friendsSince || f.created_at,
+          })),
+        });
+      }
+    } catch (e) {
+      console.error('Не удалось загрузить друзей:', e);
+    }
+  },
+
+  addFriend: async (userId) => {
+    const known = get().users[userId];
+    const optimistic: import('../shared/types').Friend = {
+      id: userId,
+      displayName: known?.displayName || 'Без имени',
+      username: known?.username,
+      avatarRef: known?.avatarRef,
+      online: known?.online,
+      lastSeenAt: known?.lastSeenAt,
+    };
+    // Optimistic: add to out requests
+    set((s) => ({
+      friendRequestsOut: [...s.friendRequestsOut.filter((r) => r.id !== userId), optimistic],
+    }));
+    try {
+      await fetchApi('/friends', { method: 'POST', body: JSON.stringify({ user_id: userId }) }, get().token);
+      get().showToast('Запрос в друзья отправлен');
+      void get().loadFriends();
+    } catch (e) {
+      // Rollback
+      set((s) => ({ friendRequestsOut: s.friendRequestsOut.filter((r) => r.id !== userId) }));
+      get().showToast('Не удалось отправить запрос');
+    }
+  },
+
+  removeFriend: async (userId) => {
+    const before = get().friends;
+    set({ friends: before.filter((f) => f.id !== userId) });
+    try {
+      await fetchApi(`/friends/${userId}`, { method: 'DELETE' }, get().token);
+      get().showToast('Удалён из друзей');
+    } catch (e) {
+      set({ friends: before });
+      get().showToast('Не удалось удалить друга');
+    }
+  },
+
+  acceptFriendRequest: async (userId) => {
+    set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
+    try {
+      await fetchApi(`/friends/${userId}/accept`, { method: 'POST' }, get().token);
+      get().showToast('Заявка принята');
+      void get().loadFriends();
+    } catch (e) {
+      get().showToast('Не удалось принять заявку');
+      void get().loadFriends();
+    }
+  },
+
+  declineFriendRequest: async (userId) => {
+    set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
+    try {
+      await fetchApi(`/friends/${userId}/decline`, { method: 'POST' }, get().token);
+      get().showToast('Заявка отклонена');
+    } catch (e) {
+      get().showToast('Не удалось отклонить заявку');
+      void get().loadFriends();
+    }
+  },
+
+  isFriend: (userId) => get().friends.some((f) => f.id === userId),
 
   verifiedUsers: [],
 

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ChatList } from '../chat-list/ChatList';
 import { ChatPanel } from '../chat/ChatPanel';
 import { WallFeed } from '../wall/WallFeed';
+import { OnlineFriendsWidget } from '../wall/OnlineFriendsWidget';
 import { ProfileTab } from '../profile/ProfileTab';
 import { SearchTab } from '../search/SearchTab';
 import { BottomNav } from './BottomNav';
@@ -68,6 +69,7 @@ export function MainShell() {
       <div className={styles.workspace}>
         {mainTab === 'wall' && (
           <div className={styles.pageCol} style={{ flexDirection: 'row' }}>
+            {isDesktop && <OnlineFriendsWidget />}
             <div className={styles.paper}>
               <WallFeed />
             </div>

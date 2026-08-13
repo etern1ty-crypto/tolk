@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--bg-surface);
+  background: transparent;
   position: relative;
   overflow: hidden;
 }
@@ -15,8 +15,10 @@
   width: 100%;
   padding: 16px 24px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  border-bottom: 1px solid var(--lg-border);
+  background: var(--lg-bg);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
   position: sticky;
   top: 0;
   z-index: 10;
@@ -161,9 +163,12 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--lg-bg);
+  border: 1px solid var(--lg-border);
+  border-radius: var(--lg-radius);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
+  box-shadow: var(--lg-shadow);
   padding: 22px;
   will-change: transform, opacity;
   transform-style: preserve-3d;
@@ -174,37 +179,7 @@
   border-color: var(--border-strong);
 }
 
-/* Ambient LED Dynamic Backlight */
-.ambientLedBackdrop {
-  position: absolute;
-  inset: -28px;
-  border-radius: 40px;
-  background-size: cover;
-  background-position: center;
-  filter: blur(52px) brightness(1.12) saturate(1.4);
-  opacity: 0.48;
-  z-index: -1;
-  pointer-events: none;
-  transition: opacity 0.4s ease, filter 0.4s ease;
-}
 
-/* Active Cyan-Blue & Ice-White Ambient Glow for Text Posts */
-.ambientTextGlow {
-  position: absolute;
-  inset: -24px;
-  border-radius: 36px;
-  background: radial-gradient(
-    circle at center,
-    rgba(56, 189, 248, 0.38) 0%,
-    rgba(255, 255, 255, 0.25) 32%,
-    rgba(147, 197, 253, 0.15) 65%,
-    rgba(0, 0, 0, 0) 90%
-  );
-  filter: blur(44px);
-  opacity: 0.65;
-  z-index: -1;
-  pointer-events: none;
-}
 
 /* ── Mobile Single Post View (1 Post per Screen) ─────────────────────────── */
 .mobileSingleViewport {
@@ -242,9 +217,12 @@
 .mobileSingleViewport .card {
   position: relative;
   width: 100%;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--lg-bg);
+  border: 1px solid var(--lg-border);
+  border-radius: var(--lg-radius);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
+  box-shadow: var(--lg-shadow);
   padding: 18px;
 }
 
@@ -379,23 +357,26 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: transparent;
-  border: none;
+  background: var(--lg-bg);
+  border: 1px solid var(--lg-border);
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  border-radius: var(--lg-radius);
+  backdrop-filter: blur(var(--lg-blur));
+  -webkit-backdrop-filter: blur(var(--lg-blur));
   min-height: 44px;
-  transition: color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 @media (hover: hover) {
   .actions button:hover {
     color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 }
 

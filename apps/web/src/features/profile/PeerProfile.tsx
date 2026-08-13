@@ -1,4 +1,4 @@
-import { ArrowLeft, Link2, MessageCircle, MoreVertical, Flag, Ban } from 'lucide-react';
+import { ArrowLeft, Link2, MessageCircle, MoreVertical, Flag, Ban, UserPlus, UserCheck, UserMinus } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { copyShareLink } from '../../shared/lib/share';
@@ -48,6 +48,10 @@ export function PeerProfile() {
   const setMainTab = useAppStore((s) => s.setMainTab);
   const token = useAppStore((s) => s.token);
   const showToast = useAppStore((s) => s.showToast);
+  const friends = useAppStore((s) => s.friends);
+  const friendRequestsOut = useAppStore((s) => s.friendRequestsOut);
+  const addFriend = useAppStore((s) => s.addFriend);
+  const removeFriend = useAppStore((s) => s.removeFriend);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -212,14 +216,46 @@ export function PeerProfile() {
             </button>
           ) : (
             <>
-              <button
-                type="button"
-                className={styles.cta}
-                onClick={() => startChatWithUser(user.id)}
-              >
-                <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
-                Написать
-              </button>
+              <div className={styles.actionRow}>
+                <button
+                  type="button"
+                  className={styles.cta}
+                  onClick={() => startChatWithUser(user.id)}
+                >
+                  <MessageCircle size={17} strokeWidth={iconProps.strokeWidth} />
+                  Написать
+                </button>
+                {friends.some((f) => f.id === user.id) ? (
+                  <button
+                    type="button"
+                    className={styles.friendCta}
+                    onClick={() => removeFriend(user.id)}
+                    title="Удалить из друзей"
+                  >
+                    <UserCheck size={17} strokeWidth={iconProps.strokeWidth} />
+                    В друзьях
+                  </button>
+                ) : friendRequestsOut.some((r) => r.id === user.id) ? (
+                  <button
+                    type="button"
+                    className={styles.friendCtaPending}
+                    disabled
+                  >
+                    <UserPlus size={17} strokeWidth={iconProps.strokeWidth} />
+                    Запрос отправлен
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.friendCta}
+                    onClick={() => addFriend(user.id)}
+                    title="Добавить в друзья"
+                  >
+                    <UserPlus size={17} strokeWidth={iconProps.strokeWidth} />
+                    В друзья
+                  </button>
+                )}
+              </div>
               
               {reporting && (
                 <form
