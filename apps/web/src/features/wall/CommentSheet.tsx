@@ -121,7 +121,7 @@ export function CommentSheet() {
             placeholder={replyTo ? 'Ответ…' : 'Комментарий'}
             autoFocus
           />
-          <button type="submit" disabled={!text.trim()}>
+          <button type="submit" disabled={!text.trim()} aria-label="Отправить комментарий">
             →
           </button>
         </form>

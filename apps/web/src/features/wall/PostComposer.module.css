@@ -52,8 +52,8 @@
   background: transparent;
   border: none;
   padding: 6px 40px 8px 0;
-  font-size: 17px;
-  line-height: 1.4;
+  font-size: var(--font-body);
+  line-height: 1.5;
   color: var(--text-primary);
 }
 
@@ -160,7 +160,7 @@
   justify-content: center;
   cursor: ns-resize;
   touch-action: none;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+  background: var(--bg-surface);
   z-index: 2;
 }
 

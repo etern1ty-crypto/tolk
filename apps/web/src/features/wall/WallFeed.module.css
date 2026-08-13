@@ -16,8 +16,7 @@
   padding: 16px 24px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--glass);
-  backdrop-filter: blur(16px);
+  background: var(--bg-surface);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -34,13 +33,12 @@
 
 .header h1 {
   margin: 0;
-  font-family: var(--font-heading);
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #ffffff 0%, #a3a3a3 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 4vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
 
 .desktopControls {
@@ -163,20 +161,17 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  background: var(--bg-surface, rgba(20, 24, 35, 0.94));
-  border: 1px solid #202f3673;
-  border-radius: 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 22px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(16px);
   will-change: transform, opacity;
   transform-style: preserve-3d;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease-out, border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease-out, border-color 0.25s ease;
 }
 
 .cardActive {
-  border-color: rgba(56, 189, 248, 0.6) !important;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 35px rgba(56, 189, 248, 0.25) !important;
+  border-color: var(--border-strong);
 }
 
 /* Ambient LED Dynamic Backlight */
@@ -248,10 +243,9 @@
   position: relative;
   width: 100%;
   background: var(--bg-surface);
-  border: 1px solid #202f3673;
-  border-radius: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 18px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
 /* 1-Time Semi-transparent Animated Swipe Hint on first Mobile post */
@@ -265,16 +259,13 @@
   align-items: center;
   gap: 8px;
   padding: 9px 18px;
-  border-radius: 999px;
-  background: rgba(18, 22, 32, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.92);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   animation: hintPulseAnim 2.2s infinite ease-in-out;
   white-space: nowrap;
 }
@@ -337,10 +328,9 @@
 .media {
   width: 100%;
   max-height: 240px;
-  border-radius: 16px;
+  border-radius: var(--radius-media);
   overflow: hidden;
   margin-bottom: 12px;
-  border: 1px solid var(--border-subtle);
   background: rgba(0, 0, 0, 0.2);
   display: block;
   cursor: pointer;
@@ -355,11 +345,13 @@
 }
 
 .text {
-  font-size: 13.5px;
-  line-height: 1.45;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
   color: var(--text-primary);
   margin-bottom: 14px;
   word-break: break-word;
+  max-width: 65ch;
   max-height: 180px;
   overflow-y: auto;
   padding-right: 4px;
@@ -380,7 +372,6 @@
   align-items: center;
   justify-content: space-around;
   padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
   width: 100%;
 }
 
@@ -391,17 +382,21 @@
   background: transparent;
   border: none;
   color: var(--text-secondary);
+  font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  min-height: 44px;
   transition: color 0.15s ease, background 0.15s ease;
 }
 
-.actions button:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.06);
+@media (hover: hover) {
+  .actions button:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .liked {
@@ -473,10 +468,9 @@
 }
 
 .mobileBackArrowBtn {
-  background: rgba(18, 22, 32, 0.88);
-  backdrop-filter: blur(12px);
+  background: var(--bg-surface);
   color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-subtle);
   width: 36px;
   height: 36px;
   box-shadow: none;
