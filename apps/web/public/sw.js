@@ -1,5 +1,5 @@
 /* Tolk SW — network-first for HTML so deploys are visible; cache static assets only */
-const CACHE = 'tolk-static-v5';
+const CACHE = 'tolk-static-v6';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());

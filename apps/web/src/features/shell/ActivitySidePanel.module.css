@@ -6,8 +6,8 @@
   background: var(--bg-surface);
   display: flex;
   flex-direction: column;
-  padding: 20px 16px;
-  gap: 22px;
+  padding: 0 16px 24px;
+  gap: 20px;
   overflow-y: auto;
 }
 
@@ -20,17 +20,19 @@
 .header {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
-  padding-bottom: 14px;
+  min-height: 64px;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .header h2 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 

@@ -188,8 +188,7 @@ export function PostCard({
       </header>
       {pattern && (
         <div
-          className={styles.media}
-          style={mediaStyle}
+          className={styles.patternMedia}
           role="img"
           aria-label={post.media?.alt ?? 'Обложка поста'}
         >
@@ -200,7 +199,7 @@ export function PostCard({
         <button
           type="button"
           data-post-media
-          className={styles.media}
+          className={styles.imageMedia}
           style={mediaStyle}
           aria-label="Открыть фото"
           onClick={(e) => {
