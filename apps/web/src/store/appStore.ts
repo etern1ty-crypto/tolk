@@ -2121,11 +2121,12 @@ export const useAppStore = create<AppState>()(
             users: usersMap,
             chats: chatsList,
             posts: combinedPosts,
+            booting: false,
           });
 
-          // Второстепенное уже летит параллельно — дожидаемся, чтобы отказ не
-          // всплыл необработанным, но экран к этому моменту уже нарисован.
-          await sideLoads;
+          // Второстепенное (уведомления, эхо, блокировки, друзья) летит в фоне,
+          // не задерживая рендер ленты и чатов.
+          void sideLoads.catch((err) => console.warn('Side loads background warning:', err));
 
           const activeId = get().activeChatId;
           if (activeId) {

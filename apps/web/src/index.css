@@ -4,19 +4,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700&display=swap');
 
 :root {
-  /* Surfaces */
-  --bg-deep: #000000;
-  --bg-primary: #000000;
-  --bg-surface: #0a0a0a;
-  --bg-elevated: #111111;
-  --bg-sheet: #0f0f0f;
-  --bg-hover: rgba(255, 255, 255, 0.06);
-  --bg-active: rgba(255, 255, 255, 0.09);
+  /* Surfaces — subtle deep slate/indigo depth, eliminates flat black/grey void */
+  --bg-deep: #07080a;
+  --bg-primary: #07080a;
+  --bg-surface: #0e1015;
+  --bg-elevated: #151820;
+  --bg-sheet: #12151c;
+  --bg-hover: rgba(255, 255, 255, 0.07);
+  --bg-active: rgba(255, 255, 255, 0.12);
   --bg-input: rgba(255, 255, 255, 0.06);
 
-  /* Glass — headers / sheets only */
-  --glass: rgba(10, 10, 10, 0.88);
-  --glass-strong: rgba(0, 0, 0, 0.94);
+  /* Glass — authentic Apple iOS frosted materials (WWDC Designing Fluid Interfaces) */
+  --glass: rgba(18, 21, 28, 0.78);
+  --glass-strong: rgba(14, 16, 22, 0.84);
+  --glass-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
 
   /* Liquid Glass — new design system */
   --lg-bg: rgba(255, 255, 255, 0.06);
@@ -232,7 +234,12 @@ html {
 body {
   font-family: var(--font);
   font-size: var(--font-body);
-  background: var(--bg-primary);
+  background-color: var(--bg-deep);
+  background-image:
+    radial-gradient(1100px circle at 50% -15%, rgba(120, 119, 198, 0.08), transparent 60%),
+    radial-gradient(900px circle at 88% 105%, rgba(56, 189, 248, 0.04), transparent 50%),
+    radial-gradient(600px circle at 12% 90%, rgba(168, 85, 247, 0.03), transparent 45%);
+  background-attachment: fixed;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -260,11 +267,14 @@ button {
   border: none;
   background: none;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-button:active:not(:disabled) {
-  transform: scale(0.97);
+button:active:not(:disabled),
+[role='button']:active:not([aria-disabled='true']) {
+  transform: scale(0.96);
   opacity: 0.88;
+  transition: transform 90ms cubic-bezier(0.2, 0, 0, 1), opacity 90ms ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {

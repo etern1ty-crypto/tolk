@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Image as ImageIcon, FileText, Mic } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import styles from './AttachSheet.module.css';
 
@@ -62,8 +63,9 @@ export function AttachSheet() {
         aria-label="Вложение"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className={styles.title}>Вложение</h3>
-        
+        <div className={styles.handleBar} aria-hidden="true" />
+        <h3 className={styles.title}>Прикрепить к сообщению</h3>
+
         <input
           type="file"
           ref={imageInputRef}
@@ -79,15 +81,50 @@ export function AttachSheet() {
           onChange={handleFileSelect}
         />
 
-        <button type="button" onClick={() => imageInputRef.current?.click()}>
-          📷 Фото
-        </button>
-        <button type="button" onClick={() => fileInputRef.current?.click()}>
-          📄 Файл
-        </button>
-        <button type="button" onClick={pickVoiceMock}>
-          🎙 Голосовое
-        </button>
+        <div className={styles.optionsList}>
+          <button
+            type="button"
+            className={styles.optionRow}
+            onClick={() => imageInputRef.current?.click()}
+          >
+            <div className={`${styles.iconWrap} ${styles.iconPhoto}`}>
+              <ImageIcon size={20} />
+            </div>
+            <div className={styles.optionMeta}>
+              <span className={styles.optionName}>Фото или видео</span>
+              <span className={styles.optionDesc}>Из медиатеки устройства</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={styles.optionRow}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div className={`${styles.iconWrap} ${styles.iconFile}`}>
+              <FileText size={20} />
+            </div>
+            <div className={styles.optionMeta}>
+              <span className={styles.optionName}>Документ или файл</span>
+              <span className={styles.optionDesc}>Любой формат до 100 МБ</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={styles.optionRow}
+            onClick={pickVoiceMock}
+          >
+            <div className={`${styles.iconWrap} ${styles.iconVoice}`}>
+              <Mic size={20} />
+            </div>
+            <div className={styles.optionMeta}>
+              <span className={styles.optionName}>Голосовое сообщение</span>
+              <span className={styles.optionDesc}>Запись аудио в чат</span>
+            </div>
+          </button>
+        </div>
+
         <button
           type="button"
           className={styles.cancel}

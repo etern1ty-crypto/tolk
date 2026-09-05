@@ -68,38 +68,44 @@ export function MainShell() {
       {isDesktop && <SideNav />}
 
       <div className={styles.workspace}>
-        {mainTab === 'wall' && (
-          <div className={styles.pageCol} style={{ flexDirection: 'row' }}>
-            {isDesktop && <OnlineFriendsWidget />}
-            <div className={styles.paper}>
-              <WallFeed />
-            </div>
-            {isDesktop && <ActivitySidePanel />}
+        {/* Wall feed pane — persistently mounted for 0ms instant tab switching & preserved scroll */}
+        <div
+          className={styles.pageCol}
+          style={{ flexDirection: 'row', display: mainTab === 'wall' ? 'flex' : 'none' }}
+          aria-hidden={mainTab !== 'wall' ? 'true' : undefined}
+        >
+          {isDesktop && <OnlineFriendsWidget />}
+          <div className={styles.paper}>
+            <WallFeed />
           </div>
-        )}
+          {isDesktop && <ActivitySidePanel />}
+        </div>
 
-        {mainTab === 'chats' && (
-          <div className={styles.chatsLayout}>
-            {(isDesktop || !activeChatId) && (
-              <div className={styles.listCol}>
-                <ChatList />
-              </div>
-            )}
-            {(isDesktop || activeChatId) && (
-              <div className={styles.chatCol}>
-                <ChatPanel />
-              </div>
-            )}
-            {wallHost && (
-              <div
-                className={styles.wallCol}
-                id="tolk-wall-col"
-                data-open={showWallCol || undefined}
-                hidden={!showWallCol}
-              />
-            )}
-          </div>
-        )}
+        {/* Chats layout pane — persistently mounted */}
+        <div
+          className={styles.chatsLayout}
+          style={{ display: mainTab === 'chats' ? 'flex' : 'none' }}
+          aria-hidden={mainTab !== 'chats' ? 'true' : undefined}
+        >
+          {(isDesktop || !activeChatId) && (
+            <div className={styles.listCol}>
+              <ChatList />
+            </div>
+          )}
+          {(isDesktop || activeChatId) && (
+            <div className={styles.chatCol}>
+              <ChatPanel />
+            </div>
+          )}
+          {wallHost && (
+            <div
+              className={styles.wallCol}
+              id="tolk-wall-col"
+              data-open={showWallCol || undefined}
+              hidden={!showWallCol}
+            />
+          )}
+        </div>
 
         {mainTab === 'search' && (
           <div className={styles.pageCol}>
@@ -120,13 +126,16 @@ export function MainShell() {
           </div>
         )}
 
-        {mainTab === 'profile' && (
-          <div className={styles.pageCol}>
-            <div className={`${styles.paper} ${styles.paperProfile}`}>
-              <ProfileTab />
-            </div>
+        {/* Profile pane — persistently mounted */}
+        <div
+          className={styles.pageCol}
+          style={{ display: mainTab === 'profile' ? 'flex' : 'none' }}
+          aria-hidden={mainTab !== 'profile' ? 'true' : undefined}
+        >
+          <div className={`${styles.paper} ${styles.paperProfile}`}>
+            <ProfileTab />
           </div>
-        )}
+        </div>
 
         {mainTab === 'admin' && (
           <div className={styles.pageCol}>
