@@ -12,8 +12,16 @@ import { PostImage } from '../../shared/ui/PostImage';
 import { PatternBg } from '../../shared/ui/PatternBg';
 import styles from './PostCard.module.css';
 
-function relativeTime(ts: number) {
-  const minutes = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+function safeDateIso(val: number | string): string {
+  const n = typeof val === 'string' && /^\d+$/.test(val) ? Number(val) : val;
+  const d = new Date(n);
+  return isNaN(d.getTime()) ? '' : d.toISOString();
+}
+
+function relativeTime(ts: number | string) {
+  const n = typeof ts === 'string' ? Number(ts) : ts;
+  if (!n || isNaN(n)) return 'сейчас';
+  const minutes = Math.max(0, Math.floor((Date.now() - n) / 60000));
   if (!minutes) return 'сейчас';
   if (minutes < 60) return `${minutes} мин`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)} ч`;
@@ -172,7 +180,7 @@ export function PostCard({
               {name}
               {(author?.verified || verified) && <VerifiedBadge size="sm" />}
             </span>
-            <time dateTime={new Date(post.createdAt).toISOString()}>
+            <time dateTime={safeDateIso(post.createdAt)}>
               {relativeTime(post.createdAt)}
             </time>
           </button>

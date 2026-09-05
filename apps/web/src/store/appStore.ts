@@ -97,6 +97,34 @@ export function mergeUsersFromPosts(
   return users;
 }
 
+export function normalizePost(p: any): Post {
+  if (!p) return p;
+  const createdAt =
+    typeof p.createdAt === 'string' && /^\d+$/.test(p.createdAt)
+      ? Number(p.createdAt)
+      : typeof p.createdAt === 'number'
+        ? p.createdAt
+        : Date.now();
+
+  return {
+    ...p,
+    createdAt,
+    comments: Array.isArray(p.comments)
+      ? p.comments.map((c: any) => ({
+          ...c,
+          createdAt:
+            typeof c.createdAt === 'string' && /^\d+$/.test(c.createdAt)
+              ? Number(c.createdAt)
+              : typeof c.createdAt === 'number'
+                ? c.createdAt
+                : Date.now(),
+          likedBy: Array.isArray(c.likedBy) ? c.likedBy : [],
+        }))
+      : [],
+    likedBy: Array.isArray(p.likedBy) ? p.likedBy : [],
+  };
+}
+
 /** Ответ сервера -> ShelfItem. Сервер вкладывает само сообщение, чтобы полку
  *  можно было отрисовать без запроса на каждый закреп. */
 // Отмечает эхо прочитанным или закрытым на сервере, иначе указатель вернётся
@@ -2063,12 +2091,14 @@ export const useAppStore = create<AppState>()(
           });
 
           let combinedPosts: Post[] = [];
-          const postsList: Post[] =
+          const rawPostsList =
             feedRes.status === 'fulfilled' && Array.isArray(feedRes.value) ? feedRes.value : [];
-          const myPostsList: Post[] =
+          const rawMyPostsList =
             myPostsRes.status === 'fulfilled' && Array.isArray(myPostsRes.value)
               ? myPostsRes.value
               : [];
+          const postsList: Post[] = rawPostsList.map(normalizePost);
+          const myPostsList: Post[] = rawMyPostsList.map(normalizePost);
           if (feedRes.status === 'rejected')
             console.error('Не удалось загрузить ленту:', feedRes.reason);
           if (myPostsRes.status === 'rejected')
@@ -2124,9 +2154,10 @@ export const useAppStore = create<AppState>()(
         const request = ++feedRequest;
         set({ feedRefreshing: true, feedLoadingMore: false, feedError: null });
         try {
-          const list: Post[] = await fetchApi('/wall/feed?limit=30', {}, token);
-          if (!Array.isArray(list)) throw new Error('Invalid feed response');
+          const rawList = await fetchApi('/wall/feed?limit=30', {}, token);
+          if (!Array.isArray(rawList)) throw new Error('Invalid feed response');
           if (request !== feedRequest || token !== get().token) return;
+          const list: Post[] = rawList.map(normalizePost);
           set((s) => {
             const byId = new Map(s.posts.filter((p) => !p.onWall).map((p) => [p.id, p]));
             list.forEach((p) => byId.set(p.id, p));
@@ -2156,13 +2187,14 @@ export const useAppStore = create<AppState>()(
         set({ feedLoadingMore: true, feedError: null });
         try {
           // The cursor comes from the last feed response, never an unrelated profile post.
-          const list: Post[] = await fetchApi(
+          const rawList = await fetchApi(
             `/wall/feed?limit=30&before_id=${encodeURIComponent(feedCursor)}`,
             {},
             token,
           );
-          if (!Array.isArray(list)) throw new Error('Invalid feed response');
+          if (!Array.isArray(rawList)) throw new Error('Invalid feed response');
           if (request !== feedRequest || token !== get().token) return;
+          const list: Post[] = rawList.map(normalizePost);
           set((s) => {
             const byId = new Map(s.posts.map((p) => [p.id, p]));
             list.forEach((p) => byId.set(p.id, p));

@@ -6,6 +6,7 @@ import styles from './AuthScreen.module.css';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 const OAUTH_PROVIDER_KEY = 'tolk_oauth_provider';
+const ONBOARDING_SEEN_KEY = 'tolk_has_seen_onboarding_v2';
 
 type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong';
 
@@ -50,8 +51,21 @@ export function AuthScreen() {
   const cancelSocialProfile = useAppStore((s) => s.cancelSocialProfile);
   const socialPending = useAppStore((s) => s.socialPending);
 
-  /* ── Interactive Phone Onboarding Gate ── */
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  /* ── Interactive Phone Onboarding Gate with localStorage persistence ── */
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      return !localStorage.getItem(ONBOARDING_SEEN_KEY);
+    } catch {
+      return false;
+    }
+  });
+
+  const dismissOnboarding = () => {
+    setShowOnboarding(false);
+    try {
+      localStorage.setItem(ONBOARDING_SEEN_KEY, '1');
+    } catch {}
+  };
 
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -112,7 +126,7 @@ export function AuthScreen() {
 
   /* ── 1. Shows phone with chats, wall, profile preview tabs, hints, and "Далее / Пропустить" buttons ── */
   if (showOnboarding) {
-    return <Onboarding onComplete={() => setShowOnboarding(false)} />;
+    return <Onboarding onComplete={dismissOnboarding} />;
   }
 
   const startYandex = () => {

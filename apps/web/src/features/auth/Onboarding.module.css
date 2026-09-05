@@ -98,10 +98,51 @@
 }
 
 @media (max-width: 768px) {
+  .root {
+    padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 12px));
+    justify-content: space-between;
+    overflow-y: auto;
+  }
+
   .showcase {
     flex-direction: column;
-    gap: 32px;
-    margin-bottom: 24px;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .phone {
+    width: 100%;
+    max-width: 320px;
+    height: 380px;
+    border-radius: 28px;
+    margin: 0 auto;
+  }
+
+  .sideTitle {
+    font-size: 26px;
+    text-align: center;
+  }
+
+  .sideDesc {
+    font-size: 13px;
+    text-align: center;
+    line-height: 1.45;
+  }
+
+  .textSide {
+    text-align: center;
+    max-width: 320px;
+  }
+
+  .bottomControls {
+    gap: 10px;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .startBtn {
+    width: 100%;
+    padding: 12px 24px;
   }
 }
 
