@@ -1,4 +1,4 @@
-import { Box, MessageCircle, Newspaper, Search, ShieldCheck } from 'lucide-react';
+import { Command, MessageCircle, Newspaper, Search, ShieldCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
@@ -27,21 +27,14 @@ export function SideNav() {
     ];
     if (isAdmin) {
       list.push({ id: 'admin' as MainTab, label: 'Админка', Icon: ShieldCheck });
-      list.push({ id: 'demo' as MainTab, label: 'Демо', Icon: Box });
     }
     return list;
   }, [isAdmin]);
 
-  const unreadChats = useMemo(
-    () => chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0),
-    [chats]
-  );
+  const unreadChats = useMemo(() => chats.reduce((n, c) => n + (c.unread > 0 ? 1 : 0), 0), [chats]);
   const wallNew = useMemo(
-    () =>
-      posts.filter(
-        (p) => p.onWall && p.authorId !== me.id && p.createdAt > wallSeenAt
-      ).length,
-    [posts, wallSeenAt, me.id]
+    () => posts.filter((p) => p.onWall && p.authorId !== me.id && p.createdAt > wallSeenAt).length,
+    [posts, wallSeenAt, me.id],
   );
 
   const badge = (tab: MainTab) => {
@@ -68,12 +61,22 @@ export function SideNav() {
         </div>
       </button>
 
+      <button
+        type="button"
+        className={styles.commandButton}
+        title="Быстрый переход (Ctrl / ⌘ K)"
+        aria-label="Быстрый переход"
+        onClick={() => window.dispatchEvent(new Event('tolk:command-menu'))}
+      >
+        <Command size={20} />
+      </button>
       <nav className={styles.nav}>
         <SlidingTabs
           variant="vertical"
           tabs={tabsList.map((tab) => ({
             id: tab.id,
             label: '',
+            ariaLabel: tab.label,
             badge: badge(tab.id) > 0 ? (badge(tab.id) > 9 ? '9+' : badge(tab.id)) : undefined,
             icon: <tab.Icon size={iconProps.size.lg} strokeWidth={iconProps.strokeWidth} />,
           }))}

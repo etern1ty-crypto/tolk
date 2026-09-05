@@ -24,11 +24,13 @@ export const API_URL: string =
   (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 
 /** Адрес веб-сокета. Тем же правилом: свой origin, если не сказано иное. */
-export function socketUrl(token: string): string {
+export function socketUrl(): string {
   const base =
     import.meta.env.VITE_WS_URL ||
     `${API_URL.replace(/^http/, 'ws')}/ws`;
-  return `${base}?token=${encodeURIComponent(token)}`;
+  const url = new URL(base);
+  url.searchParams.delete('token');
+  return url.toString();
 }
 
 /** Ошибка запроса. Код ответа — на объекте, а не в тексте сообщения. */

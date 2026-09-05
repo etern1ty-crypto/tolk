@@ -1,513 +1,249 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  Forward,
-  Heart,
-  Link2,
-  MessageCircle,
-  Plus,
-  Repeat2,
-  Sparkles,
-} from 'lucide-react';
-import { useRef, useState, useMemo } from 'react';
-import type { WheelEvent, TouchEvent } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../store/appStore';
-import { copyShareLink } from '../../shared/lib/share';
-import { MEDIA_PATTERNS, patternById, generateCustomPattern } from '../../shared/patterns';
-import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
-import { Avatar } from '../../shared/ui/Avatar';
-import { MediaLightbox } from '../../shared/ui/MediaLightbox';
-import { PatternBg } from '../../shared/ui/PatternBg';
-import { iconProps } from '../../shared/ui/icons';
-import { PostComposer } from './PostComposer';
-import styles from './WallFeed.module.css';
-import { SkeletonList } from '../../shared/ui/Skeleton';
-import { PostImage } from '../../shared/ui/PostImage';
+import {
+  clamp,
+  createSpring,
+  projectMomentum,
+  releaseVelocity,
+  rubberBand,
+  type PointerSample,
+} from '../../shared/lib/motion';
+import { triggerHaptic } from '../../shared/lib/haptics';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
-
-function rel(ts: number) {
-  const m = Math.floor((Date.now() - ts) / 60000);
-  if (m < 1) return 'сейчас';
-  if (m < 60) return `${m} мин`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ч`;
-  return `${Math.floor(h / 24)} д`;
-}
+import { MediaLightbox } from '../../shared/ui/MediaLightbox';
+import { SkeletonList } from '../../shared/ui/Skeleton';
+import { PostComposer } from './PostComposer';
+import { PostCard } from './PostCard';
+import styles from './WallFeed.module.css';
 
 export function WallFeed() {
-  const isDesktop = useIsDesktop();
-  const booting = useAppStore((s) => s.booting);
-  const feedHasMore = useAppStore((s) => s.feedHasMore);
-  const loadMoreFeed = useAppStore((s) => s.loadMoreFeed);
-  
+  const desktop = useIsDesktop();
   const posts = useAppStore((s) => s.posts);
-  const users = useAppStore((s) => s.users);
-  const me = useAppStore((s) => s.me);
-  const toggleLike = useAppStore((s) => s.toggleLike);
-  const repostToProfile = useAppStore((s) => s.repostToProfile);
-  const setCommentPostId = useAppStore((s) => s.setCommentPostId);
-  const setForwardPostId = useAppStore((s) => s.setForwardPostId);
-  const openUserProfile = useAppStore((s) => s.openUserProfile);
-  const token = useAppStore((s) => s.token);
-  const showToast = useAppStore((s) => s.showToast);
-  
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-
-  // Desktop step index for centered focus card
-  const [desktopIndex, setDesktopIndex] = useState(0);
-
-  // Mobile single post view state & 1-time swipe hint
-  const [mobilePostIndex, setMobilePostIndex] = useState(0);
-  const [hasSwipedMobile, setHasSwipedMobile] = useState(false);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchDeltaX, setTouchDeltaX] = useState(0);
-  const [animatingMobile, setAnimatingMobile] = useState(false);
-
-  const wheelThrottleRef = useRef(false);
-
+  const booting = useAppStore((s) => s.booting);
+  const hasMore = useAppStore((s) => s.feedHasMore);
+  const loadingMore = useAppStore((s) => s.feedLoadingMore);
+  const refreshing = useAppStore((s) => s.feedRefreshing);
+  const error = useAppStore((s) => s.feedError);
+  const loadMore = useAppStore((s) => s.loadMoreFeed);
+  const refreshFeed = useAppStore((s) => s.refreshFeed);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [armed, setArmed] = useState(false);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const spring = useRef<ReturnType<typeof createSpring> | null>(null);
+  const pointerId = useRef<number | null>(null);
+  const refreshingRef = useRef(false);
   const feed = useMemo(
-    () =>
-      posts
-        .filter((p) => p.onWall)
-        .sort((a, b) => b.createdAt - a.createdAt),
-    [posts]
+    () => posts.filter((p) => p.onWall).sort((a, b) => b.createdAt - a.createdAt),
+    [posts],
   );
 
-  const maxIndex = Math.max(0, feed.length - 1);
-
-  // Handle desktop mouse wheel stepping with smooth centering
-  const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
-    if (!isDesktop) return;
-
-    // Resolve wheel conflict with scrollable text inside post cards
-    const target = e.target as HTMLElement | null;
-    const scrollableText = target?.closest('.' + styles.text);
-    if (scrollableText) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollableText;
-      const isScrollable = scrollHeight > clientHeight;
-      if (isScrollable) {
-        const delta = e.deltaY;
-        const atTop = scrollTop <= 0 && delta < 0;
-        const atBottom = Math.ceil(scrollTop + clientHeight) >= scrollHeight && delta > 0;
-        if (!atTop && !atBottom) {
-          // Allow native vertical text scrolling inside the post!
-          return;
-        }
+  const refresh = useCallback(
+    async (pulled = false) => {
+      if (refreshingRef.current || useAppStore.getState().feedRefreshing) return;
+      refreshingRef.current = true;
+      setArmed(false);
+      if (pulled) spring.current?.to(56);
+      try {
+        await refreshFeed();
+        if (!useAppStore.getState().feedError) triggerHaptic('success');
+      } finally {
+        refreshingRef.current = false;
+        spring.current?.to(0);
       }
-    }
+    },
+    [refreshFeed],
+  );
 
-    e.preventDefault();
-    const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-    if (Math.abs(delta) < 10) return;
-    if (wheelThrottleRef.current) return;
-
-    wheelThrottleRef.current = true;
-    setTimeout(() => {
-      wheelThrottleRef.current = false;
-    }, 280);
-
-    if (delta > 0 && desktopIndex < maxIndex) {
-      setDesktopIndex((idx) => {
-        const next = Math.min(maxIndex, idx + 1);
-        if (next >= maxIndex - 1 && feedHasMore) {
-          void loadMoreFeed();
-        }
-        return next;
-      });
-    } else if (delta < 0 && desktopIndex > 0) {
-      setDesktopIndex((idx) => Math.max(0, idx - 1));
-    }
-  };
-
-  const handlePrevDesktop = () => {
-    setDesktopIndex((idx) => Math.max(0, idx - 1));
-  };
-
-  const handleNextDesktop = () => {
-    setDesktopIndex((idx) => {
-      const next = Math.min(maxIndex, idx + 1);
-      if (next >= maxIndex - 1 && feedHasMore) {
-        void loadMoreFeed();
+  useEffect(() => {
+    const controller = createSpring(0, (y) => {
+      if (contentRef.current) contentRef.current.style.transform = `translateY(${y}px)`;
+      if (indicatorRef.current) {
+        indicatorRef.current.style.opacity = String(clamp(y / 40, 0, 1));
+        indicatorRef.current.style.transform = `translateY(${Math.min(12, y * 0.2)}px)`;
       }
-      return next;
     });
-  };
+    spring.current = controller;
+    return () => {
+      controller.stop();
+      spring.current = null;
+    };
+  }, []);
 
-  // Mobile Touch Swipe Handlers (1 Post per screen)
-  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
-    if (isDesktop || e.touches.length === 0) return;
-    setTouchStartX(e.touches[0].clientX);
-    setTouchDeltaX(0);
-  };
-
-  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
-    if (isDesktop || touchStartX === null || e.touches.length === 0) return;
-    const delta = e.touches[0].clientX - touchStartX;
-    setTouchDeltaX(delta);
-  };
-
-  const handleTouchEnd = () => {
-    if (isDesktop || touchStartX === null) return;
-    if (touchDeltaX < -50 && mobilePostIndex < maxIndex) {
-      triggerNextMobilePost();
-    } else if (touchDeltaX > 50 && mobilePostIndex > 0) {
-      triggerPrevMobilePost();
-    }
-    setTouchStartX(null);
-    setTouchDeltaX(0);
-  };
-
-  const triggerNextMobilePost = () => {
-    if (mobilePostIndex >= maxIndex) {
-      if (feedHasMore) {
-        void loadMoreFeed();
+  // Direction-sensitive native touch interception: pointermove.preventDefault cannot
+  // cancel a browser pan. Only a downward pull at scrollTop=0 is intercepted.
+  // All other touch scrolling (and ALL wheel scrolling) remains browser-owned.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el || desktop) return;
+    let drag: {
+      id: number;
+      x: number;
+      y: number;
+      samples: PointerSample[];
+      captured: boolean;
+    } | null = null;
+    const start = (e: TouchEvent) => {
+      if (
+        e.touches.length !== 1 ||
+        el.scrollTop > 0 ||
+        refreshingRef.current ||
+        useAppStore.getState().feedRefreshing
+      )
+        return;
+      if ((e.target as HTMLElement).closest('input, textarea, button, a, [contenteditable=true]'))
+        return;
+      const t = e.touches[0];
+      spring.current?.stop();
+      drag = {
+        id: t.identifier,
+        x: t.clientX,
+        y: t.clientY,
+        captured: false,
+        samples: [{ position: spring.current?.value ?? 0, time: e.timeStamp }],
+      };
+    };
+    const move = (e: TouchEvent) => {
+      if (!drag) return;
+      if (e.touches.length !== 1) {
+        drag = null;
+        spring.current?.to(0);
+        return;
       }
+      const t = Array.from(e.touches).find((touch) => touch.identifier === drag?.id);
+      if (!t) return;
+      const dy = t.clientY - drag.y,
+        dx = t.clientX - drag.x;
+      if (!drag.captured && (dy < 0 || Math.abs(dx) > Math.abs(dy))) {
+        drag = null;
+        spring.current?.to(0);
+        return;
+      }
+      if (dy <= 0 && !drag.captured) return;
+      if (e.cancelable) e.preventDefault();
+      if (!drag.captured && pointerId.current !== null) {
+        try {
+          el.setPointerCapture(pointerId.current);
+        } catch {
+          /* Already cancelled by the UA. */
+        }
+      }
+      drag.captured = true;
+      const y = rubberBand(Math.max(0, dy), 300);
+      spring.current?.set(y);
+      drag.samples.push({ position: y, time: e.timeStamp });
+      drag.samples = drag.samples.filter((s) => e.timeStamp - s.time < 120);
+      setArmed(y >= 64);
+    };
+    const finish = (e: TouchEvent) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      const y = spring.current?.value ?? 0;
+      d.samples.push({ position: y, time: e.timeStamp });
+      const velocity = releaseVelocity(d.samples, e.timeStamp);
+      if (pointerId.current !== null && el.hasPointerCapture(pointerId.current))
+        el.releasePointerCapture(pointerId.current);
+      if (e.type !== 'touchcancel' && d.captured && y > 24 && projectMomentum(y, velocity) >= 64)
+        void refresh(true);
+      else {
+        setArmed(false);
+        spring.current?.to(0, { velocity: e.type === 'touchcancel' ? 0 : velocity });
+      }
+    };
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', finish);
+    el.addEventListener('touchcancel', finish);
+    return () => {
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', finish);
+      el.removeEventListener('touchcancel', finish);
+    };
+  }, [desktop, refresh]);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || refreshing || error || !feed.length || !sentinelRef.current)
       return;
-    }
-    if (!hasSwipedMobile) setHasSwipedMobile(true);
-    setAnimatingMobile(true);
-    setMobilePostIndex((idx) => Math.min(maxIndex, idx + 1));
-    setTimeout(() => setAnimatingMobile(false), 300);
-  };
-
-  const triggerPrevMobilePost = () => {
-    if (mobilePostIndex <= 0) return;
-    if (!hasSwipedMobile) setHasSwipedMobile(true);
-    setAnimatingMobile(true);
-    setMobilePostIndex((idx) => Math.max(0, idx - 1));
-    setTimeout(() => setAnimatingMobile(false), 300);
-  };
-
-  const renderPostCard = (post: typeof feed[0], index: number) => {
-    const author = users[post.authorId];
-    const liked = post.likedBy.includes(me.id);
-
-    // Desktop Centered Focus styling (Active card in center, previews on left/right)
-    let cardStyle: React.CSSProperties = {};
-    let cardClass = styles.card;
-
-    if (isDesktop) {
-      const diff = index - desktopIndex;
-      const isActive = diff === 0;
-
-      if (isActive) {
-        cardClass += ` ${styles.cardActive}`;
-        cardStyle = {
-          transform: 'perspective(1000px) scale(1) translateZ(0)',
-          opacity: 1,
-          zIndex: 10,
-        };
-      } else {
-        const absDiff = Math.abs(diff);
-        const scale = Math.max(0.82, 1 - absDiff * 0.12);
-        const opacity = Math.max(0.35, 0.5 - (absDiff - 1) * 0.15);
-        const rotateY = diff > 0 ? -12 : 12;
-
-        cardStyle = {
-          transform: `perspective(1000px) rotateY(${rotateY}deg) scale(${scale})`,
-          opacity,
-          zIndex: Math.max(1, 10 - absDiff),
-        };
-      }
-    }
-
-    return (
-      <article key={post.id} className={cardClass} style={cardStyle}>
-        <header className={styles.cardHead}>
-          <button
-            type="button"
-            className={styles.avatarBtn}
-            onClick={() => openUserProfile(post.authorId)}
-          >
-            <Avatar
-              name={author?.displayName ?? '?'}
-              id={author?.id}
-              avatarUrl={author?.avatarRef}
-              size={40}
-              online={author?.online}
-            />
-          </button>
-          <div className={styles.meta}>
-            <button
-              type="button"
-              className={styles.name}
-              onClick={() => openUserProfile(post.authorId)}
-            >
-              <span>{author?.displayName ?? '…'}</span>
-              {(author?.verified || (author?.id && useAppStore.getState().verifiedUsers?.includes(author.id)) || author?.username === 'nekach' || author?.username === 'admin') && (
-                <VerifiedBadge size="sm" />
-              )}
-            </button>
-            <div className={styles.metaRow}>
-              <time>{rel(post.createdAt)}</time>
-            </div>
-          </div>
-        </header>
-
-        {post.media?.kind === 'pattern' && (() => {
-          const pat =
-            post.media.patternId === 'custom' && post.media.items
-              ? generateCustomPattern(post.media.items.join(' '), post.id)
-              : patternById(MEDIA_PATTERNS, post.media.patternId, MEDIA_PATTERNS[0]!);
-          return (
-            <div
-              className={styles.media}
-              role="img"
-              aria-label={post.media.alt ?? 'медиа'}
-              style={post.media.height ? { height: `${post.media.height}px` } : undefined}
-            >
-              <PatternBg
-                pattern={pat}
-                seed={post.id}
-                density="mid"
-                className={styles.mediaFill}
-              />
-            </div>
-          );
-        })()}
-
-        {post.media?.kind === 'image' && post.media?.url && (
-          <button
-            type="button"
-            className={styles.media}
-            style={post.media.height ? { height: `${post.media.height}px` } : undefined}
-            onClick={() => setLightboxSrc(post.media!.url!)}
-            aria-label="Открыть фото"
-          >
-            <PostImage
-              src={post.media.url}
-              alt={post.media.alt ?? 'медиа'}
-              className={styles.mediaFill}
-              style={{ objectFit: 'cover' }}
-            />
-          </button>
-        )}
-
-        {post.text ? (
-          <p
-            className={styles.text}
-            style={{
-              fontSize: post.media?.fontSize ? `${post.media.fontSize}px` : undefined,
-              fontFamily:
-                post.media?.fontFamily === 'serif'
-                  ? 'serif'
-                  : post.media?.fontFamily === 'mono'
-                  ? 'monospace'
-                  : undefined,
-            }}
-          >
-            {post.text}
-          </p>
-        ) : null}
-
-        <footer className={styles.actions}>
-          <button
-            type="button"
-            className={liked ? styles.liked : ''}
-            aria-label={liked ? 'Убрать отметку «нравится»' : 'Нравится'}
-            aria-pressed={liked}
-            onClick={() => toggleLike(post.id)}
-          >
-            <Heart
-              size={iconProps.size.sm}
-              fill={liked ? 'currentColor' : 'none'}
-              strokeWidth={iconProps.strokeWidth}
-            />
-            <span className={styles.tBadge} data-open={post.likedBy.length > 0}>
-              <span className={styles.tBadgeDot}>{post.likedBy.length}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Комментарии"
-            onClick={() => setCommentPostId(post.id)}
-          >
-            <MessageCircle size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-            <span className={styles.tBadge} data-open={post.comments.length > 0}>
-              <span className={styles.tBadgeDot}>{post.comments.length}</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            aria-label="Опубликовать у себя"
-            onClick={() => repostToProfile(post.id)}
-          >
-            <Repeat2 size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-          </button>
-          <button
-            type="button"
-            aria-label="Переслать в чат"
-            onClick={() => setForwardPostId(post.id)}
-          >
-            <Forward size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-          </button>
-          <button
-            type="button"
-            title="Ссылка"
-            aria-label="Скопировать ссылку на пост"
-            onClick={async () => {
-              try {
-                await copyShareLink('post', post.id, token);
-                showToast('Ссылка на пост скопирована');
-              } catch (e: any) {
-                showToast(e.message || 'Ошибка');
-              }
-            }}
-          >
-            <Link2 size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-          </button>
-        </footer>
-      </article>
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) void loadMore();
+      },
+      { root: viewportRef.current, rootMargin: '240px' },
     );
-  };
-
-  const currentMobilePost = feed[mobilePostIndex] || null;
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, refreshing, error, feed.length, loadMore]);
 
   return (
-    <div className={styles.root}>
+    <section className={styles.root} aria-label="Стена">
       <header className={styles.header}>
-        <div className={styles.headerTitleRow}>
-          <h1>Стена</h1>
-          {isDesktop && feed.length > 0 && (
-            <div className={styles.desktopControls}>
-              <button
-                type="button"
-                className={styles.navBtn}
-                onClick={handlePrevDesktop}
-                disabled={desktopIndex <= 0}
-                aria-label="Назад"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className={styles.desktopHint}>
-                <Sparkles size={13} />
-                <span>Колёсико — листание акцентных постов</span>
-              </span>
-              <button
-                type="button"
-                className={styles.navBtn}
-                onClick={handleNextDesktop}
-                disabled={desktopIndex >= maxIndex}
-                aria-label="Вперед"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          )}
-        </div>
+        <h1>Стена</h1>
+        <button
+          type="button"
+          aria-label="Обновить ленту"
+          disabled={refreshing || booting}
+          onClick={() => void refresh()}
+        >
+          <RefreshCw size={20} className={refreshing ? styles.spinning : ''} />
+        </button>
       </header>
-
-      <div id="wall-composer-anchor">
-        <PostComposer from="wall" collapsedPlaceholder="Расскажите о себе…" />
+      <div ref={indicatorRef} className={styles.refreshIndicator} aria-hidden="true">
+        <RefreshCw size={18} className={refreshing ? styles.spinning : ''} />
+        <span>
+          {refreshing
+            ? 'Обновляем…'
+            : armed
+              ? 'Отпустите, чтобы обновить'
+              : 'Потяните, чтобы обновить'}
+        </span>
       </div>
-
-      {/* Floating Create Post Button */}
-      <button
-        type="button"
-        className={styles.floatingCreateBtn}
-        onClick={() => {
-          const anchor = document.getElementById('wall-composer-anchor');
-          if (anchor) {
-            anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Trigger expansion of collapsed composer
-            requestAnimationFrame(() => {
-              const collapsedBtn = anchor.querySelector('button[class*="collapsed"]') as HTMLButtonElement | null;
-              if (collapsedBtn) collapsedBtn.click();
-            });
-          }
-        }}
-        aria-label="Создать пост"
-      >
-        <Plus size={18} strokeWidth={2.5} />
-        <span>Пост</span>
-      </button>
-
-      {/* Main Viewport Container */}
       <div
+        ref={viewportRef}
         className={styles.viewport}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        data-wall-scroll
+        onPointerDownCapture={(e) => {
+          if (e.isPrimary) pointerId.current = e.pointerId;
+        }}
       >
-        {feed.length === 0 && booting ? (
-          <div className={styles.skeletonWrap}>
-            <SkeletonList count={2} kind="post" />
-          </div>
-        ) : feed.length === 0 ? (
-          <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
-        ) : isDesktop ? (
-          /* Desktop Centered Fluid Deck (Active post centered + side previews) */
-          <div className={styles.desktopDeckContainer}>
-            <div
-              className={styles.desktopDeckTrack}
-              style={{
-                transform: `translateX(calc(-${desktopIndex * 552}px))`,
-              }}
-            >
-              {feed.map((post, idx) => renderPostCard(post, idx))}
+        <div ref={contentRef} className={styles.stream}>
+          <PostComposer from="wall" collapsedPlaceholder="Что нового?" />
+          {error && (
+            <div className={styles.error} role="status">
+              <span>{error}</span>
+              <button type="button" onClick={() => void refresh()}>
+                Обновить
+              </button>
             </div>
-          </div>
-        ) : (
-          /* Mobile Single Post View (1 Post per Screen) */
-          <div className={styles.mobileSingleViewport}>
-            {currentMobilePost && (
-              <div
-                className={`${styles.mobileSingleCardWrap} ${
-                  animatingMobile ? styles.mobileCardAnim : ''
-                }`}
-                style={{
-                  transform: `translateX(${touchDeltaX * 0.65}px)`,
-                  transition:
-                    touchStartX === null
-                      ? 'transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)'
-                      : 'none',
-                }}
-              >
-                {renderPostCard(currentMobilePost, mobilePostIndex)}
-              </div>
-            )}
-
-            {/* 1-Time Semi-transparent Animated Swipe Hint on first Mobile post */}
-            {mobilePostIndex === 0 && !hasSwipedMobile && (
-              <div
-                className={styles.mobileSwipeHintBanner}
-                onClick={() => setHasSwipedMobile(true)}
-              >
-                <span className={styles.hintPulseDot} />
-                <span>← Смахните влево для просмотра</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Mobile Floating Minimalist Arrow Button for 1-Post Navigation */}
-      {!isDesktop && feed.length > 0 && (
-        <div className={styles.mobileFloatingBar}>
-          {mobilePostIndex > 0 && (
-            <button
-              type="button"
-              className={styles.mobileBackArrowBtn}
-              onClick={triggerPrevMobilePost}
-              aria-label="Предыдущий пост"
-            >
-              <ChevronLeft size={18} />
-            </button>
           )}
-
-          <button
-            type="button"
-            className={styles.mobileNextArrowBtn}
-            onClick={triggerNextMobilePost}
-            aria-label="Следующий пост"
-          >
-            <ChevronRight size={20} className={styles.arrowIconPulse} />
-          </button>
+          {!feed.length && booting ? (
+            <SkeletonList count={2} kind="post" />
+          ) : !feed.length && !error ? (
+            <div className={styles.empty}>Пока тихо. Напишите первый пост.</div>
+          ) : (
+            feed.map((post) => <PostCard key={post.id} post={post} onOpenImage={setLightbox} />)
+          )}
+          <div ref={sentinelRef} className={styles.loadMore}>
+            {hasMore && feed.length > 0 && (
+              <button
+                type="button"
+                disabled={loadingMore || refreshing}
+                onClick={() => void loadMore()}
+              >
+                {loadingMore ? 'Загружаем…' : 'Загрузить ещё'}
+              </button>
+            )}
+          </div>
         </div>
-      )}
-
-      <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
-    </div>
+      </div>
+      <div className={styles.srOnly} role="status">
+        {refreshing ? 'Обновление ленты' : loadingMore ? 'Загрузка постов' : ''}
+      </div>
+      <MediaLightbox src={lightbox} onClose={() => setLightbox(null)} />
+    </section>
   );
 }

@@ -79,8 +79,14 @@
 }
 
 @keyframes dropdownPop {
-  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .dropdownMenu button {
@@ -96,7 +102,9 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
   text-align: left;
 }
 
@@ -116,25 +124,31 @@
   cursor: pointer;
   margin-top: 14px;
   margin-bottom: 16px;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-.unblockCta:hover {
-  background: rgba(248, 113, 113, 0.25);
-  border-color: rgba(248, 113, 113, 0.5);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .unblockCta:hover {
+    background: rgba(248, 113, 113, 0.25);
+    border-color: rgba(248, 113, 113, 0.5);
+    transform: translateY(-1px);
+  }
 }
 
-.dropdownMenu button:hover {
-  background: rgba(255, 255, 255, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .dropdownMenu button:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .dangerMenuItem {
   color: #f87171 !important;
 }
 
-.dangerMenuItem:hover {
-  background: rgba(248, 113, 113, 0.15) !important;
+@media (hover: hover) and (pointer: fine) {
+  .dangerMenuItem:hover {
+    background: rgba(248, 113, 113, 0.15) !important;
+  }
 }
 
 .nameRow {
@@ -225,17 +239,19 @@
   gap: 8px;
   padding: 12px 22px;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
   font-weight: 750;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: transform 0.18s ease;
 }
 
-.friendCta:hover {
-  background: rgba(56, 189, 248, 0.22);
-  border-color: rgba(56, 189, 248, 0.5);
+@media (hover: hover) and (pointer: fine) {
+  .friendCta:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+  }
 }
 
 .friendCtaPending {
@@ -273,8 +289,10 @@
   padding-right: 4px;
 }
 
-.post:hover {
-  background: rgba(255, 255, 255, 0.02);
+@media (hover: hover) and (pointer: fine) {
+  .post:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
 }
 
 .post time {
@@ -332,8 +350,10 @@
   text-underline-offset: 3px;
 }
 
-.safety button:hover {
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .safety button:hover {
+    color: var(--text-primary);
+  }
 }
 
 .reportBox {
@@ -387,4 +407,24 @@
 .reportActions button[type='submit']:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--bg-surface);
+}
+.metaRow {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.text {
+  padding: 16px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

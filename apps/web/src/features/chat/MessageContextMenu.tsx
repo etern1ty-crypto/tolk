@@ -1,111 +1,120 @@
 import { Bookmark, CheckSquare, Copy, Pencil, Reply, Trash2 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { usePopoverPosition } from '../../shared/lib/usePopoverPosition';
+import { ReactionBar } from './ReactionBar';
 import styles from './MessageContextMenu.module.css';
 
+type Menu = { messageId: string; x: number; y: number; keyboard?: boolean };
 export function MessageContextMenu() {
   const menu = useAppStore((s) => s.contextMenu);
-  const setContextMenu = useAppStore((s) => s.setContextMenu);
-  const pinToShelf = useAppStore((s) => s.pinToShelf);
-  const deleteMessage = useAppStore((s) => s.deleteMessage);
-  const setEditingMessage = useAppStore((s) => s.setEditingMessage);
-  // @ts-ignore
-  const startMessageSelection = useAppStore((s) => s.startMessageSelection);
-  const me = useAppStore((s) => s.me);
-  const setReplyTo = useAppStore((s) => s.setReplyTo);
-  const toggleReaction = useAppStore((s) => s.toggleReaction);
+  return menu ? <MenuContent key={`${menu.messageId}:${menu.x}:${menu.y}`} menu={menu} /> : null;
+}
+function MenuContent({ menu }: { menu: Menu }) {
+  const close = useAppStore((s) => s.setContextMenu);
+  const pin = useAppStore((s) => s.pinToShelf);
+  const remove = useAppStore((s) => s.deleteMessage);
+  const edit = useAppStore((s) => s.setEditingMessage);
+  const select = useAppStore((s) => s.startMessageSelection);
+  const reply = useAppStore((s) => s.setReplyTo);
+  const toggle = useAppStore((s) => s.toggleReaction);
   const emojis = useAppStore((s) => s.reactionEmojis);
-  const messages = useAppStore((s) => s.messages);
+  const meId = useAppStore((s) => s.me.id);
+  const message = useAppStore((s) => s.messages.find((m) => m.id === menu.messageId));
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ left: 0, top: 0 });
-
+  const position = usePopoverPosition(ref, menu.x, menu.y, 300, 356);
   useEffect(() => {
-    if (!menu) return;
-    const close = () => setContextMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    ref.current?.focus({ preventScroll: true });
+    const outside = (e: globalThis.PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) close(null);
     };
-    window.addEventListener('click', close);
-    window.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', outside);
     return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', outside);
+      if (
+        previous?.isConnected &&
+        (document.activeElement === document.body || ref.current?.contains(document.activeElement))
+      )
+        previous.focus({ preventScroll: true });
     };
-  }, [menu, setContextMenu]);
-
-  useLayoutEffect(() => {
-    if (!menu || !ref.current) return;
-    const el = ref.current;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    const pad = 10;
-    // Prefer near message bubble, then clamp to viewport
-    let left = menu.x - w / 2;
-    let top = menu.y - h - 12;
-    if (top < pad) top = menu.y + 12;
-    left = Math.max(pad, Math.min(left, window.innerWidth - w - pad));
-    top = Math.max(pad, Math.min(top, window.innerHeight - h - pad));
-    setPos({ left, top });
-  }, [menu]);
-
-  if (!menu) return null;
-  const msg = messages.find((m) => m.id === menu.messageId);
-  if (!msg) return null;
-
+  }, [close]);
+  if (!message) return null;
+  const run = (action: () => unknown) => {
+    close(null);
+    void action();
+  };
   return (
     <div
       ref={ref}
       className={styles.menu}
-      style={{ left: pos.left, top: pos.top }}
+      style={position}
       role="menu"
-      onClick={(e) => e.stopPropagation()}
+      aria-label="Действия с сообщением"
+      tabIndex={-1}
+      data-keyboard={menu.keyboard || undefined}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Tab') {
+          e.preventDefault();
+          e.stopPropagation();
+          close(null);
+          return;
+        }
+        const buttons = Array.from(
+          ref.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [],
+        );
+        const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        let next = current;
+        if (e.key === 'ArrowDown') next = (current + 1) % buttons.length;
+        else if (e.key === 'ArrowUp')
+          next = current < 0 ? buttons.length - 1 : (current - 1 + buttons.length) % buttons.length;
+        else if (e.key === 'Home') next = 0;
+        else if (e.key === 'End') next = buttons.length - 1;
+        else if (e.key === 'Enter' && current < 0) {
+          e.preventDefault();
+          buttons[0]?.click();
+          return;
+        } else return;
+        e.preventDefault();
+        e.stopPropagation();
+        buttons[next]?.focus();
+      }}
     >
-      <div className={styles.reactions} role="toolbar" aria-label="Реакции">
-        {emojis.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className={styles.reactionBtn}
-            onClick={() => {
-              toggleReaction(msg.id, emoji);
-              setContextMenu(null);
-            }}
-          >
-            {emoji}
-          </button>
-        ))}
+      <div className={styles.reactions}>
+        <ReactionBar
+          menu
+          emojis={emojis}
+          onSelect={(emoji) => run(() => toggle(message.id, emoji))}
+        />
       </div>
-      <button type="button" role="menuitem" onClick={() => setReplyTo(msg.id)}>
+      <button type="button" role="menuitem" onClick={() => run(() => reply(message.id))}>
         <Reply size={16} /> Ответить
       </button>
-      <button
-        type="button"
-        role="menuitem"
-        onClick={() => {
-          setContextMenu(null);
-          startMessageSelection(msg.id);
-        }}
-      >
+      <button type="button" role="menuitem" onClick={() => run(() => select(message.id))}>
         <CheckSquare size={16} /> Выделить
       </button>
       <button
         type="button"
         role="menuitem"
-        onClick={() => {
-          void navigator.clipboard?.writeText(msg.text);
-          setContextMenu(null);
-        }}
+        disabled={!message.text}
+        onClick={() =>
+          run(async () => {
+            try {
+              await navigator.clipboard.writeText(message.text);
+              useAppStore.getState().showToast('Текст скопирован');
+            } catch {
+              useAppStore.getState().showToast('Не удалось скопировать текст');
+            }
+          })
+        }
       >
         <Copy size={16} /> Копировать
       </button>
-      <button type="button" role="menuitem" onClick={() => pinToShelf(msg.id)}>
+      <button type="button" role="menuitem" onClick={() => run(() => pin(message.id))}>
         <Bookmark size={16} /> На полку
       </button>
-      {/* Править можно только свой текст: голосовое или кружок «изменить» на
-          произвольные слова — это подделка, а не правка. Сервер это и так
-          запрещает, но предлагать пункт, который откажет, незачем. */}
-      {msg.senderId === me.id && msg.kind === 'text' && !msg.deleted && (
-        <button type="button" role="menuitem" onClick={() => setEditingMessage(msg.id)}>
+      {message.senderId === meId && message.kind === 'text' && !message.deleted && (
+        <button type="button" role="menuitem" onClick={() => run(() => edit(message.id))}>
           <Pencil size={16} /> Изменить
         </button>
       )}
@@ -113,7 +122,7 @@ export function MessageContextMenu() {
         type="button"
         role="menuitem"
         className={styles.danger}
-        onClick={() => deleteMessage(msg.id)}
+        onClick={() => run(() => remove(message.id))}
       >
         <Trash2 size={16} /> Удалить
       </button>

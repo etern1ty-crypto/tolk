@@ -1,70 +1,65 @@
 .menu {
   position: fixed;
   z-index: 70;
-  min-width: 220px;
-  max-width: min(320px, calc(100vw - 20px));
+  width: min(300px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
   background: var(--bg-sheet);
   border: 1px solid var(--border-strong);
   border-radius: 16px;
-  padding: 6px;
+  padding: 8px;
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  animation: pop 0.16s var(--ease-out);
+  outline: none;
+  animation: pop 160ms var(--ease-out);
 }
-
+.menu[data-keyboard] {
+  animation: none;
+}
 .reactions {
-  display: flex;
-  gap: 4px;
-  padding: 6px 4px 10px;
-  margin-bottom: 2px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
   border-bottom: 1px solid var(--border-subtle);
-  overflow-x: auto;
 }
-
-.reactionBtn {
-  flex: 1;
-  min-width: 40px;
-  min-height: 40px;
-  font-size: 20px;
-  border-radius: 12px !important;
-  display: grid !important;
-  place-items: center;
-  padding: 6px !important;
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.menu button {
+.menu > button {
   display: flex;
   align-items: center;
   gap: 10px;
   text-align: left;
-  padding: 11px 12px;
-  border-radius: 11px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
   font-size: 14px;
-  font-weight: 600;
   color: var(--text-primary);
 }
-
-.menu button:hover {
+.menu > button:disabled {
+  opacity: 0.45;
+}
+.menu > button:focus-visible {
   background: var(--bg-hover);
+  outline-offset: -2px;
 }
-
 .danger {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
 }
-
-.danger:hover {
-  background: var(--bg-hover) !important;
-  color: var(--text-primary) !important;
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu > button:hover {
+    background: var(--bg-hover);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu {
+    animation: none;
+  }
 }

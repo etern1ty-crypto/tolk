@@ -41,8 +41,10 @@
   gap: 10px;
 }
 
-.headerInfo:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .headerInfo:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .headerText {
@@ -85,8 +87,10 @@
   width: 100%;
 }
 
-.headerMenu button:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .headerMenu button:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .headerTitle {
@@ -126,9 +130,11 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-.shelfBtn:hover {
-  color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.1);
+@media (hover: hover) and (pointer: fine) {
+  .shelfBtn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+  }
 }
 
 .shelfLabel {
@@ -268,9 +274,11 @@
   font-weight: 650;
 }
 
-.loadOlderBtn:hover {
-  color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.6);
+@media (hover: hover) and (pointer: fine) {
+  .loadOlderBtn:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.6);
+  }
 }
 
 @media (min-width: 1024px) {
@@ -509,13 +517,15 @@
   color: #f87171;
   border: 1px solid rgba(248, 113, 113, 0.35);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: transform 0.18s ease;
   flex-shrink: 0;
 }
 
-.unblockBannerBtn:hover {
-  background: rgba(248, 113, 113, 0.28);
-  border-color: rgba(248, 113, 113, 0.55);
+@media (hover: hover) and (pointer: fine) {
+  .unblockBannerBtn:hover {
+    background: rgba(248, 113, 113, 0.28);
+    border-color: rgba(248, 113, 113, 0.55);
+  }
 }
 
 @media (max-width: 1023px) {
@@ -535,7 +545,7 @@
   border: none;
   border-radius: 999px;
   padding: 12px 14px;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .input:focus {
@@ -567,10 +577,10 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  --icon-swap-dur: 250ms;
-  --icon-swap-blur: 2px;
-  --icon-swap-start-scale: 0.25;
-  --icon-swap-ease: ease-in-out;
+  --icon-swap-dur: 180ms;
+  --icon-swap-blur: 1.5px;
+  --icon-swap-start-scale: 0.88;
+  --icon-swap-ease: cubic-bezier(0.23, 1, 0.32, 1);
   flex-shrink: 0;
 }
 
@@ -582,22 +592,22 @@
   height: 44px;
   border-radius: 50%;
   transition:
-    opacity   var(--icon-swap-dur) var(--icon-swap-ease),
-    filter    var(--icon-swap-dur) var(--icon-swap-ease),
+    opacity var(--icon-swap-dur) var(--icon-swap-ease),
+    filter var(--icon-swap-dur) var(--icon-swap-ease),
     transform var(--icon-swap-dur) var(--icon-swap-ease);
   will-change: opacity, filter, transform;
 }
 
-.iconSwap[data-state="send"] .iconSwapItem[data-icon="send"],
-.iconSwap[data-state="mic"] .iconSwapItem[data-icon="mic"] {
+.iconSwap[data-state='send'] .iconSwapItem[data-icon='send'],
+.iconSwap[data-state='mic'] .iconSwapItem[data-icon='mic'] {
   opacity: 1;
   filter: blur(0);
   transform: scale(1);
   pointer-events: auto;
 }
 
-.iconSwap[data-state="send"] .iconSwapItem[data-icon="mic"],
-.iconSwap[data-state="mic"] .iconSwapItem[data-icon="send"] {
+.iconSwap[data-state='send'] .iconSwapItem[data-icon='mic'],
+.iconSwap[data-state='mic'] .iconSwapItem[data-icon='send'] {
   opacity: 0;
   filter: blur(var(--icon-swap-blur));
   transform: scale(var(--icon-swap-start-scale));
@@ -757,11 +767,11 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.reactions button:hover {
-  filter: brightness(1.1);
+@media (hover: hover) and (pointer: fine) {
+  .reactions button:hover {
+    filter: brightness(1.1);
+  }
 }
-
-
 
 .replyQuote {
   font-size: 12px;
@@ -1099,13 +1109,15 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
-.pcVoiceCancelBtn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .pcVoiceCancelBtn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.4);
+  }
 }
 
 /* Mobile swipe-to-cancel bar */
@@ -1159,14 +1171,18 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   background: transparent;
   padding: 0;
 }
 
-.mediaThumb:hover {
-  transform: scale(1.02);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+@media (hover: hover) and (pointer: fine) {
+  .mediaThumb:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
 }
 
 .mediaThumbAmbient {
@@ -1216,11 +1232,13 @@
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-.selectionBtn:hover {
-  background: rgba(255, 255, 255, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .selectionBtn:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
 }
 
 .selectionBtnDanger {
@@ -1229,8 +1247,10 @@
   border-color: rgba(248, 113, 113, 0.25) !important;
 }
 
-.selectionBtnDanger:hover {
-  background: rgba(248, 113, 113, 0.22) !important;
+@media (hover: hover) and (pointer: fine) {
+  .selectionBtnDanger:hover {
+    background: rgba(248, 113, 113, 0.22) !important;
+  }
 }
 
 /* Selection Checkbox & Bubble Outline */
@@ -1243,19 +1263,43 @@
   place-items: center;
   flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   margin-right: 8px;
 }
 
 .selectCheckboxActive {
-  background: #38bdf8;
-  border-color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px var(--accent-dim);
   color: #000;
 }
 
 .bubbleSelected {
-  outline: 2px solid #38bdf8 !important;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.3) !important;
+  outline: 2px solid var(--accent) !important;
+  box-shadow: 0 0 16px var(--accent-dim) !important;
 }
 
+/* Multiline composer keeps its controls docked to the last line. */
+.composer {
+  align-items: flex-end;
+}
+.input {
+  min-height: 44px;
+  max-height: 140px;
+  line-height: 1.5;
+  border-radius: 16px;
+  resize: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.input:focus-visible {
+  outline: 2px solid var(--text-secondary);
+  outline-offset: 2px;
+}
+.mic {
+  touch-action: none;
+}
+
+.dangerMenuItem {
+  color: var(--text-secondary);
+}

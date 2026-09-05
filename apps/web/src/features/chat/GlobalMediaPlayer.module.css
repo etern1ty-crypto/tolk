@@ -19,7 +19,8 @@
   gap: 8px;
 }
 
-.skipBtn, .closeBtn {
+.skipBtn,
+.closeBtn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -30,12 +31,15 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: transform 0.2s;
 }
 
-.skipBtn:hover, .closeBtn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .skipBtn:hover,
+  .closeBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+  }
 }
 
 .playBtn {
@@ -49,7 +53,9 @@
   background: var(--accent);
   color: var(--text-on-accent, #0a0a0a);
   cursor: pointer;
-  transition: transform 0.2s, filter 0.2s;
+  transition:
+    transform 0.2s,
+    filter 0.2s;
 }
 
 .playBtn svg {

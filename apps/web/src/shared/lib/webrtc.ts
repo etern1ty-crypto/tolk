@@ -4,7 +4,7 @@
 // getUserMedia boilerplate that already exists in CircleSheet/ChatPanel.
 import { fetchApi } from './api';
 
-/** TURN/STUN config from the gateway. Ephemeral creds, ~1h TTL. */
+/** TURN/STUN config from the gateway. Ephemeral creds, 5–10 minute TTL. */
 export async function fetchIceConfig(token: string | null): Promise<RTCIceServer[]> {
   try {
     const res = await fetchApi('/calls/ice-config', {}, token);

@@ -1,19 +1,11 @@
 export type Id = string;
 
-export type MainTab = 'wall' | 'chats' | 'search' | 'profile' | 'admin' | 'demo';
+export type MainTab = 'wall' | 'chats' | 'search' | 'profile' | 'admin';
 export type MessageStatus = 'pending' | 'sent' | 'failed' | 'read';
 export type MessageKind = 'text' | 'media' | 'voice' | 'circle' | 'file';
 export type AuthStep = 'phone' | 'otp' | 'profile' | 'done';
 export type SettingsRoute =
-  | null
-  | 'hub'
-  | 'account'
-  | 'sessions'
-  | 'appearance'
-  | 'privacy'
-  | 'storage'
-  | 'chats'
-  | 'about';
+  null | 'hub' | 'account' | 'sessions' | 'appearance' | 'privacy' | 'storage' | 'chats' | 'about';
 export type PostOrigin = 'wall' | 'profile';
 
 export interface User {

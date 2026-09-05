@@ -4,6 +4,7 @@ import styles from './SlidingTabs.module.css';
 export interface TabItem<T extends string> {
   id: T;
   label: string;
+  ariaLabel?: string;
   badge?: number | string;
   icon?: React.ReactNode;
 }
@@ -24,6 +25,7 @@ export function SlidingTabs<T extends string>({
   variant = 'horizontal',
 }: SlidingTabsProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const keyboardNavigation = useRef(true);
   const [pillStyle, setPillStyle] = useState<React.CSSProperties>({
     transform: variant === 'vertical' ? 'translateY(0px)' : 'translateX(0px)',
     width: variant === 'vertical' ? '100%' : 0,
@@ -62,7 +64,8 @@ export function SlidingTabs<T extends string>({
   };
 
   useEffect(() => {
-    updatePill(true);
+    updatePill(!keyboardNavigation.current);
+    keyboardNavigation.current = false;
   }, [activeId, variant]);
 
   useEffect(() => {
@@ -76,6 +79,7 @@ export function SlidingTabs<T extends string>({
       ref={containerRef}
       className={`${styles.tabsContainer} ${variant === 'vertical' ? styles.vertical : ''} ${className || ''}`}
       role="tablist"
+      aria-orientation={variant === 'vertical' ? 'vertical' : 'horizontal'}
     >
       <span className={styles.pill} style={pillStyle} aria-hidden="true" />
       {tabs.map((tab) => {
@@ -87,8 +91,33 @@ export function SlidingTabs<T extends string>({
             type="button"
             role="tab"
             aria-selected={active}
+            aria-label={tab.ariaLabel || tab.label}
+            title={tab.ariaLabel || tab.label}
             className={`${styles.tabBtn} ${active ? styles.tabActive : ''}`}
-            onClick={() => onChange(tab.id)}
+            tabIndex={
+              active || (!tabs.some((item) => item.id === activeId) && tab === tabs[0]) ? 0 : -1
+            }
+            onClick={(e) => {
+              keyboardNavigation.current = e.detail === 0;
+              onChange(tab.id);
+            }}
+            onKeyDown={(e) => {
+              const index = tabs.indexOf(tab);
+              const forward = variant === 'vertical' ? 'ArrowDown' : 'ArrowRight';
+              const backward = variant === 'vertical' ? 'ArrowUp' : 'ArrowLeft';
+              let next = -1;
+              if (e.key === forward) next = (index + 1) % tabs.length;
+              else if (e.key === backward) next = (index - 1 + tabs.length) % tabs.length;
+              else if (e.key === 'Home') next = 0;
+              else if (e.key === 'End') next = tabs.length - 1;
+              if (next < 0) return;
+              e.preventDefault();
+              keyboardNavigation.current = true;
+              onChange(tabs[next]!.id);
+              containerRef.current
+                ?.querySelectorAll<HTMLButtonElement>('button[data-tab-id]')
+                [next]?.focus({ preventScroll: true });
+            }}
           >
             {tab.icon && (
               <span className={styles.iconWrap}>

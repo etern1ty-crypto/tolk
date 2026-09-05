@@ -58,7 +58,7 @@
 }
 
 .sectionIcon {
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .cardList {
@@ -77,13 +77,15 @@
   border: 1px solid rgba(255, 255, 255, 0.07);
   font-size: 13px;
   line-height: 1.35;
-  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.activityItem:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(56, 189, 248, 0.3);
-  transform: translateX(2px);
+@media (hover: hover) and (pointer: fine) {
+  .activityItem:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: var(--accent-dim);
+    transform: translateX(2px);
+  }
 }
 
 .activityText {
@@ -108,7 +110,7 @@
 }
 
 .iconAccent {
-  color: #38bdf8;
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -132,12 +134,14 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: all 0.18s ease;
+  transition: transform 0.18s ease;
 }
 
-.friendItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .friendItem:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .friendInfo {

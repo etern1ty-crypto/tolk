@@ -22,8 +22,10 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.chip:hover {
-  background: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    background: #fff;
+  }
 }
 
 /* На широком экране нижней панели нет, но есть строка ввода — держимся выше её. */

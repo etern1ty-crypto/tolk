@@ -70,9 +70,11 @@
   text-align: left;
 }
 
-.backBtn:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .backBtn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
 }
 
 .chatsLayout {
@@ -170,4 +172,8 @@
   .listCol {
     border-right: none;
   }
+}
+
+.paper {
+  min-width: 0;
 }

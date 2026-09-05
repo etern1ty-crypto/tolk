@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { toast as notify } from 'sonner';
 import { persist } from 'zustand/middleware';
 import {
   BANNER_PATTERNS,
@@ -50,11 +51,10 @@ export interface CallState {
   hasRemote: boolean; // remote stream attached — flips UI from "connecting" to live
 }
 
-
 /** Merge author/commenter cards from feed payloads into users map */
 export function mergeUsersFromPosts(
   posts: any[],
-  base: Record<string, User> = {}
+  base: Record<string, User> = {},
 ): Record<string, User> {
   const users = { ...base };
   const put = (u: Partial<User> & { id: string }) => {
@@ -104,13 +104,13 @@ export function mergeUsersFromPosts(
 function markEchoesSeen(
   items: { id: string }[],
   action: 'open' | 'dismiss',
-  get: () => { token: string | null }
+  get: () => { token: string | null },
 ): void {
   const token = get().token;
   if (!token) return;
   for (const e of items) {
     fetchApi(`/echoes/${e.id}/${action}`, { method: 'POST' }, token).catch((err) =>
-      console.error('Не удалось отметить эхо:', err)
+      console.error('Не удалось отметить эхо:', err),
     );
   }
 }
@@ -134,7 +134,13 @@ function shelfFromApi(x: any): any {
   const m = x?.message ?? {};
   const body =
     (m.text && String(m.text).trim()) ||
-    (m.kind === 'media' ? 'Фото' : m.kind === 'voice' ? 'Голосовое' : m.kind === 'circle' ? 'Кружок' : 'Сообщение');
+    (m.kind === 'media'
+      ? 'Фото'
+      : m.kind === 'voice'
+        ? 'Голосовое'
+        : m.kind === 'circle'
+          ? 'Кружок'
+          : 'Сообщение');
   return {
     id: x.id,
     chatId: x.chatId,
@@ -147,9 +153,10 @@ function shelfFromApi(x: any): any {
   };
 }
 
-
 let activeSocket: WebSocket | null = null;
 let lastTypingSent = 0;
+let feedRequest = 0;
+const pendingPostLikes = new Set<string>();
 let typingTimeout: number | undefined;
 let reconnectCount = 0;
 
@@ -173,15 +180,24 @@ export const callMedia = {
 // One signaling frame → REST → gateway relays to the peer's sockets over WS.
 // Fire-and-forget: a lost frame ends the call, which is the correct outcome.
 function postSignal(token: string | null, to: string, callId: string, kind: string, payload?: any) {
-  fetchApi('/calls/signal', {
-    method: 'POST',
-    body: JSON.stringify({ to, callId, kind, payload }),
-  }, token).catch(() => {});
+  fetchApi(
+    '/calls/signal',
+    {
+      method: 'POST',
+      body: JSON.stringify({ to, callId, kind, payload }),
+    },
+    token,
+  ).catch(() => {});
 }
 
 // Build the RTCPeerConnection and wire the three handlers every call needs:
 // trickle ICE out, remote track in, and connection-state for teardown.
-function wirePeer(iceServers: RTCIceServer[], callId: string, peerId: string, token: string | null): RTCPeerConnection {
+function wirePeer(
+  iceServers: RTCIceServer[],
+  callId: string,
+  peerId: string,
+  token: string | null,
+): RTCPeerConnection {
   const conn = new RTCPeerConnection({ iceServers });
   remoteStream = new MediaStream();
   conn.onicecandidate = (e) => {
@@ -205,12 +221,24 @@ function wirePeer(iceServers: RTCIceServer[], callId: string, peerId: string, to
 
 // Stop every track and drop the peer. Idempotent — endCall may run twice.
 function teardownPeer() {
-  if (ringTimer) { clearTimeout(ringTimer); ringTimer = undefined; }
-  stopStream(localStream); localStream = null;
-  stopStream(screenStream); screenStream = null;
+  if (ringTimer) {
+    clearTimeout(ringTimer);
+    ringTimer = undefined;
+  }
+  stopStream(localStream);
+  localStream = null;
+  stopStream(screenStream);
+  screenStream = null;
   remoteStream = null;
   pendingIce = [];
-  if (pc) { try { pc.close(); } catch { /* already closed */ } pc = null; }
+  if (pc) {
+    try {
+      pc.close();
+    } catch {
+      /* already closed */
+    }
+    pc = null;
+  }
 }
 // Первое подключение сопровождается загрузкой из initApi; повторные должны
 // догонять пропущенное сами.
@@ -293,15 +321,18 @@ function showBrowserNotification(data: any, store: any) {
 
 function connectWebSocket(token: string, store: any) {
   if (activeSocket) {
-    if (activeSocket.readyState === WebSocket.CONNECTING || activeSocket.readyState === WebSocket.OPEN) {
+    if (
+      activeSocket.readyState === WebSocket.CONNECTING ||
+      activeSocket.readyState === WebSocket.OPEN
+    ) {
       return;
     }
     activeSocket.close();
   }
-  
-  const ws = new WebSocket(socketUrl(token));
+
+  const ws = new WebSocket(socketUrl(), ['tolk.v1', `auth.${token}`]);
   activeSocket = ws;
-  
+
   ws.onopen = () => {
     console.log('[WS] Connected successfully');
 
@@ -325,18 +356,18 @@ function connectWebSocket(token: string, store: any) {
     }
     firstConnection = false;
   };
-  
+
   ws.onmessage = (event) => {
     try {
       const payload = JSON.parse(event.data);
       const { event: wsEvent, data } = payload;
-      
+
       if (wsEvent === 'reaction.updated') {
         // Сервер шлёт всю карту реакций — заменяем, а не сводим.
         const { messages } = store.getState();
         store.setState({
           messages: messages.map((m: any) =>
-            m.id === data.messageId ? { ...m, reactions: data.reactions ?? {} } : m
+            m.id === data.messageId ? { ...m, reactions: data.reactions ?? {} } : m,
           ),
         });
         return;
@@ -362,7 +393,7 @@ function connectWebSocket(token: string, store: any) {
         const { messages } = store.getState();
         store.setState({
           messages: messages.map((m: any) =>
-            m.id === data.id ? { ...m, text: data.text, editedAt: data.editedAt } : m
+            m.id === data.id ? { ...m, text: data.text, editedAt: data.editedAt } : m,
           ),
         });
         return;
@@ -372,7 +403,7 @@ function connectWebSocket(token: string, store: any) {
         const { messages } = store.getState();
         store.setState({
           messages: messages.map((m: any) =>
-            m.id === data.id ? { ...m, deleted: true, text: '', media: undefined } : m
+            m.id === data.id ? { ...m, deleted: true, text: '', media: undefined } : m,
           ),
         });
         return;
@@ -383,11 +414,11 @@ function connectWebSocket(token: string, store: any) {
         const cid = data.client_id || data.clientId;
         if (messages.some((m: any) => m.id === data.id || m.id === cid)) {
           store.setState({
-            messages: messages.map((m: any) => 
-              (m.id === data.id || m.id === cid) 
-                ? { ...m, id: data.id, seq: data.seq, status: 'sent', createdAt: data.createdAt } 
-                : m
-            )
+            messages: messages.map((m: any) =>
+              m.id === data.id || m.id === cid
+                ? { ...m, id: data.id, seq: data.seq, status: 'sent', createdAt: data.createdAt }
+                : m,
+            ),
           });
           return;
         }
@@ -412,7 +443,7 @@ function connectWebSocket(token: string, store: any) {
             showBrowserNotification(data, store);
           }
         }
-        
+
         const newMsg: Message = {
           id: data.id,
           chatId: data.chatId,
@@ -426,7 +457,7 @@ function connectWebSocket(token: string, store: any) {
           replyToId: data.replyToId,
           reactions: {},
         };
-        
+
         // Тихое сообщение не звонит и не подсвечивает чат — весь смысл в том,
         // что человек увидит его сам. Значит указатель обязан подняться сразу,
         // иначе про сообщение узнают только после перезапуска. Список берём с
@@ -445,7 +476,11 @@ function connectWebSocket(token: string, store: any) {
 
         const updatedChats = chats.map((c: any) => {
           if (c.id === data.chatId) {
-            const preview = data.isEcho ? `Echo: ${data.text}` : (data.kind === 'text' ? data.text : `[${data.kind}]`);
+            const preview = data.isEcho
+              ? `Echo: ${data.text}`
+              : data.kind === 'text'
+                ? data.text
+                : `[${data.kind}]`;
             // Сервер отдаёт время строкой из цифр, а new Date('1785094892694')
             // даёт Invalid Date: строка не похожа ни на один известный формат.
             // В списке чатов вместо времени появлялось «Invalid Date», а
@@ -461,23 +496,25 @@ function connectWebSocket(token: string, store: any) {
               preview,
               timeLabel,
               latestMessageCreatedAt: createdAt,
-              unread: activeChatId === data.chatId ? 0 : c.unread + 1
+              unread: activeChatId === data.chatId ? 0 : c.unread + 1,
             };
           }
           return c;
         });
-        
+
         store.setState({
           messages: [...messages, newMsg],
-          chats: updatedChats
+          chats: updatedChats,
         });
-        
+
         if (activeChatId === data.chatId && !isFromMe) {
-          fetchApi(`/chats/${data.chatId}/read`, { method: 'POST' }, store.getState().token).catch((e) => {
-            console.error('[WS] Failed to mark received message as read:', e);
-          });
+          fetchApi(`/chats/${data.chatId}/read`, { method: 'POST' }, store.getState().token).catch(
+            (e) => {
+              console.error('[WS] Failed to mark received message as read:', e);
+            },
+          );
         }
-        
+
         if (data.senderId !== store.getState().me.id && !store.getState().users[data.senderId]) {
           const newUser = {
             id: data.senderId,
@@ -487,7 +524,7 @@ function connectWebSocket(token: string, store: any) {
             bannerPatternId: 'mint_wave',
           };
           store.setState({
-            users: { ...store.getState().users, [data.senderId]: newUser }
+            users: { ...store.getState().users, [data.senderId]: newUser },
           });
         }
       } else if (wsEvent === 'chat.read') {
@@ -496,7 +533,7 @@ function connectWebSocket(token: string, store: any) {
           if (c.id === data.chatId && data.userId !== store.getState().me.id) {
             return {
               ...c,
-              peerLastReadSeq: data.lastReadSeq
+              peerLastReadSeq: data.lastReadSeq,
             };
           }
           return c;
@@ -522,7 +559,7 @@ function connectWebSocket(token: string, store: any) {
       console.error('[WS] Error processing message:', err);
     }
   };
-  
+
   ws.onclose = (event) => {
     console.log('[WS] Connection closed:', event.code, event.reason);
     if (activeSocket === ws) {
@@ -532,9 +569,11 @@ function connectWebSocket(token: string, store: any) {
         // Jittered exponential backoff
         const backoffDelay = Math.min(
           1000 * Math.pow(1.5, reconnectCount) + Math.random() * 1000,
-          30000
+          30000,
         );
-        console.log(`[WS] Reconnecting in ${Math.round(backoffDelay)}ms (attempt ${reconnectCount})...`);
+        console.log(
+          `[WS] Reconnecting in ${Math.round(backoffDelay)}ms (attempt ${reconnectCount})...`,
+        );
         window.setTimeout(() => {
           if (store.getState().token) {
             connectWebSocket(store.getState().token, store);
@@ -543,7 +582,7 @@ function connectWebSocket(token: string, store: any) {
       }
     }
   };
-  
+
   ws.onerror = (err) => {
     console.error('[WS] Connection error:', err);
   };
@@ -608,6 +647,10 @@ interface AppState {
   /** Есть ли ещё посты за пределами загруженных. */
   feedHasMore: boolean;
   feedLoadingMore: boolean;
+  feedRefreshing: boolean;
+  feedError: string | null;
+  feedCursor: string | null;
+  refreshFeed: () => Promise<void>;
   loadMoreFeed: () => Promise<void>;
   shelfItems: ShelfItem[];
   echoes: EchoItem[];
@@ -628,7 +671,7 @@ interface AppState {
   voiceRecording: boolean;
   showCircleEffects: boolean;
   reactionPicker: { messageId: string; x: number; y: number } | null;
-  contextMenu: { messageId: string; x: number; y: number } | null;
+  contextMenu: { messageId: string; x: number; y: number; keyboard?: boolean } | null;
   selectionMode: boolean;
   selectedMessageIds: string[];
   startMessageSelection: (initialId?: string) => void;
@@ -640,7 +683,6 @@ interface AppState {
   shelfOpen: boolean;
   newChatOpen: boolean;
   replyToId: string | null;
-  toast: string | null;
   /** wall posts seen timestamp for badge */
   wallSeenAt: number;
   typingChatId: string | null;
@@ -715,11 +757,16 @@ interface AppState {
   };
   setPrivacyPref: <K extends keyof AppState['privacyPrefs']>(
     key: K,
-    value: AppState['privacyPrefs'][K]
+    value: AppState['privacyPrefs'][K],
   ) => void;
   updateChatMeta: (
     chatId: string,
-    patch: { title?: string; description?: string; is_public?: boolean; avatar_ref?: string | null }
+    patch: {
+      title?: string;
+      description?: string;
+      is_public?: boolean;
+      avatar_ref?: string | null;
+    },
   ) => Promise<void>;
   setNewChatOpen: (v: boolean) => void;
   chatInfoOpen: boolean;
@@ -737,8 +784,14 @@ interface AppState {
     text: string,
     opts?: {
       kind?: 'text' | 'media' | 'voice' | 'circle' | 'file';
-      media?: { url: string; filename?: string; mime?: string; size?: number; durationSec?: number };
-    }
+      media?: {
+        url: string;
+        filename?: string;
+        mime?: string;
+        size?: number;
+        durationSec?: number;
+      };
+    },
   ) => Promise<void>;
   uploadAttachment: (file: File, kind: 'media' | 'file', caption?: string) => Promise<void>;
   sendVoiceMock: () => void;
@@ -809,10 +862,10 @@ interface AppState {
       mediaHeight?: number;
       fontSize?: number;
       fontFamily?: string;
-    }
+    },
   ) => Promise<void>;
   toggleLike: (postId: string) => Promise<void>;
-  addComment: (postId: string, text: string, parentId?: string | null) => Promise<void>;
+  addComment: (postId: string, text: string, parentId?: string | null) => Promise<boolean>;
   toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
   repostToProfile: (postId: string) => Promise<void>;
   setCommentPostId: (id: string | null) => void;
@@ -875,6 +928,9 @@ export const useAppStore = create<AppState>()(
       booting: false,
       feedHasMore: true,
       feedLoadingMore: false,
+      feedRefreshing: false,
+      feedError: null,
+      feedCursor: null,
       shelfItems: [],
       echoes: [],
       blockedUsers: [],
@@ -913,7 +969,6 @@ export const useAppStore = create<AppState>()(
         allowMessagesFrom: 'everyone',
       },
       replyToId: null,
-      toast: null,
       wallSeenAt: Date.now() - 1000 * 60 * 60,
       typingChatId: null,
 
@@ -1156,7 +1211,9 @@ export const useAppStore = create<AppState>()(
       },
 
       submitPhone: async () => {
-        const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
+        const phone = get()
+          .draftPhone.trim()
+          .replace(/[^\d+]/g, '');
         if (phone.length < 6) return;
         try {
           await fetchApi('/auth/otp/request', {
@@ -1169,7 +1226,9 @@ export const useAppStore = create<AppState>()(
         }
       },
       submitOtp: async (code) => {
-        const phone = get().draftPhone.trim().replace(/[^\d+]/g, '');
+        const phone = get()
+          .draftPhone.trim()
+          .replace(/[^\d+]/g, '');
         try {
           const res = await fetchApi('/auth/otp/verify', {
             method: 'POST',
@@ -1215,11 +1274,15 @@ export const useAppStore = create<AppState>()(
       submitProfile: async () => {
         const name = get().draftName.trim() || 'Пользователь';
         try {
-          const res = await fetchApi('/me', {
-            method: 'PATCH',
-            body: JSON.stringify({ displayName: name }),
-          }, get().token);
-          
+          const res = await fetchApi(
+            '/me',
+            {
+              method: 'PATCH',
+              body: JSON.stringify({ displayName: name }),
+            },
+            get().token,
+          );
+
           set({
             isAuthenticated: true,
             authStep: 'done',
@@ -1227,13 +1290,17 @@ export const useAppStore = create<AppState>()(
             users: { ...get().users, [res.id]: res },
             mainTab: 'chats',
           });
-          
+
           await get().initApi();
         } catch (err: any) {
           get().showToast(err.message || 'Ошибка обновления профиля');
         }
       },
       logout: async () => {
+        feedRequest++;
+        pendingPostLikes.clear();
+        notify.dismiss();
+        set({ feedRefreshing: false, feedLoadingMore: false, feedError: null, feedCursor: null });
         const token = get().token;
         if (token) {
           try {
@@ -1313,13 +1380,17 @@ export const useAppStore = create<AppState>()(
       updateMe: async (patch) => {
         const token = get().token;
         try {
-          const res = await fetchApi('/me', {
-            method: 'PATCH',
-            body: JSON.stringify(patch),
-          }, token);
+          const res = await fetchApi(
+            '/me',
+            {
+              method: 'PATCH',
+              body: JSON.stringify(patch),
+            },
+            token,
+          );
           set({
             me: res,
-            users: { ...get().users, [res.id]: res }
+            users: { ...get().users, [res.id]: res },
           });
           get().showToast('Сохранено');
         } catch (err: any) {
@@ -1327,1827 +1398,1957 @@ export const useAppStore = create<AppState>()(
           throw err;
         }
       },
-  setBannerPattern: (id) => get().updateMe({ bannerPatternId: id }),
+      setBannerPattern: (id) => get().updateMe({ bannerPatternId: id }),
 
-  setChatTheme: (chatId, themeId) =>
-    set((s) => ({
-      chats: s.chats.map((c) =>
-        c.id === chatId ? { ...c, themeId } : c
-      ),
-    })),
-
-  setMainTab: (tab) => {
-    set({
-      mainTab: tab,
-      viewingUserId: null,
-      settingsRoute: null,
-      newChatOpen: false,
-    });
-    if (tab === 'wall') get().markWallSeen();
-  },
-  setActiveMediaId: (id) => set({ activeMediaId: id }),
-
-  setActiveChat: async (id) => {
-    set({
-      activeMediaId: null,
-      activeChatId: id,
-      mainTab: 'chats',
-      contextMenu: null,
-      reactionPicker: null,
-      replyToId: null,
-      chatInfoOpen: false,
-      // leaving a subscribed chat clears ephemeral preview
-      previewChat:
-        id && get().previewChat?.id === id ? get().previewChat : null,
-      chats: get().chats.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
-    });
-    if (id) {
-      try {
-        const msgs = await fetchApi(
-          `/chats/${id}/messages?limit=100`,
-          {},
-          get().token
-        );
-        const list = Array.isArray(msgs) ? msgs : [];
-        // Replace only this chat's messages; keep others
+      setChatTheme: (chatId, themeId) =>
         set((s) => ({
-          messages: [
-            ...s.messages.filter((m) => m.chatId !== id),
-            ...list,
-          ],
-        }));
-        await fetchApi(`/chats/${id}/read`, { method: 'POST' }, get().token);
-        // Полка живёт на сервере — до этого она была локальной и умирала
-        // вместе с устройством.
-        get().loadShelf(id);
-      } catch (err: any) {
-        console.error('Failed to fetch messages or mark read:', err);
-        if (err?.status === 403 || err?.message?.includes('Not a member')) {
-          set({ activeChatId: null });
-        } else {
-          get().showToast('Не удалось загрузить сообщения');
-        }
-      }
-    }
-  },
+          chats: s.chats.map((c) => (c.id === chatId ? { ...c, themeId } : c)),
+        })),
 
-  openUserProfile: async (userId) => {
-    set({ viewingUserId: userId, settingsRoute: null });
-    const token = get().token;
-    try {
-      // Prefer full profile (username) over chat-list stub with empty username
-      try {
-        const profile = await fetchApi(`/users/${userId}`, {}, token);
-        set((s) => ({
-          users: { ...s.users, [userId]: { ...s.users[userId], ...profile } },
-        }));
-      } catch {
-        /* optional */
-      }
-      const userPosts = await fetchApi(`/users/${userId}/posts?limit=100`, {}, token);
-      set((s) => {
-        const otherPosts = s.posts.filter((p) => p.authorId !== userId);
-        const combined = [...otherPosts, ...userPosts].sort((a, b) => b.createdAt - a.createdAt);
-        return {
-          posts: combined,
-          users: mergeUsersFromPosts(userPosts, s.users),
-        };
-      });
-    } catch (err) {
-      console.error('Failed to fetch user posts:', err);
-    }
-  },
-  closeUserProfile: () => set({ viewingUserId: null }),
-
-  startChatWithUser: async (userId) => {
-    if (userId === get().me.id) {
-      set({ viewingUserId: null, mainTab: 'profile' });
-      return;
-    }
-    try {
-      const res = await fetchApi('/chats/dm', {
-        method: 'POST',
-        body: JSON.stringify({ user_id: userId }),
-      }, get().token);
-      
-      const existing = get().chats.find((c) => c.id === res.id);
-      if (existing) {
+      setMainTab: (tab) => {
         set({
+          mainTab: tab,
           viewingUserId: null,
-          mainTab: 'chats',
-          activeChatId: res.id,
+          settingsRoute: null,
+          newChatOpen: false,
         });
-        const msgs = await fetchApi(`/chats/${res.id}/messages`, {}, get().token);
-        set({ messages: msgs });
-        return;
-      }
-      
-      set((s) => ({
-        chats: [res, ...s.chats],
-        activeChatId: res.id,
-        mainTab: 'chats',
-        viewingUserId: null,
-        messages: [],
-      }));
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка создания чата');
-    }
-  },
+        if (tab === 'wall') get().markWallSeen();
+      },
+      setActiveMediaId: (id) => set({ activeMediaId: id }),
 
-  createGroupChat: async (title, memberIds) => {
-    if (!title.trim()) {
-      get().showToast('Введите название группы');
-      throw new Error('Title required');
-    }
-    if (!memberIds.length) {
-      get().showToast('Выберите хотя бы одного участника');
-      throw new Error('Members required');
-    }
-    try {
-      const res = await fetchApi(
-        '/chats/group',
-        {
-          method: 'POST',
-          body: JSON.stringify({ title: title.trim(), member_ids: memberIds }),
-        },
-        get().token
-      );
-      if (!res?.id) {
-        throw new Error('Пустой ответ сервера');
-      }
-      set((s) => ({
-        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
-        activeChatId: res.id,
-        mainTab: 'chats',
-        messages: [],
-        newChatOpen: false,
-      }));
-      get().showToast('Группа создана');
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка создания группы');
-      throw err;
-    }
-  },
-
-  createChannel: async (title) => {
-    if (!title.trim()) {
-      get().showToast('Введите название канала');
-      throw new Error('Title required');
-    }
-    try {
-      const res = await fetchApi(
-        '/chats/channel',
-        {
-          method: 'POST',
-          body: JSON.stringify({ title: title.trim() }),
-        },
-        get().token
-      );
-      if (!res?.id) throw new Error('Пустой ответ сервера');
-      set((s) => ({
-        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
-        activeChatId: res.id,
-        mainTab: 'chats',
-        messages: [],
-        newChatOpen: false,
-      }));
-      get().showToast('Канал создан');
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка создания канала');
-      throw err;
-    }
-  },
-
-  setSearchQuery: (q) => set({ searchQuery: q }),
-  setNewChatOpen: (v) => set({ newChatOpen: v }),
-  setChatInfoOpen: (v) => set({ chatInfoOpen: v }),
-  setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
-
-  openChannelPreview: async (chatId) => {
-    try {
-      const preview = await fetchApi(`/chats/${chatId}/preview`, {}, get().token);
-      if (preview.joined) {
-        set({ previewChat: null });
-        if (!get().chats.some((c) => c.id === preview.id)) {
-          set((s) => ({ chats: [preview, ...s.chats] }));
-        }
-        await get().setActiveChat(chatId);
-        return;
-      }
-      const card: Chat = {
-        id: preview.id,
-        type: preview.type || 'channel',
-        title: preview.title || 'Канал',
-        description: preview.description,
-        isPublic: preview.isPublic,
-        memberCount: preview.memberCount,
-        avatarRef: preview.avatarRef,
-        preview: 'Предпросмотр',
-        unread: 0,
-        timeLabel: '',
-      };
-      set({
-        mainTab: 'chats',
-        activeChatId: chatId,
-        previewChat: card,
-        chatInfoOpen: false,
-      });
-      try {
-        const msgs = await fetchApi(
-          `/chats/${chatId}/messages?limit=100`,
-          {},
-          get().token
-        );
-        const list = Array.isArray(msgs) ? msgs : [];
-        set((s) => ({
-          messages: [
-            ...s.messages.filter((m) => m.chatId !== chatId),
-            ...list,
-          ],
-        }));
-      } catch {
-        /* empty ok */
-      }
-    } catch (err: any) {
-      get().showToast(err.message || 'Не удалось открыть канал');
-      throw err;
-    }
-  },
-
-  joinChat: async (chatId) => {
-    try {
-      const res = await fetchApi(`/chats/${chatId}/join`, { method: 'POST' }, get().token);
-      set((s) => ({
-        chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
-        activeChatId: res.id,
-        mainTab: 'chats',
-        previewChat: null,
-      }));
-      get().showToast('Подписка оформлена');
-      await get().setActiveChat(chatId);
-    } catch (err: any) {
-      get().showToast(err.message || 'Не удалось подписаться');
-      throw err;
-    }
-  },
-
-  joinByShareSlug: async (slug) => {
-    try {
-      const link = await fetchApi(`/share-links/${slug}`, {}, get().token);
-      if (link.kind === 'channel' || link.kind === 'group') {
-        await get().openChannelPreview(link.targetId);
-        return;
-      }
-      if (link.kind === 'user') {
-        await get().openUserProfile(link.targetId);
-        return;
-      }
-    } catch (err: any) {
-      get().showToast(err.message || 'Ссылка недействительна');
-      throw err;
-    }
-  },
-
-  leaveChat: async (chatId) => {
-    try {
-      await fetchApi(`/chats/${chatId}/leave`, { method: 'POST' }, get().token);
-      set((s) => ({
-        chats: s.chats.filter((c) => c.id !== chatId),
-        previewChat: s.previewChat?.id === chatId ? null : s.previewChat,
-        activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
-      }));
-      get().showToast('Вы отписались');
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка');
-      throw err;
-    }
-  },
-
-  clearChatMessages: (chatId: string) => {
-    set((s) => ({
-      messages: s.messages.filter((m) => m.chatId !== chatId),
-    }));
-    get().showToast('История сообщений очищена');
-  },
-
-  setPrivacyPref: (key, value) =>
-    set((s) => ({
-      privacyPrefs: { ...s.privacyPrefs, [key]: value },
-    })),
-
-  updateChatMeta: async (chatId, patch) => {
-    try {
-      const res = await fetchApi(
-        `/chats/${chatId}`,
-        { method: 'PATCH', body: JSON.stringify(patch) },
-        get().token
-      );
-      set((s) => ({
-        chats: s.chats.map((c) => (c.id === chatId ? { ...c, ...res } : c)),
-      }));
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка сохранения');
-      throw err;
-    }
-  },
-
-  refreshNotifications: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const data = await fetchApi('/notifications', {}, token);
-      const prev = get().notifications?.[0]?.createdAt || 0;
-      const list = data || [];
-      const newest = list[0]?.createdAt || 0;
-      const prefs = get().notifPrefs;
-      if (newest > prev && prev > 0 && list[0]) {
-        const n = list[0];
-        const type = n.type;
-        if (
-          ((type === 'comment' || type === 'comment_reply') && prefs.comments) ||
-          ((type === 'like' || type === 'comment_like') && prefs.likes)
-        ) {
-          get().showToast(
-            type === 'like'
-              ? `${n.displayName} лайкнул пост`
-              : type === 'comment_like'
-                ? `${n.displayName} лайкнул комментарий`
-                : type === 'comment_reply'
-                  ? `${n.displayName} ответил на комментарий`
-                  : `${n.displayName} прокомментировал`
-          );
-          if (get().browserNotificationsEnabled && typeof Notification !== 'undefined') {
-            try {
-              new Notification('Толк.', {
-                body:
-                  type === 'like'
-                    ? `${n.displayName}: лайк`
-                    : `${n.displayName}: ${n.text || 'комментарий'}`,
-                tag: `n-${n.postId}`,
-              });
-            } catch { /* ignore */ }
+      setActiveChat: async (id) => {
+        set({
+          activeMediaId: null,
+          activeChatId: id,
+          mainTab: 'chats',
+          contextMenu: null,
+          reactionPicker: null,
+          replyToId: null,
+          chatInfoOpen: false,
+          // leaving a subscribed chat clears ephemeral preview
+          previewChat: id && get().previewChat?.id === id ? get().previewChat : null,
+          chats: get().chats.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
+        });
+        if (id) {
+          try {
+            const msgs = await fetchApi(`/chats/${id}/messages?limit=100`, {}, get().token);
+            const list = Array.isArray(msgs) ? msgs : [];
+            // Replace only this chat's messages; keep others
+            set((s) => ({
+              messages: [...s.messages.filter((m) => m.chatId !== id), ...list],
+            }));
+            await fetchApi(`/chats/${id}/read`, { method: 'POST' }, get().token);
+            // Полка живёт на сервере — до этого она была локальной и умирала
+            // вместе с устройством.
+            get().loadShelf(id);
+          } catch (err: any) {
+            console.error('Failed to fetch messages or mark read:', err);
+            if (err?.status === 403 || err?.message?.includes('Not a member')) {
+              set({ activeChatId: null });
+            } else {
+              get().showToast('Не удалось загрузить сообщения');
+            }
           }
-          set((s) => ({
-            notifications: list,
-            notificationsUnread: s.notificationsUnread + 1,
-          }));
+        }
+      },
+
+      openUserProfile: async (userId) => {
+        set({ viewingUserId: userId, settingsRoute: null });
+        const token = get().token;
+        try {
+          // Prefer full profile (username) over chat-list stub with empty username
+          try {
+            const profile = await fetchApi(`/users/${userId}`, {}, token);
+            set((s) => ({
+              users: { ...s.users, [userId]: { ...s.users[userId], ...profile } },
+            }));
+          } catch {
+            /* optional */
+          }
+          const userPosts = await fetchApi(`/users/${userId}/posts?limit=100`, {}, token);
+          set((s) => {
+            const otherPosts = s.posts.filter((p) => p.authorId !== userId);
+            const combined = [...otherPosts, ...userPosts].sort(
+              (a, b) => b.createdAt - a.createdAt,
+            );
+            return {
+              posts: combined,
+              users: mergeUsersFromPosts(userPosts, s.users),
+            };
+          });
+        } catch (err) {
+          console.error('Failed to fetch user posts:', err);
+        }
+      },
+      closeUserProfile: () => set({ viewingUserId: null }),
+
+      startChatWithUser: async (userId) => {
+        if (userId === get().me.id) {
+          set({ viewingUserId: null, mainTab: 'profile' });
           return;
         }
-      }
-      set({ notifications: list });
-    } catch (err) {
-      console.error('notifications', err);
-    }
-  },
+        try {
+          const res = await fetchApi(
+            '/chats/dm',
+            {
+              method: 'POST',
+              body: JSON.stringify({ user_id: userId }),
+            },
+            get().token,
+          );
 
-  markNotificationsSeen: () => {
-    const keys = (get().notifications || []).map(
-      (n: any) => `${n.type}-${n.postId}-${n.userId}-${n.createdAt}`
-    );
-    set((s) => ({
-      notificationsUnread: 0,
-      seenNotificationKeys: Array.from(new Set([...s.seenNotificationKeys, ...keys])),
-    }));
-  },
-  clearNotifications: () =>
-    set({
-      notifications: [],
-      notificationsUnread: 0,
-    }),
+          const existing = get().chats.find((c) => c.id === res.id);
+          if (existing) {
+            set({
+              viewingUserId: null,
+              mainTab: 'chats',
+              activeChatId: res.id,
+            });
+            const msgs = await fetchApi(`/chats/${res.id}/messages`, {}, get().token);
+            set({ messages: msgs });
+            return;
+          }
 
-  toggleNavPin: (chatId) => {
-    const pins = get().navPins;
-    if (pins.includes(chatId)) {
-      set({ navPins: pins.filter((id) => id !== chatId) });
-      get().showToast('Снято с закрепа');
-    } else {
-      if (pins.length >= 8) {
-        get().showToast('Максимум 8 закрепов');
-        return;
-      }
-      set({ navPins: [...pins, chatId] });
-      get().showToast('В боковую панель');
-    }
-  },
+          set((s) => ({
+            chats: [res, ...s.chats],
+            activeChatId: res.id,
+            mainTab: 'chats',
+            viewingUserId: null,
+            messages: [],
+          }));
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка создания чата');
+        }
+      },
 
-  showToast: (msg) => {
-    set({ toast: msg });
-    window.setTimeout(() => {
-      if (get().toast === msg) set({ toast: null });
-    }, 2200);
-  },
-  clearToast: () => set({ toast: null }),
-  markWallSeen: () => set({ wallSeenAt: Date.now() }),
+      createGroupChat: async (title, memberIds) => {
+        if (!title.trim()) {
+          get().showToast('Введите название группы');
+          throw new Error('Title required');
+        }
+        if (!memberIds.length) {
+          get().showToast('Выберите хотя бы одного участника');
+          throw new Error('Members required');
+        }
+        try {
+          const res = await fetchApi(
+            '/chats/group',
+            {
+              method: 'POST',
+              body: JSON.stringify({ title: title.trim(), member_ids: memberIds }),
+            },
+            get().token,
+          );
+          if (!res?.id) {
+            throw new Error('Пустой ответ сервера');
+          }
+          set((s) => ({
+            chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+            activeChatId: res.id,
+            mainTab: 'chats',
+            messages: [],
+            newChatOpen: false,
+          }));
+          get().showToast('Группа создана');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка создания группы');
+          throw err;
+        }
+      },
 
-  simulatePeerTyping: (chatId) => {
-    set({ typingChatId: chatId });
-    window.setTimeout(() => {
-      if (get().typingChatId === chatId) set({ typingChatId: null });
-    }, 2200);
-  },
+      createChannel: async (title) => {
+        if (!title.trim()) {
+          get().showToast('Введите название канала');
+          throw new Error('Title required');
+        }
+        try {
+          const res = await fetchApi(
+            '/chats/channel',
+            {
+              method: 'POST',
+              body: JSON.stringify({ title: title.trim() }),
+            },
+            get().token,
+          );
+          if (!res?.id) throw new Error('Пустой ответ сервера');
+          set((s) => ({
+            chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+            activeChatId: res.id,
+            mainTab: 'chats',
+            messages: [],
+            newChatOpen: false,
+          }));
+          get().showToast('Канал создан');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка создания канала');
+          throw err;
+        }
+      },
 
-  sendMessage: async (text, opts) => {
-    const t = text.trim();
-    const chatId = get().activeChatId;
-    const kind = opts?.kind || 'text';
-    const media = opts?.media;
+      setSearchQuery: (q) => set({ searchQuery: q }),
+      setNewChatOpen: (v) => set({ newChatOpen: v }),
+      setChatInfoOpen: (v) => set({ chatInfoOpen: v }),
+      setReplyTo: (id) => set({ replyToId: id, contextMenu: null }),
 
-    if (!chatId) return;
-    // text-only needs body; media/voice/etc. need media or body
-    if (kind === 'text' && !t) return;
-    if (kind !== 'text' && !media?.url && !t) return;
-
-    const id = uid('m');
-    const createdAt = Date.now();
-    const isEcho = get().echoMode;
-    const offline = get().isOffline;
-    const replyToId = get().replyToId;
-    const replyMsg = replyToId
-      ? get().messages.find((m) => m.id === replyToId)
-      : undefined;
-
-    const msg: Message = {
-      id,
-      chatId,
-      senderId: get().me.id,
-      kind,
-      text: t,
-      status: offline ? 'failed' : 'pending',
-      createdAt,
-      isEcho,
-      reactions: {},
-      replyToId: replyMsg?.id,
-      replyPreview: replyMsg
-        ? (() => {
-            const author =
-              replyMsg.senderId === get().me.id
-                ? get().me.displayName
-                : get().users[replyMsg.senderId]?.displayName || '…';
-            const t = (replyMsg.text || '').trim();
-            let body = t ? t.slice(0, 80) : '';
-            if (!body) {
-              if (replyMsg.kind === 'media') body = 'Фото';
-              else if (replyMsg.kind === 'voice') body = 'Голосовое';
-              else if (replyMsg.kind === 'circle') body = 'Кружок';
-              else if (replyMsg.kind === 'file') body = replyMsg.media?.filename || 'Файл';
-              else body = 'Сообщение';
+      openChannelPreview: async (chatId) => {
+        try {
+          const preview = await fetchApi(`/chats/${chatId}/preview`, {}, get().token);
+          if (preview.joined) {
+            set({ previewChat: null });
+            if (!get().chats.some((c) => c.id === preview.id)) {
+              set((s) => ({ chats: [preview, ...s.chats] }));
             }
-            return `${author}: ${body}`;
-          })()
-        : undefined,
-      media
-    };
+            await get().setActiveChat(chatId);
+            return;
+          }
+          const card: Chat = {
+            id: preview.id,
+            type: preview.type || 'channel',
+            title: preview.title || 'Канал',
+            description: preview.description,
+            isPublic: preview.isPublic,
+            memberCount: preview.memberCount,
+            avatarRef: preview.avatarRef,
+            preview: 'Предпросмотр',
+            unread: 0,
+            timeLabel: '',
+          };
+          set({
+            mainTab: 'chats',
+            activeChatId: chatId,
+            previewChat: card,
+            chatInfoOpen: false,
+          });
+          try {
+            const msgs = await fetchApi(`/chats/${chatId}/messages?limit=100`, {}, get().token);
+            const list = Array.isArray(msgs) ? msgs : [];
+            set((s) => ({
+              messages: [...s.messages.filter((m) => m.chatId !== chatId), ...list],
+            }));
+          } catch {
+            /* empty ok */
+          }
+        } catch (err: any) {
+          get().showToast(err.message || 'Не удалось открыть канал');
+          throw err;
+        }
+      },
 
-    set((s) => ({
-      messages: [...s.messages, msg],
-      replyToId: null,
-      chats: s.chats.map((c) =>
-        c.id === chatId
-          ? { 
-              ...c, 
-              preview: isEcho ? `Echo: ${t || `[${kind}]`}` : (t || `[${kind}]`), 
-              timeLabel: formatTime(createdAt),
-              latestMessageCreatedAt: createdAt
+      joinChat: async (chatId) => {
+        try {
+          const res = await fetchApi(`/chats/${chatId}/join`, { method: 'POST' }, get().token);
+          set((s) => ({
+            chats: [res, ...s.chats.filter((c) => c.id !== res.id)],
+            activeChatId: res.id,
+            mainTab: 'chats',
+            previewChat: null,
+          }));
+          get().showToast('Подписка оформлена');
+          await get().setActiveChat(chatId);
+        } catch (err: any) {
+          get().showToast(err.message || 'Не удалось подписаться');
+          throw err;
+        }
+      },
+
+      joinByShareSlug: async (slug) => {
+        try {
+          const link = await fetchApi(`/share-links/${slug}`, {}, get().token);
+          if (link.kind === 'channel' || link.kind === 'group') {
+            await get().openChannelPreview(link.targetId);
+            return;
+          }
+          if (link.kind === 'user') {
+            await get().openUserProfile(link.targetId);
+            return;
+          }
+        } catch (err: any) {
+          get().showToast(err.message || 'Ссылка недействительна');
+          throw err;
+        }
+      },
+
+      leaveChat: async (chatId) => {
+        try {
+          await fetchApi(`/chats/${chatId}/leave`, { method: 'POST' }, get().token);
+          set((s) => ({
+            chats: s.chats.filter((c) => c.id !== chatId),
+            previewChat: s.previewChat?.id === chatId ? null : s.previewChat,
+            activeChatId: s.activeChatId === chatId ? null : s.activeChatId,
+          }));
+          get().showToast('Вы отписались');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка');
+          throw err;
+        }
+      },
+
+      clearChatMessages: (chatId: string) => {
+        set((s) => ({
+          messages: s.messages.filter((m) => m.chatId !== chatId),
+        }));
+        get().showToast('История сообщений очищена');
+      },
+
+      setPrivacyPref: (key, value) =>
+        set((s) => ({
+          privacyPrefs: { ...s.privacyPrefs, [key]: value },
+        })),
+
+      updateChatMeta: async (chatId, patch) => {
+        try {
+          const res = await fetchApi(
+            `/chats/${chatId}`,
+            { method: 'PATCH', body: JSON.stringify(patch) },
+            get().token,
+          );
+          set((s) => ({
+            chats: s.chats.map((c) => (c.id === chatId ? { ...c, ...res } : c)),
+          }));
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка сохранения');
+          throw err;
+        }
+      },
+
+      refreshNotifications: async () => {
+        const token = get().token;
+        if (!token) return;
+        try {
+          const data = await fetchApi('/notifications', {}, token);
+          const prev = get().notifications?.[0]?.createdAt || 0;
+          const list = data || [];
+          const newest = list[0]?.createdAt || 0;
+          const prefs = get().notifPrefs;
+          if (newest > prev && prev > 0 && list[0]) {
+            const n = list[0];
+            const type = n.type;
+            if (
+              ((type === 'comment' || type === 'comment_reply') && prefs.comments) ||
+              ((type === 'like' || type === 'comment_like') && prefs.likes)
+            ) {
+              get().showToast(
+                type === 'like'
+                  ? `${n.displayName} лайкнул пост`
+                  : type === 'comment_like'
+                    ? `${n.displayName} лайкнул комментарий`
+                    : type === 'comment_reply'
+                      ? `${n.displayName} ответил на комментарий`
+                      : `${n.displayName} прокомментировал`,
+              );
+              if (get().browserNotificationsEnabled && typeof Notification !== 'undefined') {
+                try {
+                  new Notification('Толк.', {
+                    body:
+                      type === 'like'
+                        ? `${n.displayName}: лайк`
+                        : `${n.displayName}: ${n.text || 'комментарий'}`,
+                    tag: `n-${n.postId}`,
+                  });
+                } catch {
+                  /* ignore */
+                }
+              }
+              set((s) => ({
+                notifications: list,
+                notificationsUnread: s.notificationsUnread + 1,
+              }));
+              return;
             }
-          : c
-      ),
-      echoMode: isEcho ? false : s.echoMode,
-    }));
+          }
+          set({ notifications: list });
+        } catch (err) {
+          console.error('notifications', err);
+        }
+      },
 
-    if (!isEcho) {
-      soundEffects.playSent(get().notificationSound);
-    }
-  
-    if (isEcho) {
-      set((s) => ({
-        echoes: [
-          ...s.echoes,
-          {
-            id: uid('e'),
-            fromUserId: get().me.id,
-            fromName: get().me.displayName,
-            chatId,
-            messageId: id,
-            text: t || `[${kind}]`,
-            status: 'pending',
-            createdAt,
-          },
-        ],
-      }));
-    }
+      markNotificationsSeen: () => {
+        const keys = (get().notifications || []).map(
+          (n: any) => `${n.type}-${n.postId}-${n.userId}-${n.createdAt}`,
+        );
+        set((s) => ({
+          notificationsUnread: 0,
+          seenNotificationKeys: Array.from(new Set([...s.seenNotificationKeys, ...keys])),
+        }));
+      },
+      clearNotifications: () =>
+        set({
+          notifications: [],
+          notificationsUnread: 0,
+        }),
 
-    if (offline) {
-      return;
-    }
+      toggleNavPin: (chatId) => {
+        const pins = get().navPins;
+        if (pins.includes(chatId)) {
+          set({ navPins: pins.filter((id) => id !== chatId) });
+          get().showToast('Снято с закрепа');
+        } else {
+          if (pins.length >= 8) {
+            get().showToast('Максимум 8 закрепов');
+            return;
+          }
+          set({ navPins: [...pins, chatId] });
+          get().showToast('В боковую панель');
+        }
+      },
 
-    try {
-      const res = await fetchApi(`/chats/${chatId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({
-          client_id: id,
+      showToast: (msg) => {
+        notify(msg);
+      },
+      clearToast: () => {
+        notify.dismiss();
+      },
+      markWallSeen: () => set({ wallSeenAt: Date.now() }),
+
+      simulatePeerTyping: (chatId) => {
+        set({ typingChatId: chatId });
+        window.setTimeout(() => {
+          if (get().typingChatId === chatId) set({ typingChatId: null });
+        }, 2200);
+      },
+
+      sendMessage: async (text, opts) => {
+        const t = text.trim();
+        const chatId = get().activeChatId;
+        const kind = opts?.kind || 'text';
+        const media = opts?.media;
+
+        if (!chatId) return;
+        // text-only needs body; media/voice/etc. need media or body
+        if (kind === 'text' && !t) return;
+        if (kind !== 'text' && !media?.url && !t) return;
+
+        const id = uid('m');
+        const createdAt = Date.now();
+        const isEcho = get().echoMode;
+        const offline = get().isOffline;
+        const replyToId = get().replyToId;
+        const replyMsg = replyToId ? get().messages.find((m) => m.id === replyToId) : undefined;
+
+        const msg: Message = {
+          id,
+          chatId,
+          senderId: get().me.id,
           kind,
           text: t,
-          reply_to: replyToId || undefined,
-          is_echo: isEcho,
-          media
-        }),
-      }, get().token);
-
-      const exists = get().messages.some((m) => m.id === res.id);
-      if (exists) {
-        set((s) => ({
-          messages: s.messages.filter((m) => m.id !== id),
-        }));
-      } else {
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === id
-              ? {
-                  ...m,
-                  id: res.id,
-                  seq: res.seq,
-                  status: 'sent',
-                  createdAt: res.createdAt,
+          status: offline ? 'failed' : 'pending',
+          createdAt,
+          isEcho,
+          reactions: {},
+          replyToId: replyMsg?.id,
+          replyPreview: replyMsg
+            ? (() => {
+                const author =
+                  replyMsg.senderId === get().me.id
+                    ? get().me.displayName
+                    : get().users[replyMsg.senderId]?.displayName || '…';
+                const t = (replyMsg.text || '').trim();
+                let body = t ? t.slice(0, 80) : '';
+                if (!body) {
+                  if (replyMsg.kind === 'media') body = 'Фото';
+                  else if (replyMsg.kind === 'voice') body = 'Голосовое';
+                  else if (replyMsg.kind === 'circle') body = 'Кружок';
+                  else if (replyMsg.kind === 'file') body = replyMsg.media?.filename || 'Файл';
+                  else body = 'Сообщение';
                 }
-              : m
-          ),
-        }));
-      }
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      set((s) => ({
-        messages: s.messages.map((m) => (m.id === id ? { ...m, status: 'failed' } : m)),
-      }));
-      get().showToast('Не удалось отправить сообщение');
-    }
-  },
-
-  uploadAttachment: async (file, kind, caption?: string) => {
-    const token = get().token;
-    const chatId = get().activeChatId;
-    if (!chatId) return;
-
-    try {
-      get().showToast('Загрузка…');
-      
-      // Пресеты и решение «пересжимать ли вообще» живут в одном месте —
-      // иначе шесть точек загрузки расходятся, как это уже было.
-      const processedFile =
-        kind === 'media' ? await prepareImage(file, 'photo') : file;
-      
-      const mime = processedFile.type || 'application/octet-stream';
-      let publicUrl = '';
-      try {
-        ({ url: publicUrl } = await uploadFile(
-          processedFile,
-          {
-            mime,
-            purpose: 'message',
-            kind: mime.startsWith('image/')
-              ? 'image'
-              : mime.startsWith('audio/')
-                ? 'voice'
-                : mime.startsWith('video/')
-                  ? 'circle'
-                  : 'file',
-          },
-          token
-        ));
-      } catch (uploadErr) {
-        console.error('Media upload failed:', uploadErr);
-        throw uploadErr;
-      }
-
-      // Caption optional — never auto-fill filename as message text for images
-      const text =
-        kind === 'media'
-          ? (caption || '').trim()
-          : (caption || file.name || '').trim() || file.name;
-
-      await get().sendMessage(text, {
-        kind,
-        media: {
-          url: publicUrl,
-          filename: file.name,
-          mime: file.type,
-          size: file.size
-        }
-      });
-
-      get().showToast('Отправлено');
-    } catch (err: any) {
-      console.error('Failed to upload attachment:', err);
-      get().showToast(err.message || 'Ошибка загрузки вложения');
-    }
-  },
-
-  initApi: async () => {
-    const token = get().token;
-    if (!token) {
-      set({ booting: false });
-      return;
-    }
-    set({ booting: true });
-    try {
-      connectWebSocket(token, useAppStore);
-
-      // Кто мы — обязательно первым: без идентификатора нельзя спросить свои
-      // посты, да и показывать нечего.
-      const mePayload = await fetchApi('/me', {}, token);
-      set({ me: mePayload });
-
-      // Всё остальное друг от друга не зависит. Раньше эти шесть запросов
-      // шли цепочкой, каждый ждал предыдущего: на мобильной связи это около
-      // секунды чистого ожидания перед первой отрисовкой. Теперь один круг.
-      //
-      // allSettled, а не all: неудача второстепенного — уведомлений, эха,
-      // блокировок — не должна оставлять человека без чатов и ленты.
-      const [chatsRes, feedRes, myPostsRes] = await Promise.allSettled([
-        fetchApi('/chats', {}, token),
-        // Просим ровно предел: если пришло столько же, значит есть продолжение.
-        fetchApi('/wall/feed?limit=30', {}, token),
-        fetchApi(`/users/${mePayload.id}/posts?limit=100`, {}, token),
-      ]);
-      // Эти три наполняют собственные срезы состояния и обрабатывают свои
-      // отказы сами, поэтому просто отпускаем их в тот же круг.
-      const sideLoads = Promise.allSettled([
-        get().refreshNotifications(),
-        get().syncEchoes(),
-        get().loadBlocks(),
-        get().loadFriends(),
-      ]);
-
-      const chatsList = chatsRes.status === 'fulfilled' && Array.isArray(chatsRes.value)
-        ? chatsRes.value
-        : [];
-      if (chatsRes.status === 'rejected') {
-        console.error('Не удалось загрузить чаты:', chatsRes.reason);
-      }
-
-      const usersMap: Record<string, User> = {};
-      usersMap[mePayload.id] = mePayload;
-      
-      chatsList.forEach((c: any) => {
-        if (c.peerId) {
-          usersMap[c.peerId] = {
-            id: c.peerId,
-            username: c.peerUsername || '',
-            displayName: c.title,
-            avatarRef: c.avatarRef,
-            online: c.online,
-            lastSeenAt: c.lastSeenAt || 0,
-            bannerPatternId: 'mint_wave',
-          };
-        }
-      });
-      
-      let combinedPosts: Post[] = [];
-      const postsList: Post[] = feedRes.status === 'fulfilled' && Array.isArray(feedRes.value)
-        ? feedRes.value
-        : [];
-      const myPostsList: Post[] = myPostsRes.status === 'fulfilled' && Array.isArray(myPostsRes.value)
-        ? myPostsRes.value
-        : [];
-      if (feedRes.status === 'rejected') console.error('Не удалось загрузить ленту:', feedRes.reason);
-      if (myPostsRes.status === 'rejected') console.error('Не удалось загрузить свои посты:', myPostsRes.reason);
-
-      set({ feedHasMore: postsList.length >= 30 });
-      if (postsList.length || myPostsList.length) {
-        const byId = new Map<string, Post>();
-        postsList.forEach((p) => byId.set(p.id, p));
-        myPostsList.forEach((p) => byId.set(p.id, p));
-        combinedPosts = [...byId.values()].sort((a: any, b: any) => b.createdAt - a.createdAt);
-        Object.assign(usersMap, mergeUsersFromPosts(combinedPosts, usersMap));
-      }
-
-      set({
-        users: usersMap,
-        chats: chatsList,
-        posts: combinedPosts,
-      });
-
-      // Второстепенное уже летит параллельно — дожидаемся, чтобы отказ не
-      // всплыл необработанным, но экран к этому моменту уже нарисован.
-      await sideLoads;
-
-      const activeId = get().activeChatId;
-      if (activeId) {
-        const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
-        set({ messages: msgs });
-      }
-    } catch (err: any) {
-      console.error('API initialization failed:', err);
-      get().showToast('Ошибка подключения к серверу');
-      // 401 не проходит сам собой: токен просрочен или сессия отозвана.
-      // Пока выход не срабатывал, приложение оставалось с чужими данными на
-      // экране и бесконечно перезапрашивало /me.
-      if (err?.status === 401 || err?.status === 419) {
-        get().logout();
-      }
-    } finally {
-      // finally, а не в try: при ошибке скелетоны обязаны погаснуть, иначе
-      // экран навсегда останется в состоянии загрузки.
-      set({ booting: false });
-    }
-  },
-
-  loadMoreFeed: async () => {
-    const { posts, feedHasMore, feedLoadingMore, token } = get();
-    if (!feedHasMore || feedLoadingMore || !token) return;
-    const last = posts[posts.length - 1];
-    if (!last) return;
-
-    set({ feedLoadingMore: true });
-    try {
-      // Курсор — идентификатор последнего поста. Время сюда не годится: наружу
-      // оно уходит округлённым, и граница страницы повторяется.
-      const next = await fetchApi(`/wall/feed?limit=30&before_id=${last.id}`, {}, token);
-      const list = Array.isArray(next) ? next : [];
-      set((s) => {
-        const known = new Set(s.posts.map((p: any) => p.id));
-        return {
-          posts: [...s.posts, ...list.filter((p: any) => !known.has(p.id))],
-          feedHasMore: list.length >= 30,
+                return `${author}: ${body}`;
+              })()
+            : undefined,
+          media,
         };
-      });
-    } catch (err) {
-      console.error('не удалось догрузить ленту', err);
-      get().showToast('Не удалось загрузить ещё');
-    } finally {
-      set({ feedLoadingMore: false });
-    }
-  },
 
-  sendTypingPresence: () => {
-    const chatId = get().activeChatId;
-    if (!chatId || !activeSocket || activeSocket.readyState !== 1) return;
-    const now = Date.now();
-    if (now - lastTypingSent < 1500) return;
-    lastTypingSent = now;
-    activeSocket.send(JSON.stringify({
-      event: 'presence.typing',
-      data: { chat_id: chatId }
-    }));
-  },
+        set((s) => ({
+          messages: [...s.messages, msg],
+          replyToId: null,
+          chats: s.chats.map((c) =>
+            c.id === chatId
+              ? {
+                  ...c,
+                  preview: isEcho ? `Echo: ${t || `[${kind}]`}` : t || `[${kind}]`,
+                  timeLabel: formatTime(createdAt),
+                  latestMessageCreatedAt: createdAt,
+                }
+              : c,
+          ),
+          echoMode: isEcho ? false : s.echoMode,
+        }));
 
-  // ── WebRTC 1:1 calls ──────────────────────────────────────────────────────
-  call: null,
+        if (!isEcho) {
+          soundEffects.playSent(get().notificationSound);
+        }
 
-  startCall: async (peerId, opts = {}) => {
-    if (get().call) return; // one call at a time
-    const token = get().token;
-    const video = !!opts.video;
-    const callId = uid('call');
-    try {
-      localStream = video ? await getCam() : await getMic();
-    } catch {
-      get().showToast('Нет доступа к микрофону/камере');
-      return;
-    }
-    const ice = await fetchIceConfig(token);
-    pc = wirePeer(ice, callId, peerId, token);
-    localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
-    set({ call: { id: callId, peerId, direction: 'out', status: 'ringing', video, screen: false, muted: false, camOff: false, hasRemote: false } });
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    postSignal(token, peerId, callId, 'offer', { sdp: pc.localDescription, video });
-    ringTimer = window.setTimeout(() => {
-      if (get().call?.id === callId && get().call?.status === 'ringing') {
-        postSignal(token, peerId, callId, 'hangup');
-        get().endCall();
-        get().showToast('Не отвечает');
-      }
-    }, 35000);
-  },
+        if (isEcho) {
+          set((s) => ({
+            echoes: [
+              ...s.echoes,
+              {
+                id: uid('e'),
+                fromUserId: get().me.id,
+                fromName: get().me.displayName,
+                chatId,
+                messageId: id,
+                text: t || `[${kind}]`,
+                status: 'pending',
+                createdAt,
+              },
+            ],
+          }));
+        }
 
-  acceptCall: async () => {
-    const call = get().call;
-    const token = get().token;
-    if (!call || call.direction !== 'in' || call.status !== 'ringing' || !pc) return;
-    if (ringTimer) { clearTimeout(ringTimer); ringTimer = undefined; }
-    try {
-      localStream = call.video ? await getCam() : await getMic();
-    } catch {
-      get().showToast('Нет доступа к микрофону/камере');
-      postSignal(token, call.peerId, call.id, 'reject', { reason: 'nomedia' });
-      get().endCall();
-      return;
-    }
-    localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    postSignal(token, call.peerId, call.id, 'answer', { sdp: pc.localDescription });
-    set({ call: { ...call, status: 'connecting' } });
-  },
+        if (offline) {
+          return;
+        }
 
-  rejectCall: () => {
-    const call = get().call;
-    if (!call) return;
-    postSignal(get().token, call.peerId, call.id, 'reject', { reason: 'declined' });
-    get().endCall();
-  },
-
-  endCall: () => {
-    const call = get().call;
-    if (call && call.status !== 'ended') {
-      // Harmless if the peer already left — no matching call there to end.
-      postSignal(get().token, call.peerId, call.id, 'hangup');
-    }
-    teardownPeer();
-    set({ call: null });
-  },
-
-  toggleMute: () => {
-    const call = get().call;
-    if (!call || !localStream) return;
-    const muted = !call.muted;
-    localStream.getAudioTracks().forEach((t) => (t.enabled = !muted));
-    set({ call: { ...call, muted } });
-  },
-
-  toggleCamera: () => {
-    const call = get().call;
-    if (!call || !localStream) return;
-    const camOff = !call.camOff;
-    localStream.getVideoTracks().forEach((t) => (t.enabled = !camOff));
-    set({ call: { ...call, camOff } });
-  },
-
-  toggleScreenShare: async () => {
-    const call = get().call;
-    if (!call || !pc) return;
-    const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-    if (!sender) {
-      // No video m-line to swap into; adding one needs renegotiation.
-      // ponytail: screen-share only in video calls; audio-call upgrade = renegotiate.
-      get().showToast('Демонстрация доступна в видеозвонке');
-      return;
-    }
-    if (!call.screen) {
-      let screen: MediaStream;
-      try {
-        screen = await getDisplay();
-      } catch {
-        return; // user dismissed the picker
-      }
-      const track = screen.getVideoTracks()[0];
-      if (!track) { stopStream(screen); return; }
-      // Stopping the share from the browser's own bar reverts us too.
-      track.onended = () => { if (get().call?.screen) get().toggleScreenShare(); };
-      screenStream = screen;
-      await sender.replaceTrack(track);
-      set({ call: { ...call, screen: true } });
-    } else {
-      const camTrack = localStream?.getVideoTracks()[0] || null;
-      await sender.replaceTrack(camTrack);
-      stopStream(screenStream);
-      screenStream = null;
-      set({ call: { ...call, screen: false } });
-    }
-  },
-
-  onCallSignal: (data) => {
-    const from = data?.from as string;
-    const callId = data?.callId as string;
-    const kind = data?.kind as string;
-    const payload = data?.payload;
-    if (!from || !callId || !kind) return;
-    const token = get().token;
-    const call = get().call;
-
-    if (kind === 'offer') {
-      if (call && call.id !== callId) { postSignal(token, from, callId, 'reject', { reason: 'busy' }); return; }
-      if (call && call.id === callId) return; // duplicate
-      (async () => {
-        const ice = await fetchIceConfig(token);
-        pc = wirePeer(ice, callId, from, token);
         try {
-          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
-          for (const c of pendingIce) { try { await pc.addIceCandidate(c); } catch { /* stale */ } }
-          pendingIce = [];
+          const res = await fetchApi(
+            `/chats/${chatId}/messages`,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                client_id: id,
+                kind,
+                text: t,
+                reply_to: replyToId || undefined,
+                is_echo: isEcho,
+                media,
+              }),
+            },
+            get().token,
+          );
+
+          const exists = get().messages.some((m) => m.id === res.id);
+          if (exists) {
+            set((s) => ({
+              messages: s.messages.filter((m) => m.id !== id),
+            }));
+          } else {
+            set((s) => ({
+              messages: s.messages.map((m) =>
+                m.id === id
+                  ? {
+                      ...m,
+                      id: res.id,
+                      seq: res.seq,
+                      status: 'sent',
+                      createdAt: res.createdAt,
+                    }
+                  : m,
+              ),
+            }));
+          }
+        } catch (err) {
+          console.error('Failed to send message:', err);
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === id ? { ...m, status: 'failed' } : m)),
+          }));
+          get().showToast('Не удалось отправить сообщение');
+        }
+      },
+
+      uploadAttachment: async (file, kind, caption?: string) => {
+        const token = get().token;
+        const chatId = get().activeChatId;
+        if (!chatId) return;
+
+        try {
+          get().showToast('Загрузка…');
+
+          // Пресеты и решение «пересжимать ли вообще» живут в одном месте —
+          // иначе шесть точек загрузки расходятся, как это уже было.
+          const processedFile = kind === 'media' ? await prepareImage(file, 'photo') : file;
+
+          const mime = processedFile.type || 'application/octet-stream';
+          let publicUrl = '';
+          try {
+            ({ url: publicUrl } = await uploadFile(
+              processedFile,
+              {
+                mime,
+                purpose: 'message',
+                kind: mime.startsWith('image/')
+                  ? 'image'
+                  : mime.startsWith('audio/')
+                    ? 'voice'
+                    : mime.startsWith('video/')
+                      ? 'circle'
+                      : 'file',
+              },
+              token,
+            ));
+          } catch (uploadErr) {
+            console.error('Media upload failed:', uploadErr);
+            throw uploadErr;
+          }
+
+          // Caption optional — never auto-fill filename as message text for images
+          const text =
+            kind === 'media'
+              ? (caption || '').trim()
+              : (caption || file.name || '').trim() || file.name;
+
+          await get().sendMessage(text, {
+            kind,
+            media: {
+              url: publicUrl,
+              filename: file.name,
+              mime: file.type,
+              size: file.size,
+            },
+          });
+
+          get().showToast('Отправлено');
+        } catch (err: any) {
+          console.error('Failed to upload attachment:', err);
+          get().showToast(err.message || 'Ошибка загрузки вложения');
+        }
+      },
+
+      initApi: async () => {
+        const token = get().token;
+        if (!token) {
+          set({ booting: false });
+          return;
+        }
+        set({ booting: true });
+        try {
+          connectWebSocket(token, useAppStore);
+
+          // Кто мы — обязательно первым: без идентификатора нельзя спросить свои
+          // посты, да и показывать нечего.
+          const mePayload = await fetchApi('/me', {}, token);
+          set({ me: mePayload });
+
+          // Всё остальное друг от друга не зависит. Раньше эти шесть запросов
+          // шли цепочкой, каждый ждал предыдущего: на мобильной связи это около
+          // секунды чистого ожидания перед первой отрисовкой. Теперь один круг.
+          //
+          // allSettled, а не all: неудача второстепенного — уведомлений, эха,
+          // блокировок — не должна оставлять человека без чатов и ленты.
+          const [chatsRes, feedRes, myPostsRes] = await Promise.allSettled([
+            fetchApi('/chats', {}, token),
+            // Просим ровно предел: если пришло столько же, значит есть продолжение.
+            fetchApi('/wall/feed?limit=30', {}, token),
+            fetchApi(`/users/${mePayload.id}/posts?limit=100`, {}, token),
+          ]);
+          // Эти три наполняют собственные срезы состояния и обрабатывают свои
+          // отказы сами, поэтому просто отпускаем их в тот же круг.
+          const sideLoads = Promise.allSettled([
+            get().refreshNotifications(),
+            get().syncEchoes(),
+            get().loadBlocks(),
+            get().loadFriends(),
+          ]);
+
+          const chatsList =
+            chatsRes.status === 'fulfilled' && Array.isArray(chatsRes.value) ? chatsRes.value : [];
+          if (chatsRes.status === 'rejected') {
+            console.error('Не удалось загрузить чаты:', chatsRes.reason);
+          }
+
+          const usersMap: Record<string, User> = {};
+          usersMap[mePayload.id] = mePayload;
+
+          chatsList.forEach((c: any) => {
+            if (c.peerId) {
+              usersMap[c.peerId] = {
+                id: c.peerId,
+                username: c.peerUsername || '',
+                displayName: c.title,
+                avatarRef: c.avatarRef,
+                online: c.online,
+                lastSeenAt: c.lastSeenAt || 0,
+                bannerPatternId: 'mint_wave',
+              };
+            }
+          });
+
+          let combinedPosts: Post[] = [];
+          const postsList: Post[] =
+            feedRes.status === 'fulfilled' && Array.isArray(feedRes.value) ? feedRes.value : [];
+          const myPostsList: Post[] =
+            myPostsRes.status === 'fulfilled' && Array.isArray(myPostsRes.value)
+              ? myPostsRes.value
+              : [];
+          if (feedRes.status === 'rejected')
+            console.error('Не удалось загрузить ленту:', feedRes.reason);
+          if (myPostsRes.status === 'rejected')
+            console.error('Не удалось загрузить свои посты:', myPostsRes.reason);
+
+          set({
+            feedHasMore: postsList.length >= 30,
+            feedCursor: postsList.at(-1)?.id ?? null,
+            feedError: feedRes.status === 'rejected' ? 'Не удалось загрузить ленту' : null,
+          });
+          if (postsList.length || myPostsList.length) {
+            const byId = new Map<string, Post>();
+            postsList.forEach((p) => byId.set(p.id, p));
+            myPostsList.forEach((p) => byId.set(p.id, p));
+            combinedPosts = [...byId.values()].sort((a: any, b: any) => b.createdAt - a.createdAt);
+            Object.assign(usersMap, mergeUsersFromPosts(combinedPosts, usersMap));
+          }
+
+          set({
+            users: usersMap,
+            chats: chatsList,
+            posts: combinedPosts,
+          });
+
+          // Второстепенное уже летит параллельно — дожидаемся, чтобы отказ не
+          // всплыл необработанным, но экран к этому моменту уже нарисован.
+          await sideLoads;
+
+          const activeId = get().activeChatId;
+          if (activeId) {
+            const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
+            set({ messages: msgs });
+          }
+        } catch (err: any) {
+          console.error('API initialization failed:', err);
+          get().showToast('Ошибка подключения к серверу');
+          // 401 не проходит сам собой: токен просрочен или сессия отозвана.
+          // Пока выход не срабатывал, приложение оставалось с чужими данными на
+          // экране и бесконечно перезапрашивало /me.
+          if (err?.status === 401 || err?.status === 419) {
+            get().logout();
+          }
+        } finally {
+          // finally, а не в try: при ошибке скелетоны обязаны погаснуть, иначе
+          // экран навсегда останется в состоянии загрузки.
+          set({ booting: false });
+        }
+      },
+
+      refreshFeed: async () => {
+        const token = get().token;
+        if (!token || get().feedRefreshing) return;
+        const request = ++feedRequest;
+        set({ feedRefreshing: true, feedLoadingMore: false, feedError: null });
+        try {
+          const list: Post[] = await fetchApi('/wall/feed?limit=30', {}, token);
+          if (!Array.isArray(list)) throw new Error('Invalid feed response');
+          if (request !== feedRequest || token !== get().token) return;
+          set((s) => {
+            const byId = new Map(s.posts.filter((p) => !p.onWall).map((p) => [p.id, p]));
+            list.forEach((p) => byId.set(p.id, p));
+            return {
+              posts: [...byId.values()],
+              users: mergeUsersFromPosts(list, s.users),
+              feedCursor: list.at(-1)?.id ?? null,
+              feedHasMore: list.length >= 30,
+            };
+          });
         } catch {
+          if (request === feedRequest && token === get().token)
+            set({ feedError: 'Не удалось обновить ленту' });
+        } finally {
+          if (request === feedRequest && token === get().token) set({ feedRefreshing: false });
+        }
+      },
+
+      loadMoreFeed: async () => {
+        const { feedHasMore, feedLoadingMore, feedRefreshing, feedCursor, token } = get();
+        if (!feedHasMore || feedLoadingMore || feedRefreshing || !token) return;
+        if (!feedCursor) {
+          await get().refreshFeed();
+          return;
+        }
+        const request = ++feedRequest;
+        set({ feedLoadingMore: true, feedError: null });
+        try {
+          // The cursor comes from the last feed response, never an unrelated profile post.
+          const list: Post[] = await fetchApi(
+            `/wall/feed?limit=30&before_id=${encodeURIComponent(feedCursor)}`,
+            {},
+            token,
+          );
+          if (!Array.isArray(list)) throw new Error('Invalid feed response');
+          if (request !== feedRequest || token !== get().token) return;
+          set((s) => {
+            const byId = new Map(s.posts.map((p) => [p.id, p]));
+            list.forEach((p) => byId.set(p.id, p));
+            return {
+              posts: [...byId.values()],
+              users: mergeUsersFromPosts(list, s.users),
+              feedCursor: list.at(-1)?.id ?? feedCursor,
+              feedHasMore: list.length >= 30 && list.at(-1)?.id !== feedCursor,
+            };
+          });
+        } catch {
+          if (request === feedRequest && token === get().token)
+            set({ feedError: 'Не удалось загрузить следующие посты' });
+        } finally {
+          if (request === feedRequest && token === get().token) set({ feedLoadingMore: false });
+        }
+      },
+
+      sendTypingPresence: () => {
+        const chatId = get().activeChatId;
+        if (!chatId || !activeSocket || activeSocket.readyState !== 1) return;
+        const now = Date.now();
+        if (now - lastTypingSent < 3000) return;
+        lastTypingSent = now;
+        activeSocket.send(
+          JSON.stringify({
+            event: 'presence.typing',
+            data: { chat_id: chatId },
+          }),
+        );
+      },
+
+      // ── WebRTC 1:1 calls ──────────────────────────────────────────────────────
+      call: null,
+
+      startCall: async (peerId, opts = {}) => {
+        if (get().call) return; // one call at a time
+        const token = get().token;
+        const video = !!opts.video;
+        const callId = uid('call');
+        try {
+          localStream = video ? await getCam() : await getMic();
+        } catch {
+          get().showToast('Нет доступа к микрофону/камере');
+          return;
+        }
+        const ice = await fetchIceConfig(token);
+        pc = wirePeer(ice, callId, peerId, token);
+        localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
+        set({
+          call: {
+            id: callId,
+            peerId,
+            direction: 'out',
+            status: 'ringing',
+            video,
+            screen: false,
+            muted: false,
+            camOff: false,
+            hasRemote: false,
+          },
+        });
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        postSignal(token, peerId, callId, 'offer', { sdp: pc.localDescription, video });
+        ringTimer = window.setTimeout(() => {
+          if (get().call?.id === callId && get().call?.status === 'ringing') {
+            postSignal(token, peerId, callId, 'hangup');
+            get().endCall();
+            get().showToast('Не отвечает');
+          }
+        }, 35000);
+      },
+
+      acceptCall: async () => {
+        const call = get().call;
+        const token = get().token;
+        if (!call || call.direction !== 'in' || call.status !== 'ringing' || !pc) return;
+        if (ringTimer) {
+          clearTimeout(ringTimer);
+          ringTimer = undefined;
+        }
+        try {
+          localStream = call.video ? await getCam() : await getMic();
+        } catch {
+          get().showToast('Нет доступа к микрофону/камере');
+          postSignal(token, call.peerId, call.id, 'reject', { reason: 'nomedia' });
           get().endCall();
           return;
         }
-        set({ call: { id: callId, peerId: from, direction: 'in', status: 'ringing', video: !!payload?.video, screen: false, muted: false, camOff: false, hasRemote: false } });
-        ringTimer = window.setTimeout(() => {
-          if (get().call?.id === callId && get().call?.status === 'ringing') {
-            postSignal(token, from, callId, 'reject', { reason: 'timeout' });
-            get().endCall();
+        localStream.getTracks().forEach((t) => pc!.addTrack(t, localStream!));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        postSignal(token, call.peerId, call.id, 'answer', { sdp: pc.localDescription });
+        set({ call: { ...call, status: 'connecting' } });
+      },
+
+      rejectCall: () => {
+        const call = get().call;
+        if (!call) return;
+        postSignal(get().token, call.peerId, call.id, 'reject', { reason: 'declined' });
+        get().endCall();
+      },
+
+      endCall: () => {
+        const call = get().call;
+        if (call && call.status !== 'ended') {
+          // Harmless if the peer already left — no matching call there to end.
+          postSignal(get().token, call.peerId, call.id, 'hangup');
+        }
+        teardownPeer();
+        set({ call: null });
+      },
+
+      toggleMute: () => {
+        const call = get().call;
+        if (!call || !localStream) return;
+        const muted = !call.muted;
+        localStream.getAudioTracks().forEach((t) => (t.enabled = !muted));
+        set({ call: { ...call, muted } });
+      },
+
+      toggleCamera: () => {
+        const call = get().call;
+        if (!call || !localStream) return;
+        const camOff = !call.camOff;
+        localStream.getVideoTracks().forEach((t) => (t.enabled = !camOff));
+        set({ call: { ...call, camOff } });
+      },
+
+      toggleScreenShare: async () => {
+        const call = get().call;
+        if (!call || !pc) return;
+        const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        if (!sender) {
+          // No video m-line to swap into; adding one needs renegotiation.
+          // ponytail: screen-share only in video calls; audio-call upgrade = renegotiate.
+          get().showToast('Демонстрация доступна в видеозвонке');
+          return;
+        }
+        if (!call.screen) {
+          let screen: MediaStream;
+          try {
+            screen = await getDisplay();
+          } catch {
+            return; // user dismissed the picker
           }
-        }, 35000);
-      })();
-      return;
-    }
+          const track = screen.getVideoTracks()[0];
+          if (!track) {
+            stopStream(screen);
+            return;
+          }
+          // Stopping the share from the browser's own bar reverts us too.
+          track.onended = () => {
+            if (get().call?.screen) get().toggleScreenShare();
+          };
+          screenStream = screen;
+          await sender.replaceTrack(track);
+          set({ call: { ...call, screen: true } });
+        } else {
+          const camTrack = localStream?.getVideoTracks()[0] || null;
+          await sender.replaceTrack(camTrack);
+          stopStream(screenStream);
+          screenStream = null;
+          set({ call: { ...call, screen: false } });
+        }
+      },
 
-    // "answered on another device": the caller relays this to the callee's user
-    // id, so every ringing sibling device dismisses.
-    if (kind === 'invite' && payload?.taken) {
-      if (call && call.id === callId && call.direction === 'in' && call.status === 'ringing') get().endCall();
-      return;
-    }
+      onCallSignal: (data) => {
+        const from = data?.from as string;
+        const callId = data?.callId as string;
+        const kind = data?.kind as string;
+        const payload = data?.payload;
+        if (!from || !callId || !kind) return;
+        const token = get().token;
+        const call = get().call;
 
-    if (!call || call.id !== callId) return; // not our call
+        if (kind === 'offer') {
+          if (call && call.id !== callId) {
+            postSignal(token, from, callId, 'reject', { reason: 'busy' });
+            return;
+          }
+          if (call && call.id === callId) return; // duplicate
+          (async () => {
+            const ice = await fetchIceConfig(token);
+            pc = wirePeer(ice, callId, from, token);
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+              for (const c of pendingIce) {
+                try {
+                  await pc.addIceCandidate(c);
+                } catch {
+                  /* stale */
+                }
+              }
+              pendingIce = [];
+            } catch {
+              get().endCall();
+              return;
+            }
+            set({
+              call: {
+                id: callId,
+                peerId: from,
+                direction: 'in',
+                status: 'ringing',
+                video: !!payload?.video,
+                screen: false,
+                muted: false,
+                camOff: false,
+                hasRemote: false,
+              },
+            });
+            ringTimer = window.setTimeout(() => {
+              if (get().call?.id === callId && get().call?.status === 'ringing') {
+                postSignal(token, from, callId, 'reject', { reason: 'timeout' });
+                get().endCall();
+              }
+            }, 35000);
+          })();
+          return;
+        }
 
-    if (kind === 'answer') {
-      if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(() => {});
-      set({ call: { ...call, status: 'connecting' } });
-      postSignal(token, from, callId, 'invite', { taken: true }); // silence callee's other devices
-      return;
-    }
-    if (kind === 'ice') {
-      const cand = payload as RTCIceCandidateInit;
-      if (pc && pc.remoteDescription) pc.addIceCandidate(cand).catch(() => {});
-      else pendingIce.push(cand);
-      return;
-    }
-    if (kind === 'reject' || kind === 'hangup') {
-      get().endCall();
-      get().showToast(kind === 'reject' ? 'Звонок отклонён' : 'Звонок завершён');
-      return;
-    }
-  },
+        // "answered on another device": the caller relays this to the callee's user
+        // id, so every ringing sibling device dismisses.
+        if (kind === 'invite' && payload?.taken) {
+          if (call && call.id === callId && call.direction === 'in' && call.status === 'ringing')
+            get().endCall();
+          return;
+        }
 
-  sendVoiceMock: () => {
-    const chatId = get().activeChatId;
-    if (!chatId) return;
-    const createdAt = Date.now();
-    const id = uid('m');
-    const msg: Message = {
-      id,
-      chatId,
-      senderId: get().me.id,
-      kind: 'voice',
-      text: 'Голосовое',
-      durationSec: 3 + Math.floor(Math.random() * 12),
-      status: 'sent',
-      createdAt,
-      reactions: {},
-    };
-    set((s) => ({
-      messages: [...s.messages, msg],
-      voiceRecording: false,
-      chats: s.chats.map((c) =>
-        c.id === chatId
-          ? { ...c, preview: `🎤 0:${String(msg.durationSec).padStart(2, '0')}`, timeLabel: formatTime(createdAt), latestMessageCreatedAt: createdAt }
-          : c
-      ),
-    }));
-  },
+        if (!call || call.id !== callId) return; // not our call
 
-  sendCircleMock: () => {
-    const chatId = get().activeChatId;
-    if (!chatId) return;
-    const createdAt = Date.now();
-    const id = uid('m');
-    const msg: Message = {
-      id,
-      chatId,
-      senderId: get().me.id,
-      kind: 'circle',
-      text: 'Кружок',
-      durationSec: 5,
-      status: 'sent',
-      createdAt,
-      reactions: {},
-    };
-    set((s) => ({
-      messages: [...s.messages, msg],
-      circleSheetOpen: false,
-      showCircleEffects: false,
-      chats: s.chats.map((c) =>
-        c.id === chatId
-          ? { ...c, preview: '⭕ Кружок', timeLabel: formatTime(createdAt), latestMessageCreatedAt: createdAt }
-          : c
-      ),
-    }));
-  },
+        if (kind === 'answer') {
+          if (pc) pc.setRemoteDescription(new RTCSessionDescription(payload.sdp)).catch(() => {});
+          set({ call: { ...call, status: 'connecting' } });
+          postSignal(token, from, callId, 'invite', { taken: true }); // silence callee's other devices
+          return;
+        }
+        if (kind === 'ice') {
+          const cand = payload as RTCIceCandidateInit;
+          if (pc && pc.remoteDescription) pc.addIceCandidate(cand).catch(() => {});
+          else pendingIce.push(cand);
+          return;
+        }
+        if (kind === 'reject' || kind === 'hangup') {
+          get().endCall();
+          get().showToast(kind === 'reject' ? 'Звонок отклонён' : 'Звонок завершён');
+          return;
+        }
+      },
 
-  retryMessage: (id) => {
-    set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, status: 'pending' } : m
-      ),
-    }));
-    window.setTimeout(() => {
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === id ? { ...m, status: 'sent' } : m
-        ),
-      }));
-    }, 350);
-  },
-
-  // Удаление только у себя выглядело как работающее: сообщение исчезало с
-  // экрана, оставалось у собеседника и возвращалось после перезагрузки.
-  deleteMessage: async (id) => {
-    const msg = get().messages.find((m) => m.id === id);
-    set({ contextMenu: null, reactionPicker: null });
-    if (!msg) return;
-    const before = get().messages;
-    set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, deleted: true, text: '', media: undefined } : m
-      ),
-    }));
-    try {
-      await fetchApi(`/chats/${msg.chatId}/messages/${id}`, { method: 'DELETE' }, get().token);
-    } catch (e) {
-      set({ messages: before });
-      get().showToast('Не удалось удалить');
-    }
-  },
-
-  editMessage: async (id, text) => {
-    const msg = get().messages.find((m) => m.id === id);
-    const next = text.trim();
-    set({ contextMenu: null, editingMessageId: null });
-    if (!msg || !next || next === msg.text) return;
-    const before = get().messages;
-    set((s) => ({
-      messages: s.messages.map((m) => (m.id === id ? { ...m, text: next } : m)),
-    }));
-    try {
-      const res = await fetchApi(
-        `/chats/${msg.chatId}/messages/${id}`,
-        { method: 'PATCH', body: JSON.stringify({ text: next }) },
-        get().token
-      );
-      if (res?.editedAt) {
+      sendVoiceMock: () => {
+        const chatId = get().activeChatId;
+        if (!chatId) return;
+        const createdAt = Date.now();
+        const id = uid('m');
+        const msg: Message = {
+          id,
+          chatId,
+          senderId: get().me.id,
+          kind: 'voice',
+          text: 'Голосовое',
+          durationSec: 3 + Math.floor(Math.random() * 12),
+          status: 'sent',
+          createdAt,
+          reactions: {},
+        };
         set((s) => ({
-          messages: s.messages.map((m) => (m.id === id ? { ...m, editedAt: Number(res.editedAt) } : m)),
+          messages: [...s.messages, msg],
+          voiceRecording: false,
+          chats: s.chats.map((c) =>
+            c.id === chatId
+              ? {
+                  ...c,
+                  preview: `🎤 0:${String(msg.durationSec).padStart(2, '0')}`,
+                  timeLabel: formatTime(createdAt),
+                  latestMessageCreatedAt: createdAt,
+                }
+              : c,
+          ),
         }));
-      }
-      // Если правили последнее сообщение, строка чата показывала бы прежний
-      // текст — расхождение видно сразу, оба места на одном экране.
-      set((s) => ({
-        chats: s.chats.map((c: any) =>
-          c.id === msg.chatId && c.preview === msg.text ? { ...c, preview: next } : c
-        ),
-      }));
-    } catch (e) {
-      set({ messages: before });
-      get().showToast('Не удалось изменить');
-    }
-  },
-
-  toggleReaction: async (messageId, emoji) => {
-    const me = get().me.id;
-    const before = get().messages;
-
-    // Оптимистично: реакция должна появиться мгновенно, а не через круг до сервера.
-    set((s) => ({
-      reactionPicker: null,
-      messages: s.messages.map((m) => {
-        if (m.id !== messageId) return m;
-        const reactions = { ...m.reactions };
-        const list = new Set(reactions[emoji] ?? []);
-        if (list.has(me)) list.delete(me);
-        else list.add(me);
-        if (list.size === 0) delete reactions[emoji];
-        else reactions[emoji] = [...list];
-        return { ...m, reactions };
-      }),
-    }));
-
-    try {
-      // Сервер возвращает всю карту реакций, а не дельту: счётчики — общее
-      // состояние, и сводить их вручную значит однажды разойтись.
-      const res = await fetchApi(
-        `/messages/${messageId}/reactions`,
-        { method: 'POST', body: JSON.stringify({ emoji }) },
-        get().token
-      );
-      set((s) => ({
-        messages: s.messages.map((m) =>
-          m.id === messageId ? { ...m, reactions: res.reactions ?? {} } : m
-        ),
-      }));
-    } catch (err) {
-      console.error('reaction failed', err);
-      set({ messages: before });
-      get().showToast('Не удалось поставить реакцию');
-    }
-  },
-
-  setReactionPicker: (v) => set({ reactionPicker: v, contextMenu: null }),
-  setContextMenu: (v) => set({ contextMenu: v, reactionPicker: null }),
-
-  pinToShelf: async (messageId) => {
-    const msg = get().messages.find((m) => m.id === messageId);
-    if (!msg) return;
-    set({ contextMenu: null });
-    if (get().shelfItems.some((x) => x.messageId === messageId)) {
-      get().showToast('Уже на полке');
-      return;
-    }
-    try {
-      const item = await fetchApi(
-        `/chats/${msg.chatId}/shelf`,
-        { method: 'POST', body: JSON.stringify({ message_id: messageId }) },
-        get().token
-      );
-      // Событие от сервера могло опередить ответ на этот же запрос, и тогда
-      // запись уже на месте. Проверка внутри set: снаружи между чтением и
-      // записью остаётся зазор, в который и попадала вторая копия.
-      set((s) =>
-        s.shelfItems.some((x: any) => x.messageId === messageId)
-          ? s
-          : { shelfItems: [shelfFromApi(item), ...s.shelfItems] }
-      );
-      get().showToast('На полке');
-    } catch (err) {
-      console.error('pin failed', err);
-      get().showToast('Не удалось закрепить');
-    }
-  },
-
-  removeFromShelf: async (shelfId) => {
-    const item = get().shelfItems.find((x) => x.id === shelfId);
-    if (!item) return;
-    const before = get().shelfItems;
-    set((s) => ({ shelfItems: s.shelfItems.filter((x) => x.id !== shelfId) }));
-    try {
-      await fetchApi(
-        `/chats/${item.chatId}/shelf/${item.messageId}`,
-        { method: 'DELETE' },
-        get().token
-      );
-    } catch (err) {
-      console.error('unpin failed', err);
-      set({ shelfItems: before });
-      get().showToast('Не удалось открепить');
-    }
-  },
-
-  // Перезапрашивает список чатов целиком. Нужна там, где пришло событие о
-  // чате, которого клиент ещё не знает: первое сообщение от нового человека
-  // или добавление в группу. Список приходит одним батчем на сервере, так что
-  // это дешевле, чем достраивать чат по кускам из события.
-  syncChats: async () => {
-    const token = get().token;
-    if (!token || syncingChats) return;
-    syncingChats = true;
-    try {
-      const list = await fetchApi('/chats', {}, token);
-      if (!Array.isArray(list)) return;
-      const users = { ...get().users };
-      list.forEach((c: any) => {
-        if (c.peerId) {
-          users[c.peerId] = {
-            ...users[c.peerId],
-            id: c.peerId,
-            username: c.peerUsername || users[c.peerId]?.username || '',
-            displayName: c.title,
-            avatarRef: c.avatarRef,
-            online: c.online,
-            lastSeenAt: c.lastSeenAt || 0,
-            bannerPatternId: users[c.peerId]?.bannerPatternId || 'mint_wave',
-          };
-        }
-      });
-      set({ chats: list, users });
-    } catch (e) {
-      console.error('Не удалось обновить список чатов:', e);
-    } finally {
-      syncingChats = false;
-    }
-  },
-
-  // Перезапрашивает ожидающие эхо. Зовётся при запуске и когда тихое
-  // сообщение пришло в открытое приложение.
-  syncEchoes: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const list = await fetchApi('/echoes?status=pending', {}, token);
-      if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
-    } catch (e) {
-      console.error('Не удалось обновить эхо:', e);
-    }
-  },
-
-  // Блокировка и жалобы. Сервер это умел с самого начала, но в интерфейсе
-  // не было ни одной кнопки — пожаловаться на человека было нельзя вовсе.
-  loadBlocks: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const list = await fetchApi('/blocks', {}, token);
-      if (Array.isArray(list)) {
-        set({
-          blockedUsers: list
-            .map((b: any) => ({
-              id: b.userId || b.id,
-              displayName: b.displayName || b.username || 'Без имени',
-              username: b.username,
-              avatarRef: b.avatarRef,
-            }))
-            .filter((b: any) => b.id),
-        });
-      }
-    } catch (e) {
-      console.error('Не удалось загрузить список блокировок:', e);
-    }
-  },
-
-  blockUser: async (userId) => {
-    const before = get().blockedUsers;
-    if (before.some((b) => b.id === userId)) return;
-    const known = get().users[userId];
-    set({
-      blockedUsers: [
-        ...before,
-        { id: userId, displayName: known?.displayName || 'Без имени', username: known?.username, avatarRef: known?.avatarRef },
-      ],
-    });
-    try {
-      await fetchApi('/blocks', { method: 'POST', body: JSON.stringify({ user_id: userId }) }, get().token);
-      get().showToast('Заблокирован');
-      // Перечитываем: имя и аватар для списка приходят с сервера.
-      void get().loadBlocks();
-    } catch (e) {
-      set({ blockedUsers: before });
-      get().showToast('Не удалось заблокировать');
-    }
-  },
-
-  unblockUser: async (userId) => {
-    const before = get().blockedUsers;
-    set({ blockedUsers: before.filter((b) => b.id !== userId) });
-    try {
-      await fetchApi(`/blocks/${userId}`, { method: 'DELETE' }, get().token);
-      get().showToast('Разблокирован');
-    } catch (e) {
-      set({ blockedUsers: before });
-      get().showToast('Не удалось разблокировать');
-    }
-  },
-
-  // ── Friends system ──────────────────────────────────────────────
-  loadFriends: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const data = await fetchApi('/friends', {}, token);
-      if (data && typeof data === 'object') {
-        const mapFriend = (f: any): import('../shared/types').Friend => ({
-          id: f.userId || f.id,
-          displayName: f.displayName || f.username || 'Без имени',
-          username: f.username,
-          avatarRef: f.avatarRef,
-          online: f.online,
-          lastSeenAt: f.lastSeenAt,
-          friendsSince: f.friendsSince || f.created_at,
-        });
-        set({
-          friends: Array.isArray(data.friends) ? data.friends.map(mapFriend) : [],
-          friendRequestsIn: Array.isArray(data.requestsIn) ? data.requestsIn.map(mapFriend) : [],
-          friendRequestsOut: Array.isArray(data.requestsOut) ? data.requestsOut.map(mapFriend) : [],
-        });
-      } else if (Array.isArray(data)) {
-        // Fallback: server returns flat array
-        set({
-          friends: data.map((f: any) => ({
-            id: f.userId || f.id,
-            displayName: f.displayName || f.username || 'Без имени',
-            username: f.username,
-            avatarRef: f.avatarRef,
-            online: f.online,
-            lastSeenAt: f.lastSeenAt,
-            friendsSince: f.friendsSince || f.created_at,
-          })),
-        });
-      }
-    } catch (e) {
-      console.error('Не удалось загрузить друзей:', e);
-    }
-  },
-
-  addFriend: async (userId) => {
-    const known = get().users[userId];
-    const optimistic: import('../shared/types').Friend = {
-      id: userId,
-      displayName: known?.displayName || 'Без имени',
-      username: known?.username,
-      avatarRef: known?.avatarRef,
-      online: known?.online,
-      lastSeenAt: known?.lastSeenAt,
-    };
-    // Optimistic: add to out requests
-    set((s) => ({
-      friendRequestsOut: [...s.friendRequestsOut.filter((r) => r.id !== userId), optimistic],
-    }));
-    try {
-      await fetchApi('/friends', { method: 'POST', body: JSON.stringify({ user_id: userId }) }, get().token);
-      get().showToast('Запрос в друзья отправлен');
-      void get().loadFriends();
-    } catch (e) {
-      // Rollback
-      set((s) => ({ friendRequestsOut: s.friendRequestsOut.filter((r) => r.id !== userId) }));
-      get().showToast('Не удалось отправить запрос');
-    }
-  },
-
-  removeFriend: async (userId) => {
-    const before = get().friends;
-    set({ friends: before.filter((f) => f.id !== userId) });
-    try {
-      await fetchApi(`/friends/${userId}`, { method: 'DELETE' }, get().token);
-      get().showToast('Удалён из друзей');
-    } catch (e) {
-      set({ friends: before });
-      get().showToast('Не удалось удалить друга');
-    }
-  },
-
-  acceptFriendRequest: async (userId) => {
-    set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
-    try {
-      await fetchApi(`/friends/${userId}/accept`, { method: 'POST' }, get().token);
-      get().showToast('Заявка принята');
-      void get().loadFriends();
-    } catch (e) {
-      get().showToast('Не удалось принять заявку');
-      void get().loadFriends();
-    }
-  },
-
-  declineFriendRequest: async (userId) => {
-    set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
-    try {
-      await fetchApi(`/friends/${userId}/decline`, { method: 'POST' }, get().token);
-      get().showToast('Заявка отклонена');
-    } catch (e) {
-      get().showToast('Не удалось отклонить заявку');
-      void get().loadFriends();
-    }
-  },
-
-  isFriend: (userId) => get().friends.some((f) => f.id === userId),
-
-  verifiedUsers: [],
-
-  grantVerification: async (userId: string) => {
-    const token = get().token;
-    set((s) => ({
-      verifiedUsers: Array.from(new Set([...(s.verifiedUsers || []), userId])),
-      users: {
-        ...s.users,
-        [userId]: { ...s.users[userId], verified: true },
       },
-    }));
-    try {
-      await fetchApi(`/admin/users/${userId}/verify`, { method: 'POST', body: JSON.stringify({ verified: true }) }, token);
-    } catch {
-      // Endpoint fallback
-    }
-    const u = get().users[userId];
-    get().showToast(`Галочка верификации выдана @${u?.username || u?.displayName || userId}`);
-  },
 
-  revokeVerification: async (userId: string) => {
-    const token = get().token;
-    set((s) => ({
-      verifiedUsers: (s.verifiedUsers || []).filter((id) => id !== userId),
-      users: {
-        ...s.users,
-        [userId]: { ...s.users[userId], verified: false },
-      },
-    }));
-    try {
-      await fetchApi(`/admin/users/${userId}/verify`, { method: 'POST', body: JSON.stringify({ verified: false }) }, token);
-    } catch {
-      // Endpoint fallback
-    }
-    const u = get().users[userId];
-    get().showToast(`Галочка верификации забрана у @${u?.username || u?.displayName || userId}`);
-  },
-
-  reports: [],
-
-  loadReports: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const list = await fetchApi('/reports', {}, token);
-      if (Array.isArray(list) && list.length > 0) {
-        set({
-          reports: list.map((r: any) => ({
-            id: r.id || uid('rep'),
-            targetType: r.target_type || r.targetType || 'user',
-            targetId: r.target_id || r.targetId,
-            targetName: r.target_name || r.targetName || 'Пользователь',
-            reporterId: r.reporter_id || r.reporterId,
-            reporterName: r.reporter_name || r.reporterName || 'Аноним',
-            reason: r.reason || 'Жалоба',
-            createdAt: r.created_at || r.createdAt || Date.now(),
-            status: r.status || 'pending',
-          })),
-        });
-      }
-    } catch (e) {
-      console.error('Failed to fetch reports from backend:', e);
-    }
-  },
-
-  resolveReport: async (reportId, actionLabel) => {
-    const token = get().token;
-    set((s) => ({
-      reports: s.reports.filter((r) => r.id !== reportId),
-    }));
-    try {
-      await fetchApi(`/reports/${reportId}/resolve`, { method: 'POST' }, token);
-    } catch {
-      // Handled locally
-    }
-    get().showToast(`Репорт закрыт (${actionLabel})`);
-  },
-
-  reportUser: async (userId, reason) => {
-    const me = get().me;
-    const targetUser = get().users[userId];
-    const newReport: ModerationReport = {
-      id: uid('rep'),
-      targetType: 'user',
-      targetId: userId,
-      targetName: targetUser
-        ? `${targetUser.displayName}${targetUser.username ? ` (@${targetUser.username})` : ''}`
-        : userId,
-      reporterId: me.id,
-      reporterName: me.displayName || me.username || 'Пользователь',
-      reason,
-      createdAt: Date.now(),
-      status: 'pending',
-    };
-
-    set((s) => ({
-      reports: [newReport, ...s.reports],
-    }));
-
-    try {
-      await fetchApi(
-        '/reports',
-        { method: 'POST', body: JSON.stringify({ target_type: 'user', target_id: userId, reason }) },
-        get().token
-      );
-    } catch {
-      // Local fallback in state
-    }
-    get().showToast('Жалоба отправлена модераторам');
-  },
-
-  loadShelf: async (chatId) => {
-    try {
-      const items = await fetchApi(`/chats/${chatId}/shelf`, {}, get().token);
-      const list = Array.isArray(items) ? items.map(shelfFromApi) : [];
-      set((s) => ({
-        shelfItems: [...s.shelfItems.filter((x) => x.chatId !== chatId), ...list],
-      }));
-    } catch (err) {
-      console.error('shelf load failed', err);
-    }
-  },
-
-  setShelfOpen: (v) => set({ shelfOpen: v }),
-
-  setEchoMode: (v) => set({ echoMode: v }),
-  openEchoSheet: () => set({ echoSheetOpen: true }),
-  closeEchoSheet: () => set({ echoSheetOpen: false }),
-  dismissEchoes: () => {
-    const pending = get().echoes.filter((e) => e.status === 'pending');
-    set((s) => ({
-      echoes: s.echoes.map((e) =>
-        e.status === 'pending' ? { ...e, status: 'dismissed' } : e
-      ),
-      echoSheetOpen: false,
-    }));
-    // Состояние эха живёт на сервере. Без этого указатель вернётся при
-    // следующем запуске — закрыть его было бы невозможно.
-    markEchoesSeen(pending, 'dismiss', get);
-  },
-  openEchoInChat: () => {
-    const first = get().echoes.find((e) => e.status === 'pending');
-    if (!first) {
-      set({ echoSheetOpen: false });
-      return;
-    }
-    const pending = get().echoes.filter((e) => e.status === 'pending');
-    set((s) => ({
-      echoes: s.echoes.map((e) =>
-        e.status === 'pending' ? { ...e, status: 'opened' } : e
-      ),
-      echoSheetOpen: false,
-      mainTab: 'chats',
-      activeChatId: first.chatId,
-      highlightMessageId: first.messageId,
-    }));
-    markEchoesSeen(pending, 'open', get);
-    window.setTimeout(() => set({ highlightMessageId: null }), 2000);
-  },
-
-  setEditingMessage: (id) => set({ editingMessageId: id, contextMenu: null }),
-  setAttachSheetOpen: (v) => set({ attachSheetOpen: v }),
-  setCircleSheetOpen: (v) => set({ circleSheetOpen: v, showCircleEffects: false }),
-  setVoiceRecording: (v) => set({ voiceRecording: v }),
-  setShowCircleEffects: (v) => set({ showCircleEffects: v }),
-  toggleOffline: () => set((s) => ({ isOffline: !s.isOffline })),
-
-  createPost: async (text, opts) => {
-    const token = get().token;
-    const t = text.trim();
-    if (!t && !opts.photoFile && !opts.withMedia) return;
-
-    let mediaPayload = undefined;
-
-    if (opts.photoFile) {
-      try {
-        const prepared = await prepareImage(opts.photoFile, 'photo');
-        const { url, mediaId } = await uploadFile(
-          prepared,
-          { kind: 'image', purpose: 'post' },
-          token
-        );
-
-        mediaPayload = {
-          kind: 'image',
-          url,
-          media_id: mediaId,
-          height: opts.mediaHeight
+      sendCircleMock: () => {
+        const chatId = get().activeChatId;
+        if (!chatId) return;
+        const createdAt = Date.now();
+        const id = uid('m');
+        const msg: Message = {
+          id,
+          chatId,
+          senderId: get().me.id,
+          kind: 'circle',
+          text: 'Кружок',
+          durationSec: 5,
+          status: 'sent',
+          createdAt,
+          reactions: {},
         };
-      } catch (err: any) {
-        get().showToast(err.message || 'Ошибка загрузки фото');
-        return;
-      }
-    } else if (opts.withMedia) {
-      const pText = opts.patternText?.trim() || '✦';
-      const items = pText.split(/\s+/).filter(Boolean);
-      mediaPayload = {
-        kind: 'pattern',
-        patternId: 'custom',
-        items: items,
-        alt: pText,
-        height: opts.mediaHeight
-      };
-    }
+        set((s) => ({
+          messages: [...s.messages, msg],
+          circleSheetOpen: false,
+          showCircleEffects: false,
+          chats: s.chats.map((c) =>
+            c.id === chatId
+              ? {
+                  ...c,
+                  preview: '⭕ Кружок',
+                  timeLabel: formatTime(createdAt),
+                  latestMessageCreatedAt: createdAt,
+                }
+              : c,
+          ),
+        }));
+      },
 
-    if (mediaPayload) {
-      if (opts.fontSize) (mediaPayload as any).fontSize = opts.fontSize;
-      if (opts.fontFamily) (mediaPayload as any).fontFamily = opts.fontFamily;
-    } else if (opts.fontSize || opts.fontFamily) {
-      mediaPayload = {
-        kind: 'pattern',
-        patternId: 'none',
-        fontSize: opts.fontSize,
-        fontFamily: opts.fontFamily
-      };
-    }
+      retryMessage: (id) => {
+        set((s) => ({
+          messages: s.messages.map((m) => (m.id === id ? { ...m, status: 'pending' } : m)),
+        }));
+        window.setTimeout(() => {
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === id ? { ...m, status: 'sent' } : m)),
+          }));
+        }, 350);
+      },
 
-    try {
-      const clientPostId = uid('p');
-      const res = await fetchApi('/posts', {
-        method: 'POST',
-        body: JSON.stringify({
-          client_id: clientPostId,
-          text: t,
-          origin: opts.from,
-          on_wall: opts.from === 'wall' ? true : opts.addToWall,
-          media: mediaPayload
-        })
-      }, token);
-
-      set((s) => ({
-        posts: [res, ...s.posts],
-        users: mergeUsersFromPosts([res], s.users),
-      }));
-
-      get().showToast(
-        res.onWall ? 'Опубликовано · в стене' : 'Пост в профиле'
-      );
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка создания поста');
-    }
-  },
-
-  toggleLike: async (postId) => {
-    const token = get().token;
-    const me = get().me.id;
-    try {
-      const res = await fetchApi(`/posts/${postId}/like`, { method: 'POST' }, token);
-      set((s) => ({
-        posts: s.posts.map((p) => {
-          if (p.id !== postId) return p;
-          return {
-            ...p,
-            likedBy: res.liked
-              ? [...p.likedBy, me]
-              : p.likedBy.filter((id) => id !== me)
-          };
-        })
-      }));
-    } catch (err) {
-      console.error('Failed to toggle like:', err);
-    }
-  },
-
-  addComment: async (postId, text, parentId?: string | null) => {
-    const token = get().token;
-    const t = text.trim();
-    if (!t) return;
-    try {
-      const res = await fetchApi(`/posts/${postId}/comments`, {
-        method: 'POST',
-        body: JSON.stringify({ text: t, parent_id: parentId || undefined })
-      }, token);
-      set((s) => {
-        const comment = { ...res, likedBy: res.likedBy || [] };
-        const users = { ...s.users };
-        if (comment.userId) {
-          users[comment.userId] = {
-            ...(users[comment.userId] || {
-              id: comment.userId,
-              username: '',
-              bannerPatternId: 'mint_wave',
-            }),
-            id: comment.userId,
-            displayName:
-              comment.displayName || users[comment.userId]?.displayName || get().me.displayName,
-            username: comment.username || users[comment.userId]?.username || '',
-            avatarRef: comment.avatarRef ?? users[comment.userId]?.avatarRef,
-          };
+      // Удаление только у себя выглядело как работающее: сообщение исчезало с
+      // экрана, оставалось у собеседника и возвращалось после перезагрузки.
+      deleteMessage: async (id) => {
+        const msg = get().messages.find((m) => m.id === id);
+        set({ contextMenu: null, reactionPicker: null });
+        if (!msg) return;
+        const before = get().messages;
+        set((s) => ({
+          messages: s.messages.map((m) =>
+            m.id === id ? { ...m, deleted: true, text: '', media: undefined } : m,
+          ),
+        }));
+        try {
+          await fetchApi(`/chats/${msg.chatId}/messages/${id}`, { method: 'DELETE' }, get().token);
+        } catch (e) {
+          set({ messages: before });
+          get().showToast('Не удалось удалить');
         }
-        return {
-          users,
-          posts: s.posts.map((p) => {
-            if (p.id !== postId) return p;
-            return { ...p, comments: [...p.comments, comment] };
+      },
+
+      editMessage: async (id, text) => {
+        const msg = get().messages.find((m) => m.id === id);
+        const next = text.trim();
+        set({ contextMenu: null, editingMessageId: null });
+        if (!msg || !next || next === msg.text) return;
+        const before = get().messages;
+        set((s) => ({
+          messages: s.messages.map((m) => (m.id === id ? { ...m, text: next } : m)),
+        }));
+        try {
+          const res = await fetchApi(
+            `/chats/${msg.chatId}/messages/${id}`,
+            { method: 'PATCH', body: JSON.stringify({ text: next }) },
+            get().token,
+          );
+          if (res?.editedAt) {
+            set((s) => ({
+              messages: s.messages.map((m) =>
+                m.id === id ? { ...m, editedAt: Number(res.editedAt) } : m,
+              ),
+            }));
+          }
+          // Если правили последнее сообщение, строка чата показывала бы прежний
+          // текст — расхождение видно сразу, оба места на одном экране.
+          set((s) => ({
+            chats: s.chats.map((c: any) =>
+              c.id === msg.chatId && c.preview === msg.text ? { ...c, preview: next } : c,
+            ),
+          }));
+        } catch (e) {
+          set({ messages: before });
+          get().showToast('Не удалось изменить');
+        }
+      },
+
+      toggleReaction: async (messageId, emoji) => {
+        const me = get().me.id;
+        const before = get().messages;
+
+        // Оптимистично: реакция должна появиться мгновенно, а не через круг до сервера.
+        set((s) => ({
+          reactionPicker: null,
+          messages: s.messages.map((m) => {
+            if (m.id !== messageId) return m;
+            const reactions = { ...m.reactions };
+            const list = new Set(reactions[emoji] ?? []);
+            if (list.has(me)) list.delete(me);
+            else list.add(me);
+            if (list.size === 0) delete reactions[emoji];
+            else reactions[emoji] = [...list];
+            return { ...m, reactions };
           }),
-        };
-      });
-    } catch (err: any) {
-      console.error('Failed to add comment:', err);
-      get().showToast(err.message || 'Ошибка комментария');
-    }
-  },
+        }));
 
-  toggleCommentLike: async (postId, commentId) => {
-    const token = get().token;
-    const me = get().me.id;
-    try {
-      const res = await fetchApi(
-        `/posts/${postId}/comments/${commentId}/like`,
-        { method: 'POST' },
-        token
-      );
-      set((s) => ({
-        posts: s.posts.map((p) => {
-          if (p.id !== postId) return p;
-          return {
-            ...p,
-            comments: p.comments.map((c) => {
-              if (c.id !== commentId) return c;
-              const likedBy = c.likedBy || [];
+        try {
+          // Сервер возвращает всю карту реакций, а не дельту: счётчики — общее
+          // состояние, и сводить их вручную значит однажды разойтись.
+          const res = await fetchApi(
+            `/messages/${messageId}/reactions`,
+            { method: 'POST', body: JSON.stringify({ emoji }) },
+            get().token,
+          );
+          set((s) => ({
+            messages: s.messages.map((m) =>
+              m.id === messageId ? { ...m, reactions: res.reactions ?? {} } : m,
+            ),
+          }));
+        } catch (err) {
+          console.error('reaction failed', err);
+          set({ messages: before });
+          get().showToast('Не удалось поставить реакцию');
+        }
+      },
+
+      setReactionPicker: (v) => set({ reactionPicker: v, contextMenu: null }),
+      setContextMenu: (v) => set({ contextMenu: v, reactionPicker: null }),
+
+      pinToShelf: async (messageId) => {
+        const msg = get().messages.find((m) => m.id === messageId);
+        if (!msg) return;
+        set({ contextMenu: null });
+        if (get().shelfItems.some((x) => x.messageId === messageId)) {
+          get().showToast('Уже на полке');
+          return;
+        }
+        try {
+          const item = await fetchApi(
+            `/chats/${msg.chatId}/shelf`,
+            { method: 'POST', body: JSON.stringify({ message_id: messageId }) },
+            get().token,
+          );
+          // Событие от сервера могло опередить ответ на этот же запрос, и тогда
+          // запись уже на месте. Проверка внутри set: снаружи между чтением и
+          // записью остаётся зазор, в который и попадала вторая копия.
+          set((s) =>
+            s.shelfItems.some((x: any) => x.messageId === messageId)
+              ? s
+              : { shelfItems: [shelfFromApi(item), ...s.shelfItems] },
+          );
+          get().showToast('На полке');
+        } catch (err) {
+          console.error('pin failed', err);
+          get().showToast('Не удалось закрепить');
+        }
+      },
+
+      removeFromShelf: async (shelfId) => {
+        const item = get().shelfItems.find((x) => x.id === shelfId);
+        if (!item) return;
+        const before = get().shelfItems;
+        set((s) => ({ shelfItems: s.shelfItems.filter((x) => x.id !== shelfId) }));
+        try {
+          await fetchApi(
+            `/chats/${item.chatId}/shelf/${item.messageId}`,
+            { method: 'DELETE' },
+            get().token,
+          );
+        } catch (err) {
+          console.error('unpin failed', err);
+          set({ shelfItems: before });
+          get().showToast('Не удалось открепить');
+        }
+      },
+
+      // Перезапрашивает список чатов целиком. Нужна там, где пришло событие о
+      // чате, которого клиент ещё не знает: первое сообщение от нового человека
+      // или добавление в группу. Список приходит одним батчем на сервере, так что
+      // это дешевле, чем достраивать чат по кускам из события.
+      syncChats: async () => {
+        const token = get().token;
+        if (!token || syncingChats) return;
+        syncingChats = true;
+        try {
+          const list = await fetchApi('/chats', {}, token);
+          if (!Array.isArray(list)) return;
+          const users = { ...get().users };
+          list.forEach((c: any) => {
+            if (c.peerId) {
+              users[c.peerId] = {
+                ...users[c.peerId],
+                id: c.peerId,
+                username: c.peerUsername || users[c.peerId]?.username || '',
+                displayName: c.title,
+                avatarRef: c.avatarRef,
+                online: c.online,
+                lastSeenAt: c.lastSeenAt || 0,
+                bannerPatternId: users[c.peerId]?.bannerPatternId || 'mint_wave',
+              };
+            }
+          });
+          set({ chats: list, users });
+        } catch (e) {
+          console.error('Не удалось обновить список чатов:', e);
+        } finally {
+          syncingChats = false;
+        }
+      },
+
+      // Перезапрашивает ожидающие эхо. Зовётся при запуске и когда тихое
+      // сообщение пришло в открытое приложение.
+      syncEchoes: async () => {
+        const token = get().token;
+        if (!token) return;
+        try {
+          const list = await fetchApi('/echoes?status=pending', {}, token);
+          if (Array.isArray(list)) set({ echoes: list.map(echoFromApi) });
+        } catch (e) {
+          console.error('Не удалось обновить эхо:', e);
+        }
+      },
+
+      // Блокировка и жалобы. Сервер это умел с самого начала, но в интерфейсе
+      // не было ни одной кнопки — пожаловаться на человека было нельзя вовсе.
+      loadBlocks: async () => {
+        const token = get().token;
+        if (!token) return;
+        try {
+          const list = await fetchApi('/blocks', {}, token);
+          if (Array.isArray(list)) {
+            set({
+              blockedUsers: list
+                .map((b: any) => ({
+                  id: b.userId || b.id,
+                  displayName: b.displayName || b.username || 'Без имени',
+                  username: b.username,
+                  avatarRef: b.avatarRef,
+                }))
+                .filter((b: any) => b.id),
+            });
+          }
+        } catch (e) {
+          console.error('Не удалось загрузить список блокировок:', e);
+        }
+      },
+
+      blockUser: async (userId) => {
+        const before = get().blockedUsers;
+        if (before.some((b) => b.id === userId)) return;
+        const known = get().users[userId];
+        set({
+          blockedUsers: [
+            ...before,
+            {
+              id: userId,
+              displayName: known?.displayName || 'Без имени',
+              username: known?.username,
+              avatarRef: known?.avatarRef,
+            },
+          ],
+        });
+        try {
+          await fetchApi(
+            '/blocks',
+            { method: 'POST', body: JSON.stringify({ user_id: userId }) },
+            get().token,
+          );
+          get().showToast('Заблокирован');
+          // Перечитываем: имя и аватар для списка приходят с сервера.
+          void get().loadBlocks();
+        } catch (e) {
+          set({ blockedUsers: before });
+          get().showToast('Не удалось заблокировать');
+        }
+      },
+
+      unblockUser: async (userId) => {
+        const before = get().blockedUsers;
+        set({ blockedUsers: before.filter((b) => b.id !== userId) });
+        try {
+          await fetchApi(`/blocks/${userId}`, { method: 'DELETE' }, get().token);
+          get().showToast('Разблокирован');
+        } catch (e) {
+          set({ blockedUsers: before });
+          get().showToast('Не удалось разблокировать');
+        }
+      },
+
+      // ── Friends system ──────────────────────────────────────────────
+      loadFriends: async () => {
+        const token = get().token;
+        if (!token) return;
+        try {
+          const data = await fetchApi('/friends', {}, token);
+          if (data && typeof data === 'object') {
+            const mapFriend = (f: any): import('../shared/types').Friend => ({
+              id: f.userId || f.id,
+              displayName: f.displayName || f.username || 'Без имени',
+              username: f.username,
+              avatarRef: f.avatarRef,
+              online: f.online,
+              lastSeenAt: f.lastSeenAt,
+              friendsSince: f.friendsSince || f.created_at,
+            });
+            set({
+              friends: Array.isArray(data.friends) ? data.friends.map(mapFriend) : [],
+              friendRequestsIn: Array.isArray(data.requestsIn)
+                ? data.requestsIn.map(mapFriend)
+                : [],
+              friendRequestsOut: Array.isArray(data.requestsOut)
+                ? data.requestsOut.map(mapFriend)
+                : [],
+            });
+          } else if (Array.isArray(data)) {
+            // Fallback: server returns flat array
+            set({
+              friends: data.map((f: any) => ({
+                id: f.userId || f.id,
+                displayName: f.displayName || f.username || 'Без имени',
+                username: f.username,
+                avatarRef: f.avatarRef,
+                online: f.online,
+                lastSeenAt: f.lastSeenAt,
+                friendsSince: f.friendsSince || f.created_at,
+              })),
+            });
+          }
+        } catch (e) {
+          console.error('Не удалось загрузить друзей:', e);
+        }
+      },
+
+      addFriend: async (userId) => {
+        const known = get().users[userId];
+        const optimistic: import('../shared/types').Friend = {
+          id: userId,
+          displayName: known?.displayName || 'Без имени',
+          username: known?.username,
+          avatarRef: known?.avatarRef,
+          online: known?.online,
+          lastSeenAt: known?.lastSeenAt,
+        };
+        // Optimistic: add to out requests
+        set((s) => ({
+          friendRequestsOut: [...s.friendRequestsOut.filter((r) => r.id !== userId), optimistic],
+        }));
+        try {
+          await fetchApi(
+            '/friends',
+            { method: 'POST', body: JSON.stringify({ user_id: userId }) },
+            get().token,
+          );
+          get().showToast('Запрос в друзья отправлен');
+          void get().loadFriends();
+        } catch (e) {
+          // Rollback
+          set((s) => ({ friendRequestsOut: s.friendRequestsOut.filter((r) => r.id !== userId) }));
+          get().showToast('Не удалось отправить запрос');
+        }
+      },
+
+      removeFriend: async (userId) => {
+        const before = get().friends;
+        set({ friends: before.filter((f) => f.id !== userId) });
+        try {
+          await fetchApi(`/friends/${userId}`, { method: 'DELETE' }, get().token);
+          get().showToast('Удалён из друзей');
+        } catch (e) {
+          set({ friends: before });
+          get().showToast('Не удалось удалить друга');
+        }
+      },
+
+      acceptFriendRequest: async (userId) => {
+        set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
+        try {
+          await fetchApi(`/friends/${userId}/accept`, { method: 'POST' }, get().token);
+          get().showToast('Заявка принята');
+          void get().loadFriends();
+        } catch (e) {
+          get().showToast('Не удалось принять заявку');
+          void get().loadFriends();
+        }
+      },
+
+      declineFriendRequest: async (userId) => {
+        set((s) => ({ friendRequestsIn: s.friendRequestsIn.filter((r) => r.id !== userId) }));
+        try {
+          await fetchApi(`/friends/${userId}/decline`, { method: 'POST' }, get().token);
+          get().showToast('Заявка отклонена');
+        } catch (e) {
+          get().showToast('Не удалось отклонить заявку');
+          void get().loadFriends();
+        }
+      },
+
+      isFriend: (userId) => get().friends.some((f) => f.id === userId),
+
+      verifiedUsers: [],
+
+      grantVerification: async (userId: string) => {
+        const token = get().token;
+        set((s) => ({
+          verifiedUsers: Array.from(new Set([...(s.verifiedUsers || []), userId])),
+          users: {
+            ...s.users,
+            [userId]: { ...s.users[userId], verified: true },
+          },
+        }));
+        try {
+          await fetchApi(
+            `/admin/users/${userId}/verify`,
+            { method: 'POST', body: JSON.stringify({ verified: true }) },
+            token,
+          );
+        } catch {
+          // Endpoint fallback
+        }
+        const u = get().users[userId];
+        get().showToast(`Галочка верификации выдана @${u?.username || u?.displayName || userId}`);
+      },
+
+      revokeVerification: async (userId: string) => {
+        const token = get().token;
+        set((s) => ({
+          verifiedUsers: (s.verifiedUsers || []).filter((id) => id !== userId),
+          users: {
+            ...s.users,
+            [userId]: { ...s.users[userId], verified: false },
+          },
+        }));
+        try {
+          await fetchApi(
+            `/admin/users/${userId}/verify`,
+            { method: 'POST', body: JSON.stringify({ verified: false }) },
+            token,
+          );
+        } catch {
+          // Endpoint fallback
+        }
+        const u = get().users[userId];
+        get().showToast(
+          `Галочка верификации забрана у @${u?.username || u?.displayName || userId}`,
+        );
+      },
+
+      reports: [],
+
+      loadReports: async () => {
+        const token = get().token;
+        if (!token) return;
+        try {
+          const list = await fetchApi('/reports', {}, token);
+          if (Array.isArray(list) && list.length > 0) {
+            set({
+              reports: list.map((r: any) => ({
+                id: r.id || uid('rep'),
+                targetType: r.target_type || r.targetType || 'user',
+                targetId: r.target_id || r.targetId,
+                targetName: r.target_name || r.targetName || 'Пользователь',
+                reporterId: r.reporter_id || r.reporterId,
+                reporterName: r.reporter_name || r.reporterName || 'Аноним',
+                reason: r.reason || 'Жалоба',
+                createdAt: r.created_at || r.createdAt || Date.now(),
+                status: r.status || 'pending',
+              })),
+            });
+          }
+        } catch (e) {
+          console.error('Failed to fetch reports from backend:', e);
+        }
+      },
+
+      resolveReport: async (reportId, actionLabel) => {
+        const token = get().token;
+        set((s) => ({
+          reports: s.reports.filter((r) => r.id !== reportId),
+        }));
+        try {
+          await fetchApi(`/reports/${reportId}/resolve`, { method: 'POST' }, token);
+        } catch {
+          // Handled locally
+        }
+        get().showToast(`Репорт закрыт (${actionLabel})`);
+      },
+
+      reportUser: async (userId, reason) => {
+        const me = get().me;
+        const targetUser = get().users[userId];
+        const newReport: ModerationReport = {
+          id: uid('rep'),
+          targetType: 'user',
+          targetId: userId,
+          targetName: targetUser
+            ? `${targetUser.displayName}${targetUser.username ? ` (@${targetUser.username})` : ''}`
+            : userId,
+          reporterId: me.id,
+          reporterName: me.displayName || me.username || 'Пользователь',
+          reason,
+          createdAt: Date.now(),
+          status: 'pending',
+        };
+
+        set((s) => ({
+          reports: [newReport, ...s.reports],
+        }));
+
+        try {
+          await fetchApi(
+            '/reports',
+            {
+              method: 'POST',
+              body: JSON.stringify({ target_type: 'user', target_id: userId, reason }),
+            },
+            get().token,
+          );
+        } catch {
+          // Local fallback in state
+        }
+        get().showToast('Жалоба отправлена модераторам');
+      },
+
+      loadShelf: async (chatId) => {
+        try {
+          const items = await fetchApi(`/chats/${chatId}/shelf`, {}, get().token);
+          const list = Array.isArray(items) ? items.map(shelfFromApi) : [];
+          set((s) => ({
+            shelfItems: [...s.shelfItems.filter((x) => x.chatId !== chatId), ...list],
+          }));
+        } catch (err) {
+          console.error('shelf load failed', err);
+        }
+      },
+
+      setShelfOpen: (v) => set({ shelfOpen: v }),
+
+      setEchoMode: (v) => set({ echoMode: v }),
+      openEchoSheet: () => set({ echoSheetOpen: true }),
+      closeEchoSheet: () => set({ echoSheetOpen: false }),
+      dismissEchoes: () => {
+        const pending = get().echoes.filter((e) => e.status === 'pending');
+        set((s) => ({
+          echoes: s.echoes.map((e) => (e.status === 'pending' ? { ...e, status: 'dismissed' } : e)),
+          echoSheetOpen: false,
+        }));
+        // Состояние эха живёт на сервере. Без этого указатель вернётся при
+        // следующем запуске — закрыть его было бы невозможно.
+        markEchoesSeen(pending, 'dismiss', get);
+      },
+      openEchoInChat: () => {
+        const first = get().echoes.find((e) => e.status === 'pending');
+        if (!first) {
+          set({ echoSheetOpen: false });
+          return;
+        }
+        const pending = get().echoes.filter((e) => e.status === 'pending');
+        set((s) => ({
+          echoes: s.echoes.map((e) => (e.status === 'pending' ? { ...e, status: 'opened' } : e)),
+          echoSheetOpen: false,
+          mainTab: 'chats',
+          activeChatId: first.chatId,
+          highlightMessageId: first.messageId,
+        }));
+        markEchoesSeen(pending, 'open', get);
+        window.setTimeout(() => set({ highlightMessageId: null }), 2000);
+      },
+
+      setEditingMessage: (id) => set({ editingMessageId: id, contextMenu: null }),
+      setAttachSheetOpen: (v) => set({ attachSheetOpen: v }),
+      setCircleSheetOpen: (v) => set({ circleSheetOpen: v, showCircleEffects: false }),
+      setVoiceRecording: (v) => set({ voiceRecording: v }),
+      setShowCircleEffects: (v) => set({ showCircleEffects: v }),
+      toggleOffline: () => set((s) => ({ isOffline: !s.isOffline })),
+
+      createPost: async (text, opts) => {
+        const token = get().token;
+        const t = text.trim();
+        if (!t && !opts.photoFile && !opts.withMedia) return;
+
+        let mediaPayload = undefined;
+
+        if (opts.photoFile) {
+          try {
+            const prepared = await prepareImage(opts.photoFile, 'photo');
+            const { url, mediaId } = await uploadFile(
+              prepared,
+              { kind: 'image', purpose: 'post' },
+              token,
+            );
+
+            mediaPayload = {
+              kind: 'image',
+              url,
+              media_id: mediaId,
+              height: opts.mediaHeight,
+            };
+          } catch (err: any) {
+            get().showToast(err.message || 'Ошибка загрузки фото');
+            return;
+          }
+        } else if (opts.withMedia) {
+          const pText = opts.patternText?.trim() || '✦';
+          const items = pText.split(/\s+/).filter(Boolean);
+          mediaPayload = {
+            kind: 'pattern',
+            patternId: 'custom',
+            items: items,
+            alt: pText,
+            height: opts.mediaHeight,
+          };
+        }
+
+        if (mediaPayload) {
+          if (opts.fontSize) (mediaPayload as any).fontSize = opts.fontSize;
+          if (opts.fontFamily) (mediaPayload as any).fontFamily = opts.fontFamily;
+        } else if (opts.fontSize || opts.fontFamily) {
+          mediaPayload = {
+            kind: 'pattern',
+            patternId: 'none',
+            fontSize: opts.fontSize,
+            fontFamily: opts.fontFamily,
+          };
+        }
+
+        try {
+          const clientPostId = uid('p');
+          const res = await fetchApi(
+            '/posts',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                client_id: clientPostId,
+                text: t,
+                origin: opts.from,
+                on_wall: opts.from === 'wall' ? true : opts.addToWall,
+                media: mediaPayload,
+              }),
+            },
+            token,
+          );
+
+          set((s) => ({
+            posts: [res, ...s.posts],
+            users: mergeUsersFromPosts([res], s.users),
+          }));
+
+          get().showToast(res.onWall ? 'Опубликовано · в стене' : 'Пост в профиле');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка создания поста');
+        }
+      },
+
+      toggleLike: async (postId) => {
+        const { token, me, posts } = get();
+        const post = posts.find((p) => p.id === postId);
+        if (!post || pendingPostLikes.has(postId)) return;
+        const wasLiked = post.likedBy.includes(me.id);
+        const apply = (liked: boolean) =>
+          set((s) => ({
+            posts: s.posts.map((p) =>
+              p.id !== postId
+                ? p
+                : {
+                    ...p,
+                    likedBy: liked
+                      ? [...new Set([...p.likedBy, me.id])]
+                      : p.likedBy.filter((id) => id !== me.id),
+                  },
+            ),
+          }));
+        pendingPostLikes.add(postId);
+        apply(!wasLiked);
+        try {
+          const res = await fetchApi(`/posts/${postId}/like`, { method: 'POST' }, token);
+          if (get().token === token) apply(Boolean(res.liked));
+        } catch {
+          if (get().token === token) {
+            apply(wasLiked);
+            get().showToast('Не удалось сохранить отметку');
+          }
+        } finally {
+          pendingPostLikes.delete(postId);
+        }
+      },
+
+      addComment: async (postId, text, parentId?: string | null) => {
+        const token = get().token;
+        const t = text.trim();
+        if (!t) return false;
+        try {
+          const res = await fetchApi(
+            `/posts/${postId}/comments`,
+            {
+              method: 'POST',
+              body: JSON.stringify({ text: t, parent_id: parentId || undefined }),
+            },
+            token,
+          );
+          set((s) => {
+            const comment = { ...res, likedBy: res.likedBy || [] };
+            const users = { ...s.users };
+            if (comment.userId) {
+              users[comment.userId] = {
+                ...(users[comment.userId] || {
+                  id: comment.userId,
+                  username: '',
+                  bannerPatternId: 'mint_wave',
+                }),
+                id: comment.userId,
+                displayName:
+                  comment.displayName || users[comment.userId]?.displayName || get().me.displayName,
+                username: comment.username || users[comment.userId]?.username || '',
+                avatarRef: comment.avatarRef ?? users[comment.userId]?.avatarRef,
+              };
+            }
+            return {
+              users,
+              posts: s.posts.map((p) => {
+                if (p.id !== postId) return p;
+                return { ...p, comments: [...p.comments, comment] };
+              }),
+            };
+          });
+          return true;
+        } catch (err: any) {
+          console.error('Failed to add comment:', err);
+          get().showToast(err.message || 'Ошибка комментария');
+          return false;
+        }
+      },
+
+      toggleCommentLike: async (postId, commentId) => {
+        const token = get().token;
+        const me = get().me.id;
+        try {
+          const res = await fetchApi(
+            `/posts/${postId}/comments/${commentId}/like`,
+            { method: 'POST' },
+            token,
+          );
+          set((s) => ({
+            posts: s.posts.map((p) => {
+              if (p.id !== postId) return p;
               return {
-                ...c,
-                likedBy: res.liked
-                  ? [...likedBy, me]
-                  : likedBy.filter((id) => id !== me),
+                ...p,
+                comments: p.comments.map((c) => {
+                  if (c.id !== commentId) return c;
+                  const likedBy = c.likedBy || [];
+                  return {
+                    ...c,
+                    likedBy: res.liked ? [...likedBy, me] : likedBy.filter((id) => id !== me),
+                  };
+                }),
               };
             }),
-          };
-        }),
-      }));
-    } catch (err) {
-      console.error('Failed to like comment:', err);
-    }
-  },
+          }));
+        } catch (err) {
+          console.error('Failed to like comment:', err);
+        }
+      },
 
-  repostToProfile: async (postId) => {
-    const token = get().token;
-    const src = get().posts.find((p) => p.id === postId);
-    if (!src) return;
-    try {
-      const clientPostId = uid('p');
-      const res = await fetchApi('/posts', {
-        method: 'POST',
-        body: JSON.stringify({
-          client_id: clientPostId,
-          text: src.text,
-          origin: 'profile',
-          on_wall: false,
-          repost_of_id: src.id,
-          media: src.media
-        })
-      }, token);
-      set((s) => ({
-        posts: [res, ...s.posts],
-        mainTab: 'profile'
-      }));
-      get().showToast('Репост в профиль');
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка репоста');
-    }
-  },
+      repostToProfile: async (postId) => {
+        const token = get().token;
+        const src = get().posts.find((p) => p.id === postId);
+        if (!src) return;
+        try {
+          const clientPostId = uid('p');
+          const res = await fetchApi(
+            '/posts',
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                client_id: clientPostId,
+                text: src.text,
+                origin: 'profile',
+                on_wall: false,
+                repost_of_id: src.id,
+                media: src.media,
+              }),
+            },
+            token,
+          );
+          set((s) => ({
+            posts: [res, ...s.posts],
+            mainTab: 'profile',
+          }));
+          get().showToast('Репост в профиль');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка репоста');
+        }
+      },
 
-  setCommentPostId: (id) => set({ commentPostId: id }),
-  setForwardPostId: (id) => set({ forwardPostId: id }),
+      setCommentPostId: (id) => set({ commentPostId: id }),
+      setForwardPostId: (id) => set({ forwardPostId: id }),
 
-  forwardPostToChat: (postId, chatId) => {
-    const post = get().posts.find((p) => p.id === postId);
-    if (!post) return;
-    const author = get().users[post.authorId]?.displayName ?? '…';
-    const caption = post.text?.trim()
-      ? `↪ ${author}: ${post.text}`
-      : `↪ ${author}`;
-    set({ activeChatId: chatId, mainTab: 'chats', forwardPostId: null });
+      forwardPostToChat: (postId, chatId) => {
+        const post = get().posts.find((p) => p.id === postId);
+        if (!post) return;
+        const author = get().users[post.authorId]?.displayName ?? '…';
+        const caption = post.text?.trim() ? `↪ ${author}: ${post.text}` : `↪ ${author}`;
+        set({ activeChatId: chatId, mainTab: 'chats', forwardPostId: null });
 
-    if (post.media?.kind === 'image' && post.media.url) {
-      void get().sendMessage(caption, {
-        kind: 'media',
-        media: {
-          url: post.media.url,
-          filename: 'post.jpg',
-          mime: 'image/jpeg',
-        },
-      });
-      return;
-    }
+        if (post.media?.kind === 'image' && post.media.url) {
+          void get().sendMessage(caption, {
+            kind: 'media',
+            media: {
+              url: post.media.url,
+              filename: 'post.jpg',
+              mime: 'image/jpeg',
+            },
+          });
+          return;
+        }
 
-    void get().sendMessage(caption);
-  },
+        void get().sendMessage(caption);
+      },
 
-  deletePost: async (postId) => {
-    const token = get().token;
-    try {
-      await fetchApi(`/posts/${postId}`, { method: 'DELETE' }, token);
-      set((s) => ({
-        posts: s.posts.filter((p) => p.id !== postId)
-      }));
-      get().showToast('Пост удален');
-    } catch (err: any) {
-      get().showToast(err.message || 'Ошибка удаления поста');
-    }
-  },
+      deletePost: async (postId) => {
+        const token = get().token;
+        try {
+          await fetchApi(`/posts/${postId}`, { method: 'DELETE' }, token);
+          set((s) => ({
+            posts: s.posts.filter((p) => p.id !== postId),
+          }));
+          get().showToast('Пост удален');
+        } catch (err: any) {
+          get().showToast(err.message || 'Ошибка удаления поста');
+        }
+      },
 
-  openSettings: () => set({ settingsRoute: 'hub', viewingUserId: null }),
-  closeSettings: () => set({ settingsRoute: null }),
-  navigateSettings: (route) => set({ settingsRoute: route }),
+      openSettings: () => set({ settingsRoute: 'hub', viewingUserId: null }),
+      closeSettings: () => set({ settingsRoute: null }),
+      navigateSettings: (route) => set({ settingsRoute: route }),
 
-  setGlobalChatTheme: (themeId) => {
-    const pack = THEME_SOUND_PACK[themeId] || get().notificationSound;
-    set({
-      globalChatThemeId: themeId,
-      globalCustomWallpaper: null,
-      notificationSound: pack,
-    });
-    soundEffects.playTheme(pack);
-  },
-  setGlobalCustomWallpaper: (url) => set({ globalCustomWallpaper: url }),
-  setNotificationSound: (sound) => {
-    set({ notificationSound: sound });
-    soundEffects.playTheme(sound);
-  },
-  setSoundVolume: (volume) => {
-    set({ soundVolume: volume });
-    soundEffects.volume = volume;
-  },
-  setNotifVolume: (volume) => {
-    set({ notifVolume: volume });
-    soundEffects.notifVolume = volume;
-  },
-  setSendVolume: (volume) => {
-    set({ sendVolume: volume });
-    soundEffects.sendVolume = volume;
-    soundEffects.previewSend(get().notificationSound);
-  },
-  setUiTheme: (theme) => {
-    set({ uiTheme: theme });
-    if (typeof document !== 'undefined') {
-      document.documentElement.dataset.theme = theme;
-    }
-  },
-  setUiFont: (font) => {
-    set({ uiFont: font });
-    if (typeof document !== 'undefined') {
-      document.documentElement.dataset.font = font;
-    }
-  },
-  setBrowserNotificationsEnabled: async (enabled) => {
-    if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        set({ browserNotificationsEnabled: false });
-        get().showToast('Доступ к уведомлениям отклонен');
-        return;
-      }
-    }
-    set({ browserNotificationsEnabled: enabled });
-  },
-  setDefaultReaction: (emoji) => set({ defaultReaction: emoji }),
-  setNotifPref: (key, value) =>
-    set((s) => ({
-      notifPrefs: { ...s.notifPrefs, [key]: value },
-    })),
+      setGlobalChatTheme: (themeId) => {
+        const pack = THEME_SOUND_PACK[themeId] || get().notificationSound;
+        set({
+          globalChatThemeId: themeId,
+          globalCustomWallpaper: null,
+          notificationSound: pack,
+        });
+        soundEffects.playTheme(pack);
+      },
+      setGlobalCustomWallpaper: (url) => set({ globalCustomWallpaper: url }),
+      setNotificationSound: (sound) => {
+        set({ notificationSound: sound });
+        soundEffects.playTheme(sound);
+      },
+      setSoundVolume: (volume) => {
+        set({ soundVolume: volume });
+        soundEffects.volume = volume;
+      },
+      setNotifVolume: (volume) => {
+        set({ notifVolume: volume });
+        soundEffects.notifVolume = volume;
+      },
+      setSendVolume: (volume) => {
+        set({ sendVolume: volume });
+        soundEffects.sendVolume = volume;
+        soundEffects.previewSend(get().notificationSound);
+      },
+      setUiTheme: (theme) => {
+        set({ uiTheme: theme });
+        if (typeof document !== 'undefined') {
+          document.documentElement.dataset.theme = theme;
+        }
+      },
+      setUiFont: (font) => {
+        set({ uiFont: font });
+        if (typeof document !== 'undefined') {
+          document.documentElement.dataset.font = font;
+        }
+      },
+      setBrowserNotificationsEnabled: async (enabled) => {
+        if (enabled && typeof window !== 'undefined' && 'Notification' in window) {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') {
+            set({ browserNotificationsEnabled: false });
+            get().showToast('Доступ к уведомлениям отклонен');
+            return;
+          }
+        }
+        set({ browserNotificationsEnabled: enabled });
+      },
+      setDefaultReaction: (emoji) => set({ defaultReaction: emoji }),
+      setNotifPref: (key, value) =>
+        set((s) => ({
+          notifPrefs: { ...s.notifPrefs, [key]: value },
+        })),
     }),
     {
       name: 'tolk-web-state',
@@ -3182,23 +3383,17 @@ export const useAppStore = create<AppState>()(
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<typeof current>;
         const chats = Array.isArray(p.chats)
-          ? p.chats.map((c) =>
-              c?.themeId
-                ? { ...c, themeId: resolveChatThemeId(c.themeId) }
-                : c
-            )
+          ? p.chats.map((c) => (c?.themeId ? { ...c, themeId: resolveChatThemeId(c.themeId) } : c))
           : current.chats;
         return {
           ...current,
           ...p,
           chats,
-          globalChatThemeId: resolveChatThemeId(
-            p.globalChatThemeId ?? current.globalChatThemeId
-          ),
+          globalChatThemeId: resolveChatThemeId(p.globalChatThemeId ?? current.globalChatThemeId),
         };
       },
-    }
-  )
+    },
+  ),
 );
 
 // Sync persisted audio + UI prefs on load

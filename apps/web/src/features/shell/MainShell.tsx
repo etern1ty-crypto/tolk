@@ -1,5 +1,4 @@
 import { AdminPanel } from '../admin/AdminPanel';
-import { DemoPage } from '../demo/DemoPage';
 import { useEffect } from 'react';
 import { ChatList } from '../chat-list/ChatList';
 import { ChatPanel } from '../chat/ChatPanel';
@@ -45,7 +44,11 @@ export function MainShell() {
         return;
       }
 
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' &&
+        !e.defaultPrevented &&
+        !document.querySelector('[role="dialog"], [role="menu"]')
+      ) {
         if (shelfOpen) {
           setShelfOpen(false);
           return;
@@ -133,21 +136,6 @@ export function MainShell() {
             <div className={styles.paper}>
               <AdminPanel />
             </div>
-          </div>
-        )}
-
-        {mainTab === 'demo' && (
-          <div
-            className={styles.pageCol}
-            style={{
-              padding: 0,
-              overflow: 'hidden',
-              height: '100%',
-              width: '100%',
-              background: '#0a0a0a',
-            }}
-          >
-            <DemoPage />
           </div>
         )}
       </div>

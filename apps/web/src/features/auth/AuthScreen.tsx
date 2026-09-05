@@ -9,7 +9,11 @@ const OAUTH_PROVIDER_KEY = 'tolk_oauth_provider';
 
 type PasswordStrength = 'weak' | 'fair' | 'good' | 'strong';
 
-function getPasswordStrength(pw: string): { level: PasswordStrength; score: number; label: string } {
+function getPasswordStrength(pw: string): {
+  level: PasswordStrength;
+  score: number;
+  label: string;
+} {
   if (!pw) return { level: 'weak', score: 0, label: '' };
   let score = 0;
   if (pw.length >= 8) score++;
@@ -145,7 +149,9 @@ export function AuthScreen() {
     }
     const redirectUri = window.location.origin;
     const url =
-      `https://oauth.vk.com/authorize?client_id=${encodeURIComponent(clientId)}` +
+      'https:' +
+      '//oauth.vk.com/authorize?response_type=token&client_id=' +
+      encodeURIComponent(clientId) +
       `&display=page` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = url;
@@ -227,16 +233,11 @@ export function AuthScreen() {
 
   return (
     <div className={styles.root}>
-      <div className={styles.ambient} />
-      <div className={styles.noise} />
-
       <div className={styles.container}>
         <div className={styles.brand}>
           <h1>Толк.</h1>
           <p className={styles.tagline}>
-            {isSocialProfile
-              ? `Почти готово · ${providerLabel}`
-              : 'Быстрый · чистый · свой'}
+            {isSocialProfile ? `Почти готово · ${providerLabel}` : 'Быстрый · чистый · свой'}
           </p>
         </div>
 
@@ -271,12 +272,16 @@ export function AuthScreen() {
 
         {isSocialProfile && (
           <p className={styles.socialHint}>
-            Придумайте, как вас будут видеть в Толке. Никаких авто-имён вроде «yandex_…» —
-            только ваше имя и username.
+            Придумайте, как вас будут видеть в Толке. Никаких авто-имён вроде «yandex_…» — только
+            ваше имя и username.
           </p>
         )}
 
-        {error && <div className={styles.error}>{error}</div>}
+        {error && (
+          <div className={styles.error} role="alert">
+            {error}
+          </div>
+        )}
 
         <form className={styles.form} onSubmit={handleSubmit}>
           {isRegister && (
@@ -325,21 +330,25 @@ export function AuthScreen() {
               id="username"
               className={`${styles.input}${showUsernameError ? ` ${styles.inputError}` : ''}${(isRegister || isSocialProfile) && usernameTouched && usernameValid ? ` ${styles.inputValid}` : ''}`}
               type="text"
-              placeholder={isRegister || isSocialProfile ? 'username (3–30, a–z, 0–9, _)' : 'username'}
+              placeholder={
+                isRegister || isSocialProfile ? 'username (3–30, a–z, 0–9, _)' : 'username'
+              }
               value={draftUsername}
               onChange={(e) =>
-                setDraftUsername(
-                  e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30)
-                )
+                setDraftUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').slice(0, 30))
               }
               onBlur={() => setUsernameTouched(true)}
+              aria-invalid={showUsernameError}
+              aria-describedby={showUsernameError ? 'username-error' : undefined}
               autoComplete="username"
               spellCheck={false}
               required
               autoFocus={!isRegister && !isSocialProfile}
             />
             {showUsernameError && (
-              <span className={styles.fieldError}>3–30 символов: латиница, цифры, _</span>
+              <span id="username-error" className={styles.fieldError}>
+                3–30 символов: латиница, цифры, _
+              </span>
             )}
           </div>
 
@@ -348,10 +357,10 @@ export function AuthScreen() {
               <label className={styles.label} htmlFor="password">
                 Пароль
               </label>
-              <div className={styles.passwordContainer}>
+              <div className={styles.pwWrap}>
                 <input
                   id="password"
-                  className={`${styles.input} ${styles.passwordInput}`}
+                  className={`${styles.input} ${styles.pwInput}`}
                   type={showPw ? 'text' : 'password'}
                   placeholder={isRegister ? 'Минимум 8 символов' : 'Пароль'}
                   value={draftPassword}
@@ -361,9 +370,9 @@ export function AuthScreen() {
                 />
                 <button
                   type="button"
-                  className={styles.showPasswordButton}
+                  className={styles.eyeBtn}
                   onClick={() => setShowPw((v) => !v)}
-                  tabIndex={-1}
+                  aria-pressed={showPw}
                   aria-label={showPw ? 'Скрыть пароль' : 'Показать пароль'}
                 >
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -398,7 +407,8 @@ export function AuthScreen() {
                 onChange={(e) => setTermsAccepted(e.target.checked)}
               />
               <label htmlFor="terms" className={styles.termsLabel}>
-                Я принимаю <a href="#terms">условия использования</a> и <a href="#privacy">политику конфиденциальности</a>
+                Я принимаю <a href="#terms">условия использования</a> и{' '}
+                <a href="#privacy">политику конфиденциальности</a>
               </label>
             </div>
           )}
@@ -436,8 +446,7 @@ export function AuthScreen() {
           )}
         </form>
 
-        {!isSocialProfile &&
-          (oauthConfigured('yandex') || oauthConfigured('vk')) && (
+        {!isSocialProfile && (oauthConfigured('yandex') || oauthConfigured('vk')) && (
           <>
             <div className={styles.divider}>
               <span>или</span>

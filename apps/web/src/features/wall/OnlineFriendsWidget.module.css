@@ -1,101 +1,78 @@
-/* Floating avatar-bubbles OUTSIDE main content area (left gutter) */
 .root {
-  position: fixed;
-  left: 80px; /* offset from SideNav rail */
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 40;
+  position: sticky;
+  top: 24px;
+  width: 72px;
+  flex: 0 0 72px;
+  align-self: flex-start;
+  padding-top: 24px;
+  z-index: 2;
+}
+.dock {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  pointer-events: none; /* allow clicks through gaps */
+  align-items: center;
+  gap: 16px;
 }
-
-@media (max-width: 1280px) {
+.bubble {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: transform 180ms var(--ease-out);
+}
+.bubble:active {
+  transform: scale(0.97);
+}
+.tooltip {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.96);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  padding: 8px 12px;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition:
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
+}
+.bubble:focus-visible .tooltip {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+@media (hover: hover) and (pointer: fine) {
+  .bubble:hover {
+    transform: scale(1.08);
+  }
+  .bubble:hover .tooltip {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
+}
+@media (max-width: 1279px) {
   .root {
     display: none;
   }
 }
-
-/* Each friend is a floating bubble with glass pill tooltip on hover */
-.bubble {
-  pointer-events: auto;
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.22s ease-out, box-shadow 0.22s ease-out;
-  animation: floatBubble 4s ease-in-out infinite;
-}
-
-.bubble:nth-child(2) { animation-delay: -1.2s; }
-.bubble:nth-child(3) { animation-delay: -2.5s; }
-.bubble:nth-child(4) { animation-delay: -0.7s; }
-.bubble:nth-child(5) { animation-delay: -3.1s; }
-
-.bubble:hover {
-  transform: scale(1.12);
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.25);
-}
-
-@keyframes floatBubble {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .bubble {
-    animation: none;
+  .bubble,
+  .tooltip {
+    transition: none;
   }
-  .bubble:hover {
-    transform: scale(1.08);
+  @media (hover: hover) and (pointer: fine) {
+    .bubble:hover {
+      transform: none;
+    }
   }
-}
-
-/* Tooltip pill that appears on hover */
-.tooltip {
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%) scale(0.95);
-  opacity: 0;
-  pointer-events: none;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  background: rgba(15, 15, 15, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
-  z-index: 50;
-}
-
-.bubble:hover .tooltip {
-  opacity: 1;
-  transform: translateY(-50%) scale(1);
-}
-
-.onlineDot {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #34d399;
-  border: 2px solid rgba(0, 0, 0, 0.6);
-  box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
 }

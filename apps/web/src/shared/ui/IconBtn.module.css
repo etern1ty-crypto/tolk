@@ -6,9 +6,11 @@
   flex-shrink: 0;
 }
 
-.btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
 }
 
 .btn:disabled {
@@ -37,8 +39,10 @@
   color: var(--text-primary);
 }
 
-.soft:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.09);
+@media (hover: hover) and (pointer: fine) {
+  .soft:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.09);
+  }
 }
 
 /* white CTA — kept as .mint for API compat */
@@ -48,17 +52,21 @@
   box-shadow: none;
 }
 
-.mint:hover:not(:disabled) {
-  background: #fff;
-  color: var(--text-on-accent);
-  filter: none;
+@media (hover: hover) and (pointer: fine) {
+  .mint:hover:not(:disabled) {
+    background: #fff;
+    color: var(--text-on-accent);
+    filter: none;
+  }
 }
 
 .danger {
   color: var(--text-secondary);
 }
 
-.danger:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .danger:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
 }

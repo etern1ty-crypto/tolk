@@ -1,50 +1,11 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: flex-end;
-  animation: fadeIn 0.12s ease-out both;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(16px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
 .panel {
-  width: min(100%, 420px);
-  height: 100%;
-  background: var(--bg-surface);
-  border-left: 1px solid var(--border-subtle);
+  width: 100%;
+  height: min(720px, 86dvh);
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: var(--shadow-lg);
-  animation: slideIn 0.14s ease-out both;
+  background: var(--bg-sheet);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .overlay,
-  .panel {
-    animation: none;
-  }
-}
-
 .header {
   display: flex;
   align-items: center;
@@ -90,8 +51,10 @@
   margin-bottom: 14px;
 }
 
-.profile:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .profile:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .name {
@@ -121,8 +84,10 @@
   width: 100%;
 }
 
-.navItem:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .navItem:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .navIcon {
@@ -165,8 +130,10 @@
   gap: 8px;
 }
 
-.logout:hover {
-  background: rgba(255, 107, 107, 0.18);
+@media (hover: hover) and (pointer: fine) {
+  .logout:hover {
+    background: rgba(255, 107, 107, 0.18);
+  }
 }
 
 .stack {
@@ -248,12 +215,19 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.themeCard:hover {
-  transform: scale(1.03);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+@media (hover: hover) and (pointer: fine) {
+  .themeCard:hover {
+    transform: scale(1.03);
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
 }
 
 .themeCard:active {
@@ -262,7 +236,9 @@
 
 .themeCardActive {
   border-color: var(--accent, #fafafa);
-  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+  box-shadow:
+    0 0 0 2px var(--bg-surface),
+    0 0 0 4px var(--accent);
 }
 
 .themePreviewBg {
@@ -317,13 +293,15 @@
 
 .slider:before {
   position: absolute;
-  content: "";
+  content: '';
   height: 18px;
   width: 18px;
   left: 3px;
   bottom: 3px;
   background-color: var(--text-secondary);
-  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
   border-radius: 50%;
 }
 
@@ -397,7 +375,9 @@
   font-weight: 650;
   color: var(--text-secondary);
   text-align: center;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
 }
 
 .segActive {
@@ -581,10 +561,42 @@
   font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
 
-.unblockBtn:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
+@media (hover: hover) and (pointer: fine) {
+  .unblockBtn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+  }
+}
+
+.body {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.switch {
+  width: 44px;
+  height: 44px;
+}
+.switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+.slider {
+  top: 10px;
+  bottom: 10px;
+}
+.switch:active .slider:before {
+  transform: scaleX(1.2222);
+}
+.switch:active input:checked + .slider:before {
+  transform: translateX(20px) scaleX(1.2222);
 }

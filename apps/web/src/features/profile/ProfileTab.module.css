@@ -110,8 +110,10 @@
   backdrop-filter: none;
 }
 
-.menu button:hover {
-  background: var(--bg-hover) !important;
+@media (hover: hover) and (pointer: fine) {
+  .menu button:hover {
+    background: var(--bg-hover) !important;
+  }
 }
 
 .panel {
@@ -141,8 +143,10 @@
   border-radius: 8px;
 }
 
-.panelClose:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .panelClose:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .avatarWrap {
@@ -304,8 +308,10 @@
   color: #fff;
 }
 
-.swatch:hover {
-  transform: scale(1.04);
+@media (hover: hover) and (pointer: fine) {
+  .swatch:hover {
+    transform: scale(1.04);
+  }
 }
 
 .swatchActive {
@@ -366,9 +372,11 @@
   background: transparent;
 }
 
-.mediaBtn:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .mediaBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
 }
 
 .mediaOn {
@@ -395,8 +403,10 @@
   transition: background var(--dur-fast);
 }
 
-.post:hover {
-  background: rgba(255, 255, 255, 0.02);
+@media (hover: hover) and (pointer: fine) {
+  .post:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
 }
 
 .post p {
@@ -431,9 +441,11 @@
   border-radius: 50%;
 }
 
-.postTop button:hover {
-  background: var(--accent-danger-dim);
-  color: var(--accent-danger);
+@media (hover: hover) and (pointer: fine) {
+  .postTop button:hover {
+    background: var(--accent-danger-dim);
+    color: var(--accent-danger);
+  }
 }
 
 .media {
@@ -484,8 +496,10 @@
   overflow: hidden;
 }
 
-.avatarInnerWrap:hover .avatarHoverOverlay {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .avatarInnerWrap:hover .avatarHoverOverlay {
+    opacity: 1;
+  }
 }
 
 .avatarHoverOverlay {
@@ -542,7 +556,7 @@
   background: #000;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
   cursor: grab;
 }
 
@@ -600,8 +614,10 @@
   transition: transform 0.1s ease;
 }
 
-.cropperSlider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+@media (hover: hover) and (pointer: fine) {
+  .cropperSlider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
 }
 
 .cropperActions {
@@ -622,8 +638,10 @@
   cursor: pointer;
 }
 
-.btnCancel:hover {
-  background: #36363c;
+@media (hover: hover) and (pointer: fine) {
+  .btnCancel:hover {
+    background: #36363c;
+  }
 }
 
 .btnCrop {
@@ -638,8 +656,10 @@
   cursor: pointer;
 }
 
-.btnCrop:hover {
-  background: #e0e0e0;
+@media (hover: hover) and (pointer: fine) {
+  .btnCrop:hover {
+    background: #e0e0e0;
+  }
 }
 
 .bannerLeftActions {
@@ -771,9 +791,11 @@
   transition: background-color 0.2s ease;
 }
 
-.collapsedComposer:hover {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .collapsedComposer:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: var(--bg-hover);
+  }
 }
 
 .collapsedComposer input {
@@ -796,9 +818,11 @@
   cursor: pointer;
 }
 
-.cancelCompose:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .cancelCompose:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
 }
 
 /* Modal Viewer */
@@ -908,4 +932,102 @@
   font-size: 13px;
   color: var(--text-tertiary);
   padding: 12px 0;
+}
+
+.subTabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 8px 16px;
+}
+.subTab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+.subTabActive {
+  color: var(--text-primary);
+  background: var(--bg-active);
+}
+.subTabCount {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.subTabBadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  min-height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 12px;
+}
+.friendsSection {
+  padding: 16px;
+}
+.friendRequestsBlock {
+  margin-bottom: 24px;
+}
+.friendSectionTitle {
+  font-size: 18px;
+  line-height: 1.3;
+  margin: 16px 0;
+}
+.friendGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.friendCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.friendCardInfo {
+  min-width: 0;
+  flex: 1;
+}
+.friendCardName {
+  display: block;
+  text-align: left;
+  font-weight: 650;
+  min-height: 24px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friendCardUser,
+.friendCardStatus {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.friendCardActions {
+  display: flex;
+  gap: 4px;
+}
+.friendAcceptBtn,
+.friendDeclineBtn,
+.friendRemoveBtn {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+.friendAcceptBtn {
+  background: var(--accent);
+  color: var(--text-on-accent);
 }

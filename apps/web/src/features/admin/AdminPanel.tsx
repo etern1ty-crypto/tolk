@@ -53,7 +53,7 @@ export function AdminPanel() {
 
   const handleGrantBadge = (targetUsername: string) => {
     const u = Object.values(users).find(
-      (x) => x.username.toLowerCase() === targetUsername.trim().toLowerCase()
+      (x) => x.username.toLowerCase() === targetUsername.trim().toLowerCase(),
     );
     if (!u) {
       showToast(`Пользователь @${targetUsername} не найден`);
@@ -65,7 +65,7 @@ export function AdminPanel() {
 
   const handleRevokeBadge = (targetUsername: string) => {
     const u = Object.values(users).find(
-      (x) => x.username.toLowerCase() === targetUsername.trim().toLowerCase()
+      (x) => x.username.toLowerCase() === targetUsername.trim().toLowerCase(),
     );
     if (!u) {
       showToast(`Пользователь @${targetUsername} не найден`);
@@ -82,7 +82,7 @@ export function AdminPanel() {
       return;
     }
     const target = Object.values(users).find(
-      (u) => u.username.toLowerCase() === query.toLowerCase() || u.id === query
+      (u) => u.username.toLowerCase() === query.toLowerCase() || u.id === query,
     );
 
     if (target) {
@@ -91,7 +91,7 @@ export function AdminPanel() {
     showToast(
       banType === 'ip'
         ? `Блокировка по IP применена к ${query}`
-        : `Пользователь ${query} заблокирован (${banReason})`
+        : `Пользователь ${query} заблокирован (${banReason})`,
     );
     setBanInput('');
   };
@@ -210,7 +210,7 @@ export function AdminPanel() {
           <div className={styles.reportsWrap}>
             {reports.length === 0 ? (
               <div className={styles.emptyCard}>
-                <ShieldCheck size={36} color="#38bdf8" />
+                <ShieldCheck size={36} color="var(--accent)" />
                 <p>Все заявки обработаны. Нарушений нет!</p>
               </div>
             ) : (
@@ -281,10 +281,7 @@ export function AdminPanel() {
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
                 <label>Тип блокировки</label>
-                <select
-                  value={banType}
-                  onChange={(e) => setBanType(e.target.value as any)}
-                >
+                <select value={banType} onChange={(e) => setBanType(e.target.value as any)}>
                   <option value="temp">Временный бан (24 часа)</option>
                   <option value="permanent">Вечный бан аккаунта</option>
                   <option value="ip">Блокировка по IP-адресу</option>
@@ -301,11 +298,7 @@ export function AdminPanel() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className={styles.submitBanBtn}
-              onClick={handleApplyBan}
-            >
+            <button type="button" className={styles.submitBanBtn} onClick={handleApplyBan}>
               <Ban size={16} />
               <span>Применить блокировку</span>
             </button>

@@ -1,8 +1,20 @@
-import { ChevronLeft, HardDrive, Info, LogOut, MessageSquare, MonitorSmartphone, Palette, Shield, User, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  HardDrive,
+  Info,
+  LogOut,
+  MessageSquare,
+  MonitorSmartphone,
+  Palette,
+  Shield,
+  User,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppStore, REACTION_SET, fetchApi } from '../../store/appStore';
 import type { SettingsRoute } from '../../shared/types';
 import { Avatar } from '../../shared/ui/Avatar';
+import { Sheet } from '../../shared/ui/Sheet';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { ChatThemePicker } from './ChatThemePicker';
 import styles from './SettingsOverlay.module.css';
@@ -66,196 +78,376 @@ export function SettingsOverlay() {
   const blockedUsers = useAppStore((s) => s.blockedUsers);
   const unblockUser = useAppStore((s) => s.unblockUser);
 
-  useEffect(() => {
-    if (!route) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (route === 'hub') closeSettings();
-        else navigateSettings('hub');
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [route, closeSettings, navigateSettings]);
-
   const title =
     !route || route === 'hub'
       ? 'Настройки'
-      : HUB_ITEMS.find((i) => i.id === route)?.label ?? 'Настройки';
-
-  if (!route) return null;
+      : (HUB_ITEMS.find((i) => i.id === route)?.label ?? 'Настройки');
 
   return (
-        <div
-          className={styles.overlay}
-          role="presentation"
-          onClick={closeSettings}
-        >
-          <div
-            className={styles.panel}
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className={styles.header}>
-              {route !== 'hub' ? (
-                <IconBtn
-                  onClick={() => navigateSettings('hub')}
-                  aria-label="Назад"
-                >
-                  <ChevronLeft size={20} />
-                </IconBtn>
-              ) : (
-                <span className={styles.backSpacer} />
-              )}
-              <h2 className={styles.title}>{title}</h2>
-              <IconBtn onClick={closeSettings} aria-label="Закрыть">
-                <X size={18} />
-              </IconBtn>
-            </header>
+    <Sheet
+      open={Boolean(route)}
+      onClose={closeSettings}
+      label={title}
+      wide
+      hideHeader
+      onEscape={() => (route === 'hub' ? closeSettings() : navigateSettings('hub'))}
+    >
+      <div className={styles.panel}>
+        <header className={styles.header}>
+          {route !== 'hub' ? (
+            <IconBtn onClick={() => navigateSettings('hub')} aria-label="Назад">
+              <ChevronLeft size={20} />
+            </IconBtn>
+          ) : (
+            <span className={styles.backSpacer} />
+          )}
+          <h2 className={styles.title}>{title}</h2>
+          <IconBtn onClick={closeSettings} aria-label="Закрыть">
+            <X size={18} />
+          </IconBtn>
+        </header>
 
-            <div className={styles.body}>
-              {route === 'hub' && (
-                <>
-                  <div className={styles.profileStatic}>
-                    <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={52} />
-                    <div>
-                      <div className={styles.name}>{me.displayName}</div>
-                      <div className={styles.uname}>
-                        {me.username ? `@${me.username}` : 'без username'}
-                      </div>
-                    </div>
+        <div className={styles.body}>
+          {route === 'hub' && (
+            <>
+              <div className={styles.profileStatic}>
+                <Avatar name={me.displayName} id={me.id} avatarUrl={me.avatarRef} size={52} />
+                <div>
+                  <div className={styles.name}>{me.displayName}</div>
+                  <div className={styles.uname}>
+                    {me.username ? `@${me.username}` : 'без username'}
                   </div>
-                  <nav className={styles.nav}>
-                    {HUB_ITEMS.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={styles.navItem}
-                        onClick={() => navigateSettings(item.id)}
-                      >
-                        <span className={styles.navIcon}>
-                          <item.Icon size={18} strokeWidth={1.9} />
-                        </span>
-                        <span className={styles.navText}>
-                          <span>{item.label}</span>
-                          {item.sub && (
-                            <span className={styles.navSub}>{item.sub}</span>
-                          )}
-                        </span>
-                      </button>
-                    ))}
-                  </nav>
+                </div>
+              </div>
+              <nav className={styles.nav}>
+                {HUB_ITEMS.map((item) => (
                   <button
+                    key={item.id}
                     type="button"
-                    className={styles.logout}
-                    onClick={() => {
-                      if (window.confirm('Выйти?')) logout();
-                    }}
+                    className={styles.navItem}
+                    onClick={() => navigateSettings(item.id)}
                   >
-                    <LogOut size={16} />
-                    Выйти
-                  </button>
-                </>
-              )}
-
-              {route === 'account' && <AccountEditor />}
-
-              {route === 'chats' && (
-                <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Обои чатов</div>
-                  <p className={styles.note}>
-                    Фон по умолчанию. Звуковой пак подстраивается под выбранную тему.
-                    В диалоге: ⋯ → Оформление — только этот чат.
-                  </p>
-                  <ChatThemePicker
-                    value={globalChatThemeId}
-                    onSelect={setGlobalChatTheme}
-                    allowCustom
-                    showLivePreview
-                  />
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Звуковой пак</div>
-                  <p className={styles.note}>
-                    Отправка + входящие. Меняется с темой чата или вручную.
-                  </p>
-                  <div className={styles.segRow} role="group">
-                    {(
-                      [
-                        ['pixel', 'Ink'],
-                        ['bubble', 'Pulse'],
-                        ['glass', 'Glass'],
-                        ['silent', 'Тихо'],
-                      ] as const
-                    ).map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        className={
-                          notificationSound === val ? styles.segActive : styles.seg
-                        }
-                        onClick={() => setNotificationSound(val)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Громкость</div>
-                  <button
-                    type="button"
-                    className={styles.mixerToggle}
-                    onClick={() => setMixerOpen((v) => !v)}
-                  >
-                    <span>Микшер</span>
-                    <span className={styles.mixerVal}>
-                      {Math.round(soundVolume * 100)}% · {mixerOpen ? '▲' : '▼'}
+                    <span className={styles.navIcon}>
+                      <item.Icon size={18} strokeWidth={1.9} />
+                    </span>
+                    <span className={styles.navText}>
+                      <span>{item.label}</span>
+                      {item.sub && <span className={styles.navSub}>{item.sub}</span>}
                     </span>
                   </button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.02"
-                    value={soundVolume}
-                    onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
-                    onPointerDown={() => setMixerOpen(true)}
-                    className={styles.volumeSlider}
-                    aria-label="Общая громкость"
-                  />
-                  {mixerOpen && (
-                    <div className={styles.mixerPanel}>
-                      <label className={styles.mixerRow}>
-                        <span>Уведомления на сайте</span>
-                        <em>{Math.round(notifVolume * 100)}</em>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.02"
-                          value={notifVolume}
-                          onChange={(e) => setNotifVolume(parseFloat(e.target.value))}
-                        />
-                      </label>
-                      <label className={styles.mixerRow}>
-                        <span>Звук отправки</span>
-                        <em>{Math.round(sendVolume * 100)}</em>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.02"
-                          value={sendVolume}
-                          onChange={(e) => setSendVolume(parseFloat(e.target.value))}
-                        />
-                      </label>
-                    </div>
-                  )}
+                ))}
+              </nav>
+              <button
+                type="button"
+                className={styles.logout}
+                onClick={() => {
+                  if (window.confirm('Выйти?')) logout();
+                }}
+              >
+                <LogOut size={16} />
+                Выйти
+              </button>
+            </>
+          )}
 
-                  <div className={styles.rowFlex}>
+          {route === 'account' && <AccountEditor />}
+
+          {route === 'chats' && (
+            <div className={styles.stack}>
+              <div className={styles.sectionTitle}>Обои чатов</div>
+              <p className={styles.note}>
+                Фон по умолчанию. Звуковой пак подстраивается под выбранную тему. В диалоге: ⋯ →
+                Оформление — только этот чат.
+              </p>
+              <ChatThemePicker
+                value={globalChatThemeId}
+                onSelect={setGlobalChatTheme}
+                allowCustom
+                showLivePreview
+              />
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Звуковой пак</div>
+              <p className={styles.note}>Отправка + входящие. Меняется с темой чата или вручную.</p>
+              <div className={styles.segRow} role="group">
+                {(
+                  [
+                    ['pixel', 'Ink'],
+                    ['bubble', 'Pulse'],
+                    ['glass', 'Glass'],
+                    ['silent', 'Тихо'],
+                  ] as const
+                ).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className={notificationSound === val ? styles.segActive : styles.seg}
+                    onClick={() => setNotificationSound(val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Громкость</div>
+              <button
+                type="button"
+                className={styles.mixerToggle}
+                onClick={() => setMixerOpen((v) => !v)}
+              >
+                <span>Микшер</span>
+                <span className={styles.mixerVal}>
+                  {Math.round(soundVolume * 100)}% · {mixerOpen ? '▲' : '▼'}
+                </span>
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.02"
+                value={soundVolume}
+                onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+                onPointerDown={() => setMixerOpen(true)}
+                className={styles.volumeSlider}
+                aria-label="Общая громкость"
+              />
+              {mixerOpen && (
+                <div className={styles.mixerPanel}>
+                  <label className={styles.mixerRow}>
+                    <span>Уведомления на сайте</span>
+                    <em>{Math.round(notifVolume * 100)}</em>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.02"
+                      value={notifVolume}
+                      onChange={(e) => setNotifVolume(parseFloat(e.target.value))}
+                    />
+                  </label>
+                  <label className={styles.mixerRow}>
+                    <span>Звук отправки</span>
+                    <em>{Math.round(sendVolume * 100)}</em>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.02"
+                      value={sendVolume}
+                      onChange={(e) => setSendVolume(parseFloat(e.target.value))}
+                    />
+                  </label>
+                </div>
+              )}
+
+              <div className={styles.rowFlex}>
+                <span
+                  className={styles.rowLabel}
+                  style={{
+                    textTransform: 'none',
+                    fontSize: '13px',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  Уведомления в браузере
+                </span>
+                <label className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    aria-label="Уведомления в браузере"
+                    checked={browserNotificationsEnabled}
+                    onChange={(e) => setBrowserNotificationsEnabled(e.target.checked)}
+                  />
+                  <span className={styles.slider} />
+                </label>
+              </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Реакция по умолчанию</div>
+              <div className={styles.reactionRow}>
+                {REACTION_SET.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={`${styles.reactionBtn} ${defaultReaction === emoji ? styles.reactionBtnActive : ''}`}
+                    onClick={() => setDefaultReaction(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Триггеры уведомлений</div>
+              {(
+                [
+                  ['messages', 'Новые сообщения'],
+                  ['comments', 'Комментарии'],
+                  ['likes', 'Лайки'],
+                  ['posts', 'Новые посты'],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className={styles.rowFlex}>
+                  <span
+                    className={styles.rowLabel}
+                    style={{
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <label className={styles.switch}>
+                    <input
+                      type="checkbox"
+                      aria-label={label}
+                      checked={notifPrefs?.[key] ?? true}
+                      onChange={(e) => setNotifPref(key, e.target.checked)}
+                    />
+                    <span className={styles.slider} />
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {route === 'sessions' && <SessionsPanel />}
+
+          {route === 'appearance' && (
+            <div className={styles.stack}>
+              <div className={styles.sectionTitle}>Тема сайта</div>
+              <p className={styles.note}>
+                Стена, профиль, оболочка. Обоев чата здесь нет — они в «Чаты» и в ⋯ диалога.
+              </p>
+              <div className={styles.segRow} role="group" aria-label="Тема">
+                <button
+                  type="button"
+                  className={uiTheme === 'dark' ? styles.segActive : styles.seg}
+                  onClick={() => setUiTheme('dark')}
+                >
+                  Тёмная
+                </button>
+                <button
+                  type="button"
+                  className={uiTheme === 'light' ? styles.segActive : styles.seg}
+                  onClick={() => setUiTheme('light')}
+                >
+                  Светлая
+                </button>
+              </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Шрифт интерфейса</div>
+              <div className={styles.segRow} role="group" aria-label="Шрифт">
+                {(
+                  [
+                    ['inter', 'Inter'],
+                    ['system', 'System'],
+                    ['serif', 'Serif'],
+                    ['mono', 'Mono'],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={uiFont === id ? styles.segActive : styles.seg}
+                    onClick={() => setUiFont(id)}
+                    style={{
+                      fontFamily:
+                        id === 'serif'
+                          ? 'Georgia, serif'
+                          : id === 'mono'
+                            ? 'ui-monospace, monospace'
+                            : id === 'system'
+                              ? 'system-ui, sans-serif'
+                              : 'Inter, sans-serif',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Палитра Tolk</div>
+              <p className={styles.note}>
+                monochrome · accent = белый CTA · иконки lucide stroke 1.75
+              </p>
+              <div className={styles.paletteRow}>
+                <span className={styles.swatch} style={{ background: 'var(--bg-primary)' }} />
+                <span className={styles.swatch} style={{ background: 'var(--bg-elevated)' }} />
+                <span className={styles.swatch} style={{ background: 'var(--accent)' }} />
+                <span className={styles.swatch} style={{ background: 'var(--text-secondary)' }} />
+              </div>
+            </div>
+          )}
+
+          {route === 'privacy' && (
+            <div className={styles.stack}>
+              <div className={styles.sectionTitle}>Видимость</div>
+              {(
+                [
+                  ['wallPublic', 'Стена видна всем'],
+                  ['showLastSeen', 'Показывать, когда был в сети'],
+                  ['showOnline', 'Показывать «в сети»'],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className={styles.rowFlex}>
+                  <span
+                    className={styles.rowLabel}
+                    style={{
+                      textTransform: 'none',
+                      fontSize: '13px',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {label}
+                  </span>
+                  <label className={styles.switch}>
+                    <input
+                      type="checkbox"
+                      aria-label={label}
+                      checked={privacyPrefs?.[key] ?? true}
+                      onChange={(e) => setPrivacyPref(key, e.target.checked)}
+                    />
+                    <span className={styles.slider} />
+                  </label>
+                </div>
+              ))}
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Кто может писать</div>
+              <div className={styles.segRow} role="group" aria-label="Кто может писать">
+                {(
+                  [
+                    ['everyone', 'Все'],
+                    ['contacts', 'Контакты'],
+                  ] as const
+                ).map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    className={
+                      privacyPrefs?.allowMessagesFrom === val ? styles.segActive : styles.seg
+                    }
+                    onClick={() => setPrivacyPref('allowMessagesFrom', val)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Заблокированные</div>
+              {/* Заблокировать можно было из профиля, а снять — нет: профиль
+                      заблокированного ещё надо найти, а он нигде не показан.
+                      Список закрывает эту дыру. */}
+              {blockedUsers.length === 0 ? (
+                <p className={styles.note}>Никого. Заблокировать можно из профиля собеседника.</p>
+              ) : (
+                blockedUsers.map((b) => (
+                  <div key={b.id} className={styles.rowFlex}>
                     <span
                       className={styles.rowLabel}
                       style={{
@@ -264,269 +456,66 @@ export function SettingsOverlay() {
                         color: 'var(--text-primary)',
                       }}
                     >
-                      Уведомления в браузере
+                      {b.displayName}
+                      {b.username ? (
+                        <span style={{ color: 'var(--text-tertiary)' }}> @{b.username}</span>
+                      ) : null}
                     </span>
-                    <label className={styles.switch}>
-                      <input
-                        type="checkbox"
-                        checked={browserNotificationsEnabled}
-                        onChange={(e) =>
-                          setBrowserNotificationsEnabled(e.target.checked)
-                        }
-                      />
-                      <span className={styles.slider} />
-                    </label>
-                  </div>
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Реакция по умолчанию</div>
-                  <div className={styles.reactionRow}>
-                    {REACTION_SET.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        className={`${styles.reactionBtn} ${defaultReaction === emoji ? styles.reactionBtnActive : ''}`}
-                        onClick={() => setDefaultReaction(emoji)}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Триггеры уведомлений</div>
-                  {(
-                    [
-                      ['messages', 'Новые сообщения'],
-                      ['comments', 'Комментарии'],
-                      ['likes', 'Лайки'],
-                      ['posts', 'Новые посты'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <div key={key} className={styles.rowFlex}>
-                      <span
-                        className={styles.rowLabel}
-                        style={{
-                          textTransform: 'none',
-                          fontSize: '13px',
-                          color: 'var(--text-primary)',
-                        }}
-                      >
-                        {label}
-                      </span>
-                      <label className={styles.switch}>
-                        <input
-                          type="checkbox"
-                          checked={notifPrefs?.[key] ?? true}
-                          onChange={(e) => setNotifPref(key, e.target.checked)}
-                        />
-                        <span className={styles.slider} />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {route === 'sessions' && <SessionsPanel />}
-
-              {route === 'appearance' && (
-                <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Тема сайта</div>
-                  <p className={styles.note}>
-                    Стена, профиль, оболочка. Обоев чата здесь нет — они в «Чаты» и в
-                    ⋯ диалога.
-                  </p>
-                  <div className={styles.segRow} role="group" aria-label="Тема">
                     <button
                       type="button"
-                      className={uiTheme === 'dark' ? styles.segActive : styles.seg}
-                      onClick={() => setUiTheme('dark')}
+                      className={styles.unblockBtn}
+                      onClick={() => unblockUser(b.id)}
                     >
-                      Тёмная
-                    </button>
-                    <button
-                      type="button"
-                      className={uiTheme === 'light' ? styles.segActive : styles.seg}
-                      onClick={() => setUiTheme('light')}
-                    >
-                      Светлая
+                      Разблокировать
                     </button>
                   </div>
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Шрифт интерфейса</div>
-                  <div className={styles.segRow} role="group" aria-label="Шрифт">
-                    {(
-                      [
-                        ['inter', 'Inter'],
-                        ['system', 'System'],
-                        ['serif', 'Serif'],
-                        ['mono', 'Mono'],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        className={uiFont === id ? styles.segActive : styles.seg}
-                        onClick={() => setUiFont(id)}
-                        style={{
-                          fontFamily:
-                            id === 'serif'
-                              ? 'Georgia, serif'
-                              : id === 'mono'
-                                ? 'ui-monospace, monospace'
-                                : id === 'system'
-                                  ? 'system-ui, sans-serif'
-                                  : 'Inter, sans-serif',
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Палитра Tolk</div>
-                  <p className={styles.note}>
-                    monochrome · accent = белый CTA · иконки lucide stroke 1.75
-                  </p>
-                  <div className={styles.paletteRow}>
-                    <span className={styles.swatch} style={{ background: 'var(--bg-primary)' }} />
-                    <span className={styles.swatch} style={{ background: 'var(--bg-elevated)' }} />
-                    <span className={styles.swatch} style={{ background: 'var(--accent)' }} />
-                    <span className={styles.swatch} style={{ background: 'var(--text-secondary)' }} />
-                  </div>
-                </div>
+                ))
               )}
 
-              {route === 'privacy' && (
-                <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Видимость</div>
-                  {(
-                    [
-                      ['wallPublic', 'Стена видна всем'],
-                      ['showLastSeen', 'Показывать, когда был в сети'],
-                      ['showOnline', 'Показывать «в сети»'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <div key={key} className={styles.rowFlex}>
-                      <span
-                        className={styles.rowLabel}
-                        style={{
-                          textTransform: 'none',
-                          fontSize: '13px',
-                          color: 'var(--text-primary)',
-                        }}
-                      >
-                        {label}
-                      </span>
-                      <label className={styles.switch}>
-                        <input
-                          type="checkbox"
-                          checked={privacyPrefs?.[key] ?? true}
-                          onChange={(e) => setPrivacyPref(key, e.target.checked)}
-                        />
-                        <span className={styles.slider} />
-                      </label>
-                    </div>
-                  ))}
-
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Кто может писать</div>
-                  <div className={styles.segRow} role="group" aria-label="Кто может писать">
-                    {(
-                      [
-                        ['everyone', 'Все'],
-                        ['contacts', 'Контакты'],
-                      ] as const
-                    ).map(([val, label]) => (
-                      <button
-                        key={val}
-                        type="button"
-                        className={
-                          privacyPrefs?.allowMessagesFrom === val
-                            ? styles.segActive
-                            : styles.seg
-                        }
-                        onClick={() => setPrivacyPref('allowMessagesFrom', val)}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className={styles.divider} />
-                  <div className={styles.sectionTitle}>Заблокированные</div>
-                  {/* Заблокировать можно было из профиля, а снять — нет: профиль
-                      заблокированного ещё надо найти, а он нигде не показан.
-                      Список закрывает эту дыру. */}
-                  {blockedUsers.length === 0 ? (
-                    <p className={styles.note}>Никого. Заблокировать можно из профиля собеседника.</p>
-                  ) : (
-                    blockedUsers.map((b) => (
-                      <div key={b.id} className={styles.rowFlex}>
-                        <span
-                          className={styles.rowLabel}
-                          style={{ textTransform: 'none', fontSize: '13px', color: 'var(--text-primary)' }}
-                        >
-                          {b.displayName}
-                          {b.username ? (
-                            <span style={{ color: 'var(--text-tertiary)' }}> @{b.username}</span>
-                          ) : null}
-                        </span>
-                        <button
-                          type="button"
-                          className={styles.unblockBtn}
-                          onClick={() => unblockUser(b.id)}
-                        >
-                          Разблокировать
-                        </button>
-                      </div>
-                    ))
-                  )}
-
-                  <p className={styles.note}>
-                    Видимость сохраняется на этом устройстве. Жалобы — через профиль
-                    собеседника.
-                  </p>
-                </div>
-              )}
-
-              {route === 'storage' && (
-                <div className={styles.stack}>
-                  <div className={styles.sectionTitle}>Данные</div>
-                  <Row label="Медиа" value="Кэш браузера + серверные uploads" />
-                  <Row label="Локальный стейт" value="localStorage · tolk-web-state" />
-                  <button
-                    type="button"
-                    className={styles.saveBtn}
-                    onClick={() => {
-                      if (window.confirm('Очистить кэш приложения в этом браузере? (не удаляет аккаунт)')) {
-                        try {
-                          localStorage.removeItem('tolk-web-state');
-                          useAppStore.getState().showToast('Кэш очищен — перезагрузите страницу');
-                        } catch {
-                          useAppStore.getState().showToast('Не удалось очистить');
-                        }
-                      }
-                    }}
-                  >
-                    Очистить локальный кэш
-                  </button>
-                </div>
-              )}
-
-              {route === 'about' && (
-                <div className={styles.stack}>
-                  <p className={styles.note}>
-                    <strong>Толк.</strong> — чаты · стена · профиль. Web MVP.
-                  </p>
-                  <Row label="Клиент" value="apps/web · React + Vite" />
-                  <Row label="Версия" value="0.1.0" />
-                </div>
-              )}
+              <p className={styles.note}>
+                Видимость сохраняется на этом устройстве. Жалобы — через профиль собеседника.
+              </p>
             </div>
-          </div>
+          )}
+
+          {route === 'storage' && (
+            <div className={styles.stack}>
+              <div className={styles.sectionTitle}>Данные</div>
+              <Row label="Медиа" value="Кэш браузера + серверные uploads" />
+              <Row label="Локальный стейт" value="localStorage · tolk-web-state" />
+              <button
+                type="button"
+                className={styles.saveBtn}
+                onClick={() => {
+                  if (
+                    window.confirm('Очистить кэш приложения в этом браузере? (не удаляет аккаунт)')
+                  ) {
+                    try {
+                      localStorage.removeItem('tolk-web-state');
+                      useAppStore.getState().showToast('Кэш очищен — перезагрузите страницу');
+                    } catch {
+                      useAppStore.getState().showToast('Не удалось очистить');
+                    }
+                  }
+                }}
+              >
+                Очистить локальный кэш
+              </button>
+            </div>
+          )}
+
+          {route === 'about' && (
+            <div className={styles.stack}>
+              <p className={styles.note}>
+                <strong>Толк.</strong> — чаты · стена · профиль. Web MVP.
+              </p>
+              <Row label="Клиент" value="apps/web · React + Vite" />
+              <Row label="Версия" value="0.1.0" />
+            </div>
+          )}
         </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -577,9 +566,7 @@ function SessionsPanel() {
           <strong>{s.deviceName || s.platform || 'Устройство'}</strong>
           <span className={styles.navSub}>
             {s.platform || 'web'}
-            {s.lastActive
-              ? ` · ${new Date(s.lastActive).toLocaleString('ru-RU')}`
-              : ''}
+            {s.lastActive ? ` · ${new Date(s.lastActive).toLocaleString('ru-RU')}` : ''}
           </span>
           <button
             type="button"
@@ -621,7 +608,9 @@ function AccountEditor() {
   const [username, setUsername] = useState(me.username);
   const [bio, setBio] = useState(me.bio ?? '');
   const [saving, setSaving] = useState(false);
-  const [availability, setAvailability] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'invalid' | 'self'>('idle');
+  const [availability, setAvailability] = useState<
+    'idle' | 'checking' | 'ok' | 'taken' | 'invalid' | 'self'
+  >('idle');
 
   useEffect(() => {
     setDisplayName(me.displayName);
@@ -645,7 +634,7 @@ function AccountEditor() {
         const res = await fetchApi(
           `/users/username-available?u=${encodeURIComponent(cleaned)}`,
           {},
-          token
+          token,
         );
         setAvailability(res.available ? 'ok' : res.reason === 'invalid' ? 'invalid' : 'taken');
       } catch {

@@ -29,7 +29,12 @@
   width: 65vmax;
   height: 65vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 60, 255, 0.14) 0%, rgba(56, 189, 248, 0.06) 45%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(99, 60, 255, 0.14) 0%,
+    var(--accent-dim) 45%,
+    transparent 70%
+  );
   animation: driftOne 22s ease-in-out infinite alternate;
 }
 
@@ -41,18 +46,31 @@
   width: 55vmax;
   height: 55vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(244, 114, 182, 0.09) 0%, rgba(99, 102, 241, 0.05) 50%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(244, 114, 182, 0.09) 0%,
+    rgba(99, 102, 241, 0.05) 50%,
+    transparent 70%
+  );
   animation: driftTwo 28s ease-in-out infinite alternate-reverse;
 }
 
 @keyframes driftOne {
-  from { transform: translate(0, 0) scale(1); }
-  to { transform: translate(40px, -30px) scale(1.08); }
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(40px, -30px) scale(1.08);
+  }
 }
 
 @keyframes driftTwo {
-  from { transform: translate(0, 0) scale(1); }
-  to { transform: translate(-35px, 25px) scale(1.06); }
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-35px, 25px) scale(1.06);
+  }
 }
 
 .noise {
@@ -96,7 +114,9 @@
   -webkit-backdrop-filter: blur(28px);
   border-radius: 36px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), 0 0 0 4px rgba(255, 255, 255, 0.02);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.8),
+    0 0 0 4px rgba(255, 255, 255, 0.02);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -161,8 +181,14 @@
 }
 
 @keyframes contentFade {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Chat list */
@@ -395,7 +421,8 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.navTab, .navActive {
+.navTab,
+.navActive {
   background: transparent;
   border: none;
   display: flex;
@@ -432,8 +459,14 @@
 }
 
 @keyframes textSlide {
-  from { opacity: 0; transform: translateX(8px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .sideTitle {
@@ -478,7 +511,7 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease;
 }
 
 .dotActive {
@@ -496,12 +529,16 @@
   border-radius: 16px;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(255, 255, 255, 0.15);
-  transition: transform 0.15s, opacity 0.15s;
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
 }
 
-.startBtn:hover {
-  transform: translateY(-1px);
-  opacity: 0.95;
+@media (hover: hover) and (pointer: fine) {
+  .startBtn:hover {
+    transform: translateY(-1px);
+    opacity: 0.95;
+  }
 }
 
 .startBtn:active {
@@ -519,6 +556,15 @@
   transition: color 0.15s;
 }
 
-.skipBtn:hover {
-  color: #ffffff;
+@media (hover: hover) and (pointer: fine) {
+  .skipBtn:hover {
+    color: #ffffff;
+  }
+}
+
+.profileInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }

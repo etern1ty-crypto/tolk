@@ -30,9 +30,6 @@
   --lg-radius-sm: 16px;
   --lg-radius-pill: 9999px;
   /* Ambient blob colors (dark) */
-  --blob-1: rgba(99, 102, 241, 0.15);
-  --blob-2: rgba(168, 85, 247, 0.12);
-  --blob-3: rgba(59, 130, 246, 0.1);
 
   /* Accent = white CTA */
   --accent: #f5f5f5;
@@ -49,7 +46,7 @@
 
   --text-primary: #f5f5f5;
   --text-secondary: #a3a3a3;
-  --text-tertiary: #737373;
+  --text-tertiary: #969696;
   --text-disabled: #525252;
   --text-on-accent: #0a0a0a;
 
@@ -88,14 +85,14 @@
   /* Message bubbles — solid, no glass borders */
   --bubble-mine: #e8e8e8;
   --bubble-mine-text: #0a0a0a;
-  --bubble-mine-meta: rgba(10, 10, 10, 0.45);
+  --bubble-mine-meta: #595959;
   --bubble-theirs: #1c1c1e;
   --bubble-theirs-text: #f5f5f5;
-  --bubble-theirs-meta: #737373;
+  --bubble-theirs-meta: #a3a3a3;
 
   --font-brand: 'Unbounded', system-ui, sans-serif;
   --font-heading: 'Unbounded', system-ui, sans-serif;
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Unbounded', system-ui, sans-serif;
   --font-meta: 12px;
   --font-body: 15px;
@@ -111,21 +108,6 @@
   --safe-right: env(safe-area-inset-right, 0px);
 
   color-scheme: dark;
-}
-
-@keyframes logoPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4), 0 0 12px 2px rgba(45, 212, 191, 0.3);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 12px rgba(56, 189, 248, 0), 0 0 24px 6px rgba(45, 212, 191, 0.5);
-    transform: scale(1.05);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(56, 189, 248, 0), 0 0 12px 2px rgba(45, 212, 191, 0.3);
-    transform: scale(1);
-  }
 }
 
 @keyframes logoUnfold {
@@ -165,9 +147,6 @@ html[data-theme='light'] {
   --lg-radius-sm: 16px;
   --lg-radius-pill: 9999px;
   /* Ambient blob colors (light) */
-  --blob-1: rgba(99, 102, 241, 0.12);
-  --blob-2: rgba(168, 85, 247, 0.1);
-  --blob-3: rgba(59, 130, 246, 0.08);
 
   --accent: #0a0a0a;
   --accent-dim: rgba(0, 0, 0, 0.08);
@@ -257,7 +236,7 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  letter-spacing: -0.011em;
+  letter-spacing: 0;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
@@ -284,6 +263,7 @@ button {
 }
 
 button:active:not(:disabled) {
+  transform: scale(0.97);
   opacity: 0.88;
 }
 
@@ -304,7 +284,7 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline: 2px solid var(--text-secondary);
   outline-offset: 2px;
 }
 
@@ -336,60 +316,6 @@ a {
   background: transparent;
 }
 
-/* ── Liquid Glass — ambient blobs ─────────────────────────────── */
-.ambientBlobs {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.ambientBlob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.7;
-  animation: blobFloat 20s ease-in-out infinite alternate;
-}
-
-.ambientBlob:nth-child(1) {
-  width: 400px;
-  height: 400px;
-  background: var(--blob-1);
-  top: -10%;
-  left: -5%;
-  animation-duration: 22s;
-}
-
-.ambientBlob:nth-child(2) {
-  width: 350px;
-  height: 350px;
-  background: var(--blob-2);
-  bottom: -8%;
-  right: -5%;
-  animation-duration: 18s;
-  animation-delay: -5s;
-}
-
-.ambientBlob:nth-child(3) {
-  width: 300px;
-  height: 300px;
-  background: var(--blob-3);
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-duration: 25s;
-  animation-delay: -10s;
-}
-
-@keyframes blobFloat {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30px, -20px) scale(1.05); }
-  66% { transform: translate(-20px, 15px) scale(0.95); }
-  100% { transform: translate(10px, -10px) scale(1.02); }
-}
-
 /* ── Liquid Glass — utility classes ───────────────────────────── */
 .lg-panel {
   background: var(--lg-bg);
@@ -398,9 +324,10 @@ a {
   border: 1px solid var(--lg-border);
   border-radius: var(--lg-radius);
   box-shadow: var(--lg-shadow);
-  transition: background var(--dur) var(--ease-out),
-              border-color var(--dur) var(--ease-out),
-              box-shadow var(--dur) var(--ease-out);
+  transition:
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -418,10 +345,11 @@ a {
   border: 1px solid var(--lg-border);
   border-radius: var(--lg-radius-pill);
   box-shadow: var(--lg-shadow);
-  transition: background var(--dur) var(--ease-out),
-              border-color var(--dur) var(--ease-out),
-              box-shadow var(--dur) var(--ease-out),
-              transform var(--dur-fast) var(--ease-spring);
+  transition:
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -434,4 +362,34 @@ a {
 
 .lg-pill:active {
   transform: scale(0.96);
+}
+
+/* iOS zoom protection applies to every text entry surface, not only auth. */
+@media (max-width: 1023px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+[role='button']:active,
+[cmdk-item]:active {
+  transform: scale(0.97);
+}
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-secondary);
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :root {
+    --glass: var(--bg-surface);
+    --glass-strong: var(--bg-sheet);
+    --lg-bg: var(--bg-surface);
+  }
 }

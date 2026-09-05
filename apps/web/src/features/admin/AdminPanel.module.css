@@ -21,7 +21,7 @@
 }
 
 .adminIcon {
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .headerTitle h1 {
@@ -56,18 +56,20 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-.tabs button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .tabs button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
 }
 
 .tabActive {
-  background: rgba(56, 189, 248, 0.15) !important;
-  color: #38bdf8 !important;
-  border-color: rgba(56, 189, 248, 0.3) !important;
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent-dim) !important;
 }
 
 .content {
@@ -81,7 +83,7 @@
 }
 
 .metricCard {
-  background: var(--bg-card);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 16px;
@@ -100,7 +102,7 @@
 }
 
 .iconCyan {
-  color: #38bdf8;
+  color: var(--accent);
 }
 
 .metricValue {
@@ -118,7 +120,7 @@
 
 .barFill {
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #0284c7);
+  background: linear-gradient(90deg, var(--accent), #0284c7);
   border-radius: 999px;
 }
 
@@ -140,7 +142,7 @@
 }
 
 .reportItem {
-  background: var(--bg-card);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 16px;
@@ -190,13 +192,26 @@
   cursor: pointer;
 }
 
-.actBtnMute { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
-.actBtnBan { background: rgba(248, 113, 113, 0.15); color: #f87171; }
-.actBtnIp { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
-.actBtnDelete { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+.actBtnMute {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+.actBtnBan {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+.actBtnIp {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+.actBtnDelete {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
 
-.banPanel, .badgesPanel {
-  background: var(--bg-card);
+.banPanel,
+.badgesPanel {
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
   padding: 20px;
@@ -230,7 +245,9 @@
   color: var(--text-tertiary);
 }
 
-.inputRow input, .banPanel select, .banPanel input {
+.inputRow input,
+.banPanel select,
+.banPanel input {
   width: 100%;
   padding: 10px 12px 10px 36px;
   border-radius: 10px;
@@ -240,7 +257,8 @@
   font-size: 14px;
 }
 
-.banPanel select, .banPanel input:not(.inputRow input) {
+.banPanel select,
+.banPanel input:not(.inputRow input) {
   padding-left: 12px;
 }
 
@@ -280,7 +298,8 @@
   font-size: 14px;
 }
 
-.grantBtn, .revokeBtn {
+.grantBtn,
+.revokeBtn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -292,8 +311,14 @@
   cursor: pointer;
 }
 
-.grantBtn { background: #38bdf8; color: #080c14; }
-.revokeBtn { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+.grantBtn {
+  background: var(--accent);
+  color: #080c14;
+}
+.revokeBtn {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
 
 .verifiedUserList {
   display: flex;
@@ -331,4 +356,25 @@
   height: 100%;
   text-align: center;
   gap: 12px;
+}
+
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 24px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.reportInfo,
+.vUserInfo {
+  flex: 1;
+  min-width: 0;
+}
+.reportTime,
+.subText {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }

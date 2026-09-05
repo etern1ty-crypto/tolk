@@ -103,8 +103,10 @@
   height: 72px;
 }
 
-.card:hover {
-  border-color: var(--border-strong);
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    border-color: var(--border-strong);
+  }
 }
 
 .cardActive {

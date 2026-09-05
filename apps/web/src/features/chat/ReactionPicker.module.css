@@ -1,38 +1,51 @@
 .bar {
   position: fixed;
   z-index: 75;
-  display: flex;
-  gap: 2px;
-  padding: 6px 8px;
+  max-width: calc(100vw - 16px);
   background: var(--bg-sheet);
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: 16px;
   box-shadow: var(--shadow-lg);
-  animation: pop 0.16s var(--ease-out);
+  padding: 8px;
 }
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.emojis {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  touch-action: none;
+  user-select: none;
 }
-
-.bar button {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  font-size: 22px;
+.emojis button {
   display: grid;
   place-items: center;
-  transition: transform var(--dur-fast) var(--ease-spring);
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  padding: 0 !important;
+  font-size: 24px;
 }
-
-.bar button:hover {
-  background: rgba(255, 255, 255, 0.08);
-  transform: scale(1.18);
+.emojis button span {
+  display: inline-block;
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+.emojis button[data-preview] {
+  background: var(--bg-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .emojis button:hover {
+    background: var(--bg-hover);
+  }
+  .emojis button:hover span {
+    transform: scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @media (hover: hover) and (pointer: fine) {
+    .emojis button:hover span {
+      transform: none;
+    }
+  }
 }

@@ -7,28 +7,30 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint && node scripts/check-css-vars.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.8",
-    "@react-three/fiber": "^9.7.0",
-    "@types/three": "^0.185.4",
-    "browser-image-compression": "^2.0.2",
-    "lucide-react": "^1.24.0",
-    "maath": "^0.10.8",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "react-router-dom": "^7.18.1",
-    "three": "^0.185.1",
-    "zustand": "^5.0.14"
+    "browser-image-compression": "2.0.2",
+    "lucide-react": "1.25.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-router-dom": "7.18.1",
+    "zustand": "5.0.14",
+    "cmdk": "1.1.1",
+    "sonner": "2.0.7",
+    "vaul": "1.1.2"
   },
   "devDependencies": {
-    "@types/node": "^24.13.2",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "oxlint": "^1.71.0",
-    "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
+    "oxlint": "1.74.0",
+    "typescript": "6.0.3",
+    "vite": "8.1.5"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }

@@ -29,6 +29,8 @@ import { patternById } from '../../shared/patterns';
 import { formatReplyPreview } from '../../shared/lib/messagePreview';
 import { VerifiedBadge } from '../../shared/ui/VerifiedBadge';
 import { Avatar } from '../../shared/ui/Avatar';
+import { AutoTextarea } from '../../shared/ui/AutoTextarea';
+import { createTypingThrottle } from '../../shared/lib/typingThrottle';
 import { IconBtn } from '../../shared/ui/IconBtn';
 import { MediaLightbox } from '../../shared/ui/MediaLightbox';
 import { PatternBg } from '../../shared/ui/PatternBg';
@@ -175,7 +177,7 @@ export function ChatPanel() {
       await uploadAttachment(
         file || pendingImage.file,
         'media',
-        caption !== undefined ? caption : pendingCaption
+        caption !== undefined ? caption : pendingCaption,
       );
       URL.revokeObjectURL(pendingImage.preview);
       setPendingImage(null);
@@ -186,6 +188,15 @@ export function ChatPanel() {
   };
 
   const [text, setText] = useState('');
+  const typing = useMemo(
+    () =>
+      createTypingThrottle(() => {
+        if (useAppStore.getState().activeChatId === activeChatId)
+          useAppStore.getState().sendTypingPresence();
+      }),
+    [activeChatId],
+  );
+  useEffect(() => () => typing.cancel(), [typing]);
   /** TG-style: mic button toggles voice ↔ circle */
   const [recordMode, setRecordMode] = useState<'voice' | 'circle'>('voice');
   /** Windowed render — only last N messages in DOM */
@@ -200,6 +211,11 @@ export function ChatPanel() {
 
   const isDesktop = useIsDesktop();
   const [recordSec, setRecordSec] = useState(0);
+  const [recordPending, setRecordPending] = useState(false);
+  const recordRequestRef = useRef(0);
+  const recordPointerRef = useRef<number | null>(null);
+  const recordingChatRef = useRef<string | null>(null);
+  const recordPendingRef = useRef(false);
   const [swipeX, setSwipeX] = useState(0);
   const swipeStartXRef = useRef<number | null>(null);
 
@@ -208,36 +224,56 @@ export function ChatPanel() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordStartTimeRef = useRef<number>(0);
 
+  // Cancel stale permission prompts/recorders on chat changes and unmount.
+  useEffect(
+    () => () => {
+      recordRequestRef.current++;
+      recordPendingRef.current = false;
+      recordPointerRef.current = null;
+      if (holdArmTimer.current !== null) window.clearTimeout(holdArmTimer.current);
+      if (longPressTimer.current !== null) window.clearTimeout(longPressTimer.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current = null;
+      streamRef.current = null;
+      voiceHold.current = false;
+      setVoiceRecording(false);
+    },
+    [activeChatId, setVoiceRecording],
+  );
+  useEffect(() => {
+    setRecordPending(false);
+  }, [activeChatId]);
+
   const previewChat = useAppStore((s) => s.previewChat);
   const joinChat = useAppStore((s) => s.joinChat);
   const isPreview =
-    !!previewChat &&
-    previewChat.id === activeChatId &&
-    !chats.some((c) => c.id === activeChatId);
+    !!previewChat && previewChat.id === activeChatId && !chats.some((c) => c.id === activeChatId);
   const chat = chats.find((c) => c.id === activeChatId) || (isPreview ? previewChat : undefined);
   const theme = patternById(CHAT_THEMES, chat?.themeId || globalChatThemeId, CHAT_THEMES[0]!);
   const globalCustomWallpaper = useAppStore((s) => s.globalCustomWallpaper);
   const customWp = chat?.customWallpaperRef || globalCustomWallpaper;
-  const chatMessages = useMemo(
-    () => {
-      const seen = new Set();
-      return messages
-        .filter((m) => m.chatId === activeChatId)
-        .filter((m) => {
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
-          return true;
-        })
-        .sort((a, b) => a.createdAt - b.createdAt);
-    },
-    [messages, activeChatId]
-  );
+  const chatMessages = useMemo(() => {
+    const seen = new Set();
+    return messages
+      .filter((m) => m.chatId === activeChatId)
+      .filter((m) => {
+        if (seen.has(m.id)) return false;
+        seen.add(m.id);
+        return true;
+      })
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }, [messages, activeChatId]);
 
   const hasOlder = chatMessages.length > visibleLimit;
   const windowStart = Math.max(0, chatMessages.length - visibleLimit);
   const visibleMessages = useMemo(
     () => (hasOlder ? chatMessages.slice(windowStart) : chatMessages),
-    [chatMessages, hasOlder, windowStart]
+    [chatMessages, hasOlder, windowStart],
   );
 
   // Reset window when switching chats
@@ -313,7 +349,7 @@ export function ChatPanel() {
       stickBottomRef.current = dist < 96;
       if (el.scrollTop < 56) loadOlder();
     },
-    [loadOlder]
+    [loadOlder],
   );
 
   /* Mobile: swipe from right edge → Chat Wall (полка) */
@@ -408,6 +444,7 @@ export function ChatPanel() {
 
   const submit = () => {
     if (!text.trim()) return;
+    typing.cancel();
     // То же поле служит и правкой: отдельный редактор ради одной строки —
     // лишний экран, а место ввода человек уже знает.
     if (editingMessageId) {
@@ -417,7 +454,6 @@ export function ChatPanel() {
     }
     setText('');
   };
-
 
   const clearHoldArm = () => {
     if (holdArmTimer.current != null) {
@@ -433,111 +469,118 @@ export function ChatPanel() {
   };
 
   const endVoice = async (send: boolean) => {
-    if (!voiceHold.current && !voiceRecording) return;
+    recordRequestRef.current++;
+    recordPendingRef.current = false;
+    setRecordPending(false);
     voiceHold.current = false;
     setVoiceRecording(false);
     setSwipeX(0);
     swipeStartXRef.current = null;
-    
     const recorder = mediaRecorderRef.current;
     const stream = streamRef.current;
-    
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.onstop = async () => {
-        const durationSec = Math.max(1, Math.round((Date.now() - recordStartTimeRef.current) / 1000));
-        
-        if (send && audioChunksRef.current.length > 0) {
-          const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-          const file = new File([blob], 'voice.webm', { type: blob.type });
-          
-          const token = useAppStore.getState().token;
-          const chatId = activeChatId;
-          if (chatId) {
-            try {
-              // @ts-ignore
-              useAppStore.getState().showToast('Отправка голосового...');
-              
-              const voiceMime = (file.type || 'audio/webm').split(';')[0] || 'audio/webm';
-              const { url } = await uploadFile(
-                file,
-                { kind: 'voice', purpose: 'voice', mime: voiceMime },
-                token
-              );
-
-              await sendMessage('Голосовое сообщение', {
-                kind: 'voice',
-                media: {
-                  url,
-                  durationSec,
-                  filename: 'voice.webm',
-                  mime: file.type,
-                  size: file.size
-                }
-              });
-            } catch (err: any) {
-              console.error('Failed to upload voice recording:', err);
-              // @ts-ignore
-              useAppStore.getState().showToast('Ошибка отправки голосового');
-            }
-          }
-        }
-        
-        stream?.getTracks().forEach((track) => track.stop());
-      };
-      
-      recorder.stop();
-    } else {
+    const chunks = audioChunksRef.current;
+    const chatId = recordingChatRef.current;
+    const token = useAppStore.getState().token;
+    const durationSec = Math.max(1, Math.round((Date.now() - recordStartTimeRef.current) / 1000));
+    mediaRecorderRef.current = null;
+    streamRef.current = null;
+    if (!recorder || recorder.state === 'inactive') {
       stream?.getTracks().forEach((track) => track.stop());
+      return;
     }
+    recorder.onstop = async () => {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (!send || !chunks.length || !chatId || useAppStore.getState().activeChatId !== chatId)
+        return;
+      const mime = (recorder.mimeType || 'audio/webm').split(';')[0];
+      const filename = `voice.${mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm'}`;
+      const file = new File([new Blob(chunks, { type: recorder.mimeType || mime })], filename, {
+        type: mime,
+      });
+      try {
+        useAppStore.getState().showToast('Отправка голосового…');
+        const { url } = await uploadFile(file, { kind: 'voice', purpose: 'voice', mime }, token);
+        // sendMessage uses the current chat; never leak a recording to another chat.
+        if (
+          useAppStore.getState().activeChatId !== chatId ||
+          useAppStore.getState().token !== token
+        ) {
+          useAppStore.getState().showToast('Чат изменился. Голосовое не отправлено.');
+          return;
+        }
+        await sendMessage('Голосовое сообщение', {
+          kind: 'voice',
+          media: { url, durationSec, filename, mime, size: file.size },
+        });
+      } catch {
+        useAppStore.getState().showToast('Не удалось отправить голосовое сообщение');
+      }
+    };
+    recorder.stop();
   };
 
   const startVoiceRecording = async () => {
+    if (recordPendingRef.current || mediaRecorderRef.current) return;
+    const request = ++recordRequestRef.current;
+    const chatId = activeChatId;
+    recordPendingRef.current = true;
+    setRecordPending(true);
+    let stream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           autoGainControl: true,
           noiseSuppression: true,
           echoCancellation: true,
         },
       });
-      streamRef.current = stream;
-      audioChunksRef.current = [];
-      
-      let options = { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 32000 };
-      let recorder: MediaRecorder;
-      try {
-        recorder = new MediaRecorder(stream, options);
-      } catch {
-        recorder = new MediaRecorder(stream);
+      if (request !== recordRequestRef.current || useAppStore.getState().activeChatId !== chatId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
       }
-      
-      mediaRecorderRef.current = recorder;
+      const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find(
+        (mime) => MediaRecorder.isTypeSupported(mime),
+      );
+      const recorder = new MediaRecorder(stream, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 32000,
+      });
+      const chunks: Blob[] = [];
+      audioChunksRef.current = chunks;
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size) chunks.push(event.data);
       };
       recorder.start();
+      streamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      recordingChatRef.current = chatId;
       recordStartTimeRef.current = Date.now();
       voiceHold.current = true;
       setRecordSec(0);
       setVoiceRecording(true);
-      if (typeof document !== 'undefined') {
-        (document.activeElement as HTMLElement)?.blur();
+    } catch {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (request === recordRequestRef.current) {
+        useAppStore.getState().showToast('Нет доступа к микрофону или запись не поддерживается');
+        didHoldRecord.current = false;
       }
-    } catch (err) {
-      console.error('Error starting audio recording:', err);
-      // @ts-ignore
-      useAppStore.getState().showToast('Доступ к микрофону отклонен');
-      didHoldRecord.current = false;
+    } finally {
+      if (request === recordRequestRef.current) {
+        recordPendingRef.current = false;
+        setRecordPending(false);
+      }
     }
   };
 
   const onRecordPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!e.isPrimary || e.button !== 0 || recordPointerRef.current !== null) return;
     e.preventDefault();
+    // Collapse the keyboard before any timer, permission prompt or pointer capture.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    typing.cancel();
     if (isDesktop) {
       if (recordMode === 'voice') {
-        if (!voiceRecording) {
+        if (!voiceRecording && !recordPendingRef.current) {
           void startVoiceRecording();
         } else {
           void endVoice(true);
@@ -548,6 +591,7 @@ export function ChatPanel() {
       return;
     }
 
+    recordPointerRef.current = e.pointerId;
     didHoldRecord.current = false;
     clearHoldArm();
     swipeStartXRef.current = e.clientX;
@@ -565,7 +609,13 @@ export function ChatPanel() {
   };
 
   const onRecordPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (isDesktop || !voiceRecording || swipeStartXRef.current === null) return;
+    if (
+      isDesktop ||
+      recordPointerRef.current !== e.pointerId ||
+      !voiceRecording ||
+      swipeStartXRef.current === null
+    )
+      return;
     const deltaX = swipeStartXRef.current - e.clientX;
     if (deltaX > 0) {
       setSwipeX(Math.min(deltaX, 160));
@@ -575,8 +625,15 @@ export function ChatPanel() {
   };
 
   const onRecordPointerUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (isDesktop) return;
+    if (isDesktop || recordPointerRef.current !== e.pointerId) return;
+    recordPointerRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
     clearHoldArm();
+    if (recordPendingRef.current) {
+      void endVoice(false);
+      return;
+    }
     if (!didHoldRecord.current) {
       setRecordMode((m) => (m === 'voice' ? 'circle' : 'voice'));
       return;
@@ -594,9 +651,10 @@ export function ChatPanel() {
   };
 
   const onRecordPointerCancel = () => {
-    if (isDesktop) return;
+    if (isDesktop || recordPointerRef.current === null) return;
+    recordPointerRef.current = null;
     clearHoldArm();
-    if (didHoldRecord.current && recordMode === 'voice' && voiceRecording) {
+    if (recordMode === 'voice' && (voiceRecording || recordPendingRef.current)) {
       void endVoice(false);
     }
     didHoldRecord.current = false;
@@ -616,21 +674,13 @@ export function ChatPanel() {
           }}
         />
       ) : (
-        <PatternBg
-          pattern={theme}
-          seed={chat.id}
-          density="low"
-          className={styles.wallpaper}
-        />
+        <PatternBg pattern={theme} seed={chat.id} density="low" className={styles.wallpaper} />
       )}
       <header className={styles.header}>
         {selectionMode ? (
           <div className={styles.selectionHeader}>
             <div className={styles.selectionCount}>
-              <IconBtn
-                aria-label="Закрыть выбор"
-                onClick={() => clearMessageSelection()}
-              >
+              <IconBtn aria-label="Закрыть выбор" onClick={() => clearMessageSelection()}>
                 <X size={20} strokeWidth={iconProps.strokeWidth} />
               </IconBtn>
               <span>{selectedMessageIds.length}</span>
@@ -692,9 +742,10 @@ export function ChatPanel() {
               <div className={styles.headerText}>
                 <div className={styles.headerTitle}>
                   <span>{chat.title}</span>
-                  {chat.peerId && (users[chat.peerId]?.verified || users[chat.peerId]?.username === 'nekach' || users[chat.peerId]?.username === 'admin') && (
-                    <VerifiedBadge size="sm" />
-                  )}
+                  {chat.peerId &&
+                    (users[chat.peerId]?.verified ||
+                      users[chat.peerId]?.username === 'nekach' ||
+                      users[chat.peerId]?.username === 'admin') && <VerifiedBadge size="sm" />}
                 </div>
                 <div className={styles.headerSub}>
                   {typingChatId === activeChatId ? (
@@ -818,10 +869,7 @@ export function ChatPanel() {
         <div className={styles.themeBar} ref={themeBarRef}>
           <div className={styles.themeBarHead}>
             <span className={styles.themeLabel}>Фон чата</span>
-            <IconBtn
-              aria-label="Закрыть оформление"
-              onClick={() => setThemeOpen(false)}
-            >
+            <IconBtn aria-label="Закрыть оформление" onClick={() => setThemeOpen(false)}>
               <X size={16} strokeWidth={iconProps.strokeWidth} />
             </IconBtn>
           </div>
@@ -843,7 +891,11 @@ export function ChatPanel() {
         {chatMessages.length === 0 && (
           <div className={styles.emptyThread}>
             <p>Здесь пока пусто</p>
-            <p>{chat.type === 'dm' ? 'Напишите первым — это ни к чему не обязывает' : 'Начните разговор'}</p>
+            <p>
+              {chat.type === 'dm'
+                ? 'Напишите первым — это ни к чему не обязывает'
+                : 'Начните разговор'}
+            </p>
           </div>
         )}
         {hasOlder && (
@@ -854,306 +906,347 @@ export function ChatPanel() {
           </div>
         )}
         {visibleMessages.map((m, idx) => {
-            const mine = m.senderId === me.id;
-            const reactionEntries = Object.entries(m.reactions);
-            const globalIdx = windowStart + idx;
-            const isLatest = globalIdx === chatMessages.length - 1;
+          const mine = m.senderId === me.id;
+          const reactionEntries = Object.entries(m.reactions);
+          const globalIdx = windowStart + idx;
+          const isLatest = globalIdx === chatMessages.length - 1;
 
-            // Группировка подряд идущих реплик одного человека. Пять сообщений
-            // от одного собеседника выглядели пятью одинаковыми карточками —
-            // взгляду не за что зацепиться, где кончается одна мысль.
-            const sameAuthor = (a?: (typeof visibleMessages)[number], b?: (typeof visibleMessages)[number]) =>
-              !!a && !!b &&
-              a.senderId === b.senderId &&
-              !a.isEcho === !b.isEcho &&
-              Math.abs(Number(a.createdAt) - Number(b.createdAt)) < 5 * 60 * 1000;
-            const prevMsg = visibleMessages[idx - 1];
-            const nextMsg = visibleMessages[idx + 1];
-            const contTop = sameAuthor(prevMsg, m);
-            const contBottom = sameAuthor(m, nextMsg);
+          // Группировка подряд идущих реплик одного человека. Пять сообщений
+          // от одного собеседника выглядели пятью одинаковыми карточками —
+          // взгляду не за что зацепиться, где кончается одна мысль.
+          const sameAuthor = (
+            a?: (typeof visibleMessages)[number],
+            b?: (typeof visibleMessages)[number],
+          ) =>
+            !!a &&
+            !!b &&
+            a.senderId === b.senderId &&
+            !a.isEcho === !b.isEcho &&
+            Math.abs(Number(a.createdAt) - Number(b.createdAt)) < 5 * 60 * 1000;
+          const prevMsg = visibleMessages[idx - 1];
+          const nextMsg = visibleMessages[idx + 1];
+          const contTop = sameAuthor(prevMsg, m);
+          const contBottom = sameAuthor(m, nextMsg);
 
-            // Время встаёт в строку с текстом — но только там, где текст есть.
-            // У голосового, кружка и фото своя вёрстка, туда его не вписать.
-            const inlineMeta = m.kind === 'text' && !m.deleted;
-            // Ширина, которую надо освободить в конце последней строки:
-            // время, плюс галочки у своих, плюс пометка о правке.
-            const metaWidth = 46 + (mine ? 22 : 0) + (m.editedAt ? 34 : 0);
-            const isSelected = selectedMessageIds.includes(m.id);
+          // Время встаёт в строку с текстом — но только там, где текст есть.
+          // У голосового, кружка и фото своя вёрстка, туда его не вписать.
+          const inlineMeta = m.kind === 'text' && !m.deleted;
+          // Ширина, которую надо освободить в конце последней строки:
+          // время, плюс галочки у своих, плюс пометка о правке.
+          const metaWidth = 46 + (mine ? 22 : 0) + (m.editedAt ? 34 : 0);
+          const isSelected = selectedMessageIds.includes(m.id);
 
-            return (
+          return (
+            <div
+              key={m.id}
+              id={`msg-${m.id}`}
+              className={[
+                styles.bubbleRow,
+                mine ? styles.mine : styles.theirs,
+                contTop ? '' : styles.groupStart,
+                highlightMessageId === m.id ? styles.highlight : '',
+                isLatest && mine && m.status === 'pending' ? styles.bubbleEnter : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {selectionMode && (
+                <button
+                  type="button"
+                  className={`${styles.selectCheckbox} ${isSelected ? styles.selectCheckboxActive : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMessageSelection(m.id);
+                  }}
+                  aria-label={isSelected ? 'Снять выделение' : 'Выделить'}
+                >
+                  {isSelected && <Check size={14} strokeWidth={3} />}
+                </button>
+              )}
               <div
-                key={m.id}
-                id={`msg-${m.id}`}
                 className={[
-                  styles.bubbleRow,
-                  mine ? styles.mine : styles.theirs,
-                  contTop ? '' : styles.groupStart,
-                  highlightMessageId === m.id ? styles.highlight : '',
-                  isLatest && mine && m.status === 'pending' ? styles.bubbleEnter : '',
+                  styles.bubble,
+                  contTop ? styles.contTop : '',
+                  contBottom ? styles.contBottom : '',
+                  inlineMeta ? styles.inlineMeta : '',
+                  m.status === 'failed' ? styles.failed : '',
+                  m.isEcho ? styles.echoBubble : '',
+                  m.kind === 'circle' ? styles.circleBubble : '',
+                  isSelected ? styles.bubbleSelected : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
+                style={{
+                  touchAction: 'pan-y',
+                  ...(inlineMeta ? ({ '--meta-w': `${metaWidth}px` } as React.CSSProperties) : {}),
+                  ...(swipeMsgId === m.id
+                    ? {
+                        transform: `translateX(${Math.min(Math.max(swipeDx, 0), 72)}px)`,
+                        transition: swipeDx === 0 ? 'transform 0.18s ease' : 'none',
+                      }
+                    : {}),
+                }}
+                onClick={(e) => {
+                  if (selectionMode) {
+                    e.stopPropagation();
+                    toggleMessageSelection(m.id);
+                  }
+                }}
+                tabIndex={0}
+                role="group"
+                aria-label="Сообщение, Enter для действий"
+                aria-haspopup="menu"
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (
+                    e.key === 'ContextMenu' ||
+                    (e.shiftKey && e.key === 'F10') ||
+                    e.key === 'Enter'
+                  ) {
+                    e.preventDefault();
+                    const box = e.currentTarget.getBoundingClientRect();
+                    setContextMenu({
+                      messageId: m.id,
+                      x: box.left + box.width / 2,
+                      y: box.top + 16,
+                      keyboard: true,
+                    });
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (selectionMode) {
+                    toggleMessageSelection(m.id);
+                  } else {
+                    setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
+                  }
+                }}
+                onDoubleClick={() => {
+                  // Quick reaction (default from settings) — full picker is in long-press menu
+                  toggleReaction(m.id, defaultReaction || '👍');
+                }}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse') return;
+                  swipeStartX.current = e.clientX;
+                  swipeStartY.current = e.clientY;
+                  swipeActiveId.current = m.id;
+                  setSwipeMsgId(m.id);
+                  longPressTimer.current = window.setTimeout(() => {
+                    setContextMenu({
+                      messageId: m.id,
+                      x: e.clientX,
+                      y: e.clientY,
+                    });
+                    swipeActiveId.current = null;
+                    setSwipeMsgId(null);
+                    swipeDxRef.current = 0;
+                    setSwipeDx(0);
+                  }, 300);
+                }}
+                onPointerMove={(e) => {
+                  if (e.pointerType === 'mouse' || swipeActiveId.current !== m.id) return;
+                  const dx = e.clientX - swipeStartX.current;
+                  const dy = e.clientY - swipeStartY.current;
+                  if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+                    if (longPressTimer.current) {
+                      window.clearTimeout(longPressTimer.current);
+                      longPressTimer.current = null;
+                    }
+                    swipeDxRef.current = dx;
+                    setSwipeDx(dx);
+                  }
+                }}
+                onPointerUp={() => {
+                  if (longPressTimer.current) {
+                    window.clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                  if (swipeActiveId.current === m.id && swipeDxRef.current > 56) {
+                    setReplyTo(m.id);
+                  }
+                  swipeActiveId.current = null;
+                  setSwipeMsgId(null);
+                  swipeDxRef.current = 0;
+                  setSwipeDx(0);
+                }}
+                onPointerLeave={() => {
+                  if (longPressTimer.current) {
+                    window.clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                  swipeActiveId.current = null;
+                  setSwipeMsgId(null);
+                  swipeDxRef.current = 0;
+                  setSwipeDx(0);
+                }}
+                onPointerCancel={() => {
+                  if (longPressTimer.current) {
+                    window.clearTimeout(longPressTimer.current);
+                    longPressTimer.current = null;
+                  }
+                  swipeActiveId.current = null;
+                  setSwipeMsgId(null);
+                  swipeDxRef.current = 0;
+                  setSwipeDx(0);
+                }}
               >
-                {selectionMode && (
+                {(m.replyPreview || m.replyToId) && (
+                  <div className={styles.replyQuote}>
+                    {m.replyPreview ||
+                      formatReplyPreview(messages.find((x) => x.id === m.replyToId))}
+                  </div>
+                )}
+                {m.isEcho && <span className={styles.echoTag}>Echo</span>}
+                {m.kind === 'voice' && (
+                  <VoicePlayer
+                    src={m.media?.url || ''}
+                    durationSec={m.media?.durationSec ?? m.durationSec}
+                    seed={m.id}
+                    messageId={m.id}
+                    mine={mine}
+                  />
+                )}
+                {m.kind === 'circle' &&
+                  (m.media?.url ? (
+                    <div
+                      style={{
+                        width: '180px',
+                        height: '180px',
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        border: '2px solid var(--accent)',
+                        position: 'relative',
+                        background: '#000',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                      }}
+                      onClick={() => setActiveMediaId(activeMediaId === m.id ? null : m.id)}
+                      title="Нажмите, чтобы включить видео"
+                    >
+                      <video
+                        data-media-id={m.id}
+                        src={m.media.url}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          filter: activeMediaId === m.id ? 'none' : 'grayscale(1) brightness(0.7)',
+                        }}
+                        playsInline
+                      />
+                    </div>
+                  ) : (
+                    <div className={styles.circleMsg}>
+                      <div className={styles.circleDisk}>
+                        <CircleDot size={36} strokeWidth={iconProps.strokeWidth} />
+                      </div>
+                      <span>Кружок · {m.durationSec ?? 5}с</span>
+                    </div>
+                  ))}
+                {m.kind === 'media' && m.media?.url && (
                   <button
                     type="button"
-                    className={`${styles.selectCheckbox} ${isSelected ? styles.selectCheckboxActive : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleMessageSelection(m.id);
-                    }}
-                    aria-label={isSelected ? 'Снять выделение' : 'Выделить'}
+                    className={styles.mediaThumb}
+                    onClick={() => setLightboxSrc(m.media!.url)}
+                    aria-label="Открыть фото"
                   >
-                    {isSelected && <Check size={14} strokeWidth={3} />}
+                    <div
+                      className={styles.mediaThumbAmbient}
+                      style={{ backgroundImage: `url(${m.media.url})` }}
+                      aria-hidden
+                    />
+                    <PostImage src={m.media.url} alt="Вложение" />
                   </button>
                 )}
-                <div
-                  className={[
-                    styles.bubble,
-                    contTop ? styles.contTop : '',
-                    contBottom ? styles.contBottom : '',
-                    inlineMeta ? styles.inlineMeta : '',
-                    m.status === 'failed' ? styles.failed : '',
-                    m.isEcho ? styles.echoBubble : '',
-                    m.kind === 'circle' ? styles.circleBubble : '',
-                    isSelected ? styles.bubbleSelected : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{
-                    touchAction: 'pan-y',
-                    ...(inlineMeta ? ({ '--meta-w': `${metaWidth}px` } as React.CSSProperties) : {}),
-                    ...(swipeMsgId === m.id
-                      ? {
-                          transform: `translateX(${Math.min(Math.max(swipeDx, 0), 72)}px)`,
-                          transition: swipeDx === 0 ? 'transform 0.18s ease' : 'none',
-                        }
-                      : {}),
-                  }}
-                  onClick={(e) => {
-                    if (selectionMode) {
-                      e.stopPropagation();
-                      toggleMessageSelection(m.id);
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (selectionMode) {
-                      toggleMessageSelection(m.id);
-                    } else {
-                      setContextMenu({ messageId: m.id, x: e.clientX, y: e.clientY });
-                    }
-                  }}
-                  onDoubleClick={() => {
-                    // Quick reaction (default from settings) — full picker is in long-press menu
-                    toggleReaction(m.id, defaultReaction || '👍');
-                  }}
-                  onPointerDown={(e) => {
-                    if (e.pointerType === 'mouse') return;
-                    swipeStartX.current = e.clientX;
-                    swipeStartY.current = e.clientY;
-                    swipeActiveId.current = m.id;
-                    setSwipeMsgId(m.id);
-                    longPressTimer.current = window.setTimeout(() => {
-                      setContextMenu({
-                        messageId: m.id,
-                        x: e.clientX,
-                        y: e.clientY,
-                      });
-                      swipeActiveId.current = null;
-                      setSwipeMsgId(null);
-                      swipeDxRef.current = 0;
-                      setSwipeDx(0);
-                    }, 300);
-                  }}
-                  onPointerMove={(e) => {
-                    if (e.pointerType === 'mouse' || swipeActiveId.current !== m.id) return;
-                    const dx = e.clientX - swipeStartX.current;
-                    const dy = e.clientY - swipeStartY.current;
-                    if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-                      if (longPressTimer.current) {
-                        window.clearTimeout(longPressTimer.current);
-                        longPressTimer.current = null;
-                      }
-                      swipeDxRef.current = dx;
-                      setSwipeDx(dx);
-                    }
-                  }}
-                  onPointerUp={() => {
-                    if (longPressTimer.current) {
-                      window.clearTimeout(longPressTimer.current);
-                      longPressTimer.current = null;
-                    }
-                    if (swipeActiveId.current === m.id && swipeDxRef.current > 56) {
-                      setReplyTo(m.id);
-                    }
-                    swipeActiveId.current = null;
-                    setSwipeMsgId(null);
-                    swipeDxRef.current = 0;
-                    setSwipeDx(0);
-                  }}
-                  onPointerLeave={() => {
-                    if (longPressTimer.current) {
-                      window.clearTimeout(longPressTimer.current);
-                      longPressTimer.current = null;
-                    }
-                    swipeActiveId.current = null;
-                    setSwipeMsgId(null);
-                    swipeDxRef.current = 0;
-                    setSwipeDx(0);
-                  }}
-                  onPointerCancel={() => {
-                    if (longPressTimer.current) {
-                      window.clearTimeout(longPressTimer.current);
-                      longPressTimer.current = null;
-                    }
-                    swipeActiveId.current = null;
-                    setSwipeMsgId(null);
-                    swipeDxRef.current = 0;
-                    setSwipeDx(0);
-                  }}
-                >
-                  {(m.replyPreview || m.replyToId) && (
-                    <div className={styles.replyQuote}>
-                      {m.replyPreview || formatReplyPreview(messages.find((x) => x.id === m.replyToId))}
+                {m.kind === 'file' && m.media?.url && (
+                  <a
+                    href={m.media.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      textDecoration: 'underline',
+                      color: 'var(--accent)',
+                      fontSize: '14px',
+                      margin: '6px 0',
+                      fontWeight: '600',
+                    }}
+                  >
+                    <span>📄</span>
+                    <span>{m.media.filename || m.text || 'Скачать файл'}</span>
+                  </a>
+                )}
+                {m.deleted ? (
+                  <div className={`${styles.bubbleText} ${styles.deletedText}`}>
+                    Сообщение удалено
+                  </div>
+                ) : (
+                  (m.kind === 'text' ||
+                    (!m.media?.url && (m.kind === 'file' || m.kind === 'media'))) && (
+                    <div className={styles.bubbleText}>{m.text}</div>
+                  )
+                )}
+                {m.kind === 'media' &&
+                  m.media?.url &&
+                  m.text &&
+                  !m.text.includes('mock attachment') && (
+                    <div className={styles.bubbleText} style={{ marginTop: '4px' }}>
+                      {m.text}
                     </div>
                   )}
-                  {m.isEcho && <span className={styles.echoTag}>Echo</span>}
-                  {m.kind === 'voice' && (
-                    <VoicePlayer
-                      src={m.media?.url || ''}
-                      durationSec={m.media?.durationSec ?? m.durationSec}
-                      seed={m.id}
-                      messageId={m.id}
-                      mine={mine}
-                    />
-                  )}
-                  {m.kind === 'circle' && (
-                    m.media?.url ? (
-                      <div
-                        style={{ 
-                          width: '180px', 
-                          height: '180px', 
-                          borderRadius: '50%', 
-                          overflow: 'hidden', 
-                          border: '2px solid var(--accent)',
-                          position: 'relative',
-                          background: '#000',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                          WebkitTapHighlightColor: 'transparent'
-                        }}
-                        onClick={() => setActiveMediaId(activeMediaId === m.id ? null : m.id)}
-                        title="Нажмите, чтобы включить видео"
+                <div className={styles.bubbleMeta}>
+                  {/* Правка должна быть видна собеседнику: иначе текст меняется
+                        задним числом и разговор перестаёт быть надёжным. */}
+                  {m.editedAt && !m.deleted ? <span title="Изменено">изм.</span> : null}
+                  <span>{formatMsgTime(m.createdAt)}</span>
+                  {mine && m.status === 'pending' && <span className={styles.checkmarks}>·</span>}
+                  {mine &&
+                    m.status !== 'pending' &&
+                    m.status !== 'failed' &&
+                    (chat && m.seq !== undefined && m.seq <= (chat.peerLastReadSeq || 0) ? (
+                      <span
+                        className={`${styles.checkmarks} ${styles.read}`}
+                        title="Прочитано"
+                        aria-label="Прочитано"
                       >
-                        <video 
-                          data-media-id={m.id}
-                          src={m.media.url} 
-                          style={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            objectFit: 'cover',
-                            filter: activeMediaId === m.id ? 'none' : 'grayscale(1) brightness(0.7)'
-                          }}
-                          playsInline
-                        />
-                      </div>
+                        <i />
+                        <i />
+                      </span>
                     ) : (
-                      <div className={styles.circleMsg}>
-                        <div className={styles.circleDisk}>
-                          <CircleDot size={36} strokeWidth={iconProps.strokeWidth} />
-                        </div>
-                        <span>Кружок · {m.durationSec ?? 5}с</span>
-                      </div>
-                    )
-                  )}
-                  {m.kind === 'media' && m.media?.url && (
+                      <span
+                        className={styles.checkmarks}
+                        title="Отправлено"
+                        aria-label="Отправлено"
+                      >
+                        <i />
+                      </span>
+                    ))}
+                  {mine && m.status === 'failed' && (
                     <button
                       type="button"
-                      className={styles.mediaThumb}
-                      onClick={() => setLightboxSrc(m.media!.url)}
-                      aria-label="Открыть фото"
+                      className={styles.retry}
+                      onClick={() => retryMessage(m.id)}
                     >
-                      <div
-                        className={styles.mediaThumbAmbient}
-                        style={{ backgroundImage: `url(${m.media.url})` }}
-                        aria-hidden
-                      />
-                      <PostImage src={m.media.url} alt="Вложение" />
+                      повторить
                     </button>
                   )}
-                  {m.kind === 'file' && m.media?.url && (
-                    <a 
-                      href={m.media.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px', 
-                        textDecoration: 'underline', 
-                        color: 'var(--accent)', 
-                        fontSize: '14px', 
-                        margin: '6px 0',
-                        fontWeight: '600'
-                      }}
-                    >
-                      <span>📄</span>
-                      <span>{m.media.filename || m.text || 'Скачать файл'}</span>
-                    </a>
-                  )}
-                  {m.deleted ? (
-                    <div className={`${styles.bubbleText} ${styles.deletedText}`}>Сообщение удалено</div>
-                  ) : (m.kind === 'text' || (!m.media?.url && (m.kind === 'file' || m.kind === 'media'))) && (
-                    <div className={styles.bubbleText}>{m.text}</div>
-                  )}
-                  {m.kind === 'media' && m.media?.url && m.text && !m.text.includes('mock attachment') && (
-                    <div className={styles.bubbleText} style={{ marginTop: '4px' }}>{m.text}</div>
-                  )}
-                  <div className={styles.bubbleMeta}>
-                    {/* Правка должна быть видна собеседнику: иначе текст меняется
-                        задним числом и разговор перестаёт быть надёжным. */}
-                    {m.editedAt && !m.deleted ? <span title="Изменено">изм.</span> : null}
-                    <span>{formatMsgTime(m.createdAt)}</span>
-                    {mine && m.status === 'pending' && <span className={styles.checkmarks}>·</span>}
-                    {mine && m.status !== 'pending' && m.status !== 'failed' && (
-                      (chat && m.seq !== undefined && m.seq <= (chat.peerLastReadSeq || 0)) ? (
-                        <span className={`${styles.checkmarks} ${styles.read}`} title="Прочитано" aria-label="Прочитано">
-                          <i /><i />
-                        </span>
-                      ) : (
-                        <span className={styles.checkmarks} title="Отправлено" aria-label="Отправлено">
-                          <i />
-                        </span>
-                      )
-                    )}
-                    {mine && m.status === 'failed' && (
-                      <button
-                        type="button"
-                        className={styles.retry}
-                        onClick={() => retryMessage(m.id)}
-                      >
-                        повторить
-                      </button>
-                    )}
-                  </div>
-                  {reactionEntries.length > 0 && (
-                    <div className={styles.reactions}>
-                      {reactionEntries.map(([emoji, users]) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => toggleReaction(m.id, emoji)}
-                        >
-                          {emoji} {users.length}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
+                {reactionEntries.length > 0 && (
+                  <div className={styles.reactions}>
+                    {reactionEntries.map(([emoji, users]) => (
+                      <button key={emoji} type="button" onClick={() => toggleReaction(m.id, emoji)}>
+                        {emoji} {users.length}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            );
-          })}
+            </div>
+          );
+        })}
         {typingChatId === activeChatId && (
           <div className={styles.typing}>
             <span />
@@ -1164,184 +1257,209 @@ export function ChatPanel() {
       </div>
 
       <div className={styles.composerStack}>
-      {replyMsg && (
-        <div className={styles.replyBar}>
-          <div className={styles.replyBarBody}>
-            <strong>
-              Ответ · {replyAuthor?.displayName ?? 'сообщение'}
-            </strong>
-            <span>{formatReplyPreview(replyMsg)}</span>
-          </div>
-          <IconBtn size="sm" onClick={() => setReplyTo(null)} aria-label="Отменить">
-            <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
-        </div>
-      )}
-
-      {editingMsg && (
-        <div className={styles.replyBar}>
-          <div className={styles.replyBarBody}>
-            <strong>Правка</strong>
-            <span>{formatReplyPreview(editingMsg)}</span>
-          </div>
-          <IconBtn
-            size="sm"
-            onClick={() => { setEditingMessage(null); setText(''); }}
-            aria-label="Отменить правку"
-          >
-            <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
-          </IconBtn>
-        </div>
-      )}
-
-      {pendingImage && (
-        <MediaSendPreview
-          file={pendingImage.file}
-          previewUrl={pendingImage.preview}
-          caption={pendingCaption}
-          onCaption={setPendingCaption}
-          sending={sendingImage}
-          onCancel={() => {
-            URL.revokeObjectURL(pendingImage.preview);
-            setPendingImage(null);
-            setPendingCaption('');
-          }}
-          onSend={async (file, cap) => {
-            await confirmPendingImage(file, cap);
-          }}
-        />
-      )}
-
-      {/* Preview: only Subscribe. Blocked user: unblock banner. Subscribed channel members (non-admin): no footer at all. */}
-      {isPeerBlocked ? (
-        <footer className={styles.blockedComposer}>
-          <span>Вы заблокировали этого пользователя</span>
-          <button
-            type="button"
-            className={styles.unblockBannerBtn}
-            onClick={() => unblockUser(headerPeer!.id)}
-          >
-            <Ban size={15} strokeWidth={iconProps.strokeWidth} />
-            Разблокировать
-          </button>
-        </footer>
-      ) : isPreview ? (
-        <footer className={styles.composer}>
-          <button
-            type="button"
-            className={styles.subscribeBtn}
-            onClick={() => void joinChat(chat.id)}
-          >
-            Подписаться
-          </button>
-        </footer>
-      ) : chat.type === 'channel' &&
-        chat.myRole !== 'owner' &&
-        chat.myRole !== 'admin' ? null : (
-        <footer className={styles.composer}>
-          <input
-            type="file"
-            ref={imageInputRef}
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={handleImageSelect}
-          />
-          {!voiceRecording && (
-            <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Фото">
-              <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+        {replyMsg && (
+          <div className={styles.replyBar}>
+            <div className={styles.replyBarBody}>
+              <strong>Ответ · {replyAuthor?.displayName ?? 'сообщение'}</strong>
+              <span>{formatReplyPreview(replyMsg)}</span>
+            </div>
+            <IconBtn size="sm" onClick={() => setReplyTo(null)} aria-label="Отменить">
+              <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
             </IconBtn>
-          )}
-
-          {voiceRecording ? (
-            <div className={styles.voiceRecordingBar}>
-              <div className={styles.recMeta}>
-                <span className={styles.recDot} />
-                <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
-                <span className={styles.recLabel}>Запись…</span>
-              </div>
-              {isDesktop ? (
-                <button
-                  type="button"
-                  className={styles.pcVoiceCancelBtn}
-                  onClick={() => void endVoice(false)}
-                  title="Отменить запись"
-                >
-                  <X size={15} strokeWidth={iconProps.strokeWidth} />
-                  <span>Отмена</span>
-                </button>
-              ) : (
-                <div
-                  className={styles.mobileSwipeTrack}
-                  style={{ transform: `translateX(-${swipeX}px)` }}
-                >
-                  <span className={`${styles.mobileSwipeHint} ${swipeX >= 110 ? styles.mobileSwipeCancelActive : ''}`}>
-                    {swipeX >= 110 ? 'Отпустите для отмены' : '← Смахните влево для отмены'}
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <input
-              className={styles.input}
-              value={text}
-              onFocus={() => closeChatOverlays()}
-              onChange={(e) => {
-                closeChatOverlays();
-                setText(e.target.value);
-                useAppStore.getState().sendTypingPresence();
-              }}
-              placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-            />
-          )}
-
-          <div
-            className={styles.iconSwap}
-            data-state={(isDesktop && voiceRecording) || text.trim() ? 'send' : 'mic'}
-          >
-            <div className={styles.iconSwapItem} data-icon="send">
-              <IconBtn
-                variant="mint"
-                className={styles.send}
-                onClick={() => (voiceRecording ? void endVoice(true) : submit())}
-                aria-label="Отправить"
-                title="Отправить"
-              >
-                <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-              </IconBtn>
-            </div>
-            <div className={styles.iconSwapItem} data-icon="mic">
-              <IconBtn
-                variant="soft"
-                className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''} ${voiceRecording ? styles.recordingActive : ''}`}
-                aria-label={recordMode === 'voice' ? 'Голосовое' : 'Кружок'}
-                title={
-                  isDesktop
-                    ? 'Нажмите для записи'
-                    : recordMode === 'voice'
-                      ? 'Удерживайте для записи · Смахните вправо для отмены'
-                      : 'Кружок'
-                }
-                onPointerDown={onRecordPointerDown}
-                onPointerMove={onRecordPointerMove}
-                onPointerUp={onRecordPointerUp}
-                onPointerCancel={onRecordPointerCancel}
-              >
-                {recordMode === 'voice' ? (
-                  <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-                ) : (
-                  <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
-                )}
-              </IconBtn>
-            </div>
           </div>
-        </footer>
-      )}
+        )}
+
+        {editingMsg && (
+          <div className={styles.replyBar}>
+            <div className={styles.replyBarBody}>
+              <strong>Правка</strong>
+              <span>{formatReplyPreview(editingMsg)}</span>
+            </div>
+            <IconBtn
+              size="sm"
+              onClick={() => {
+                setEditingMessage(null);
+                setText('');
+              }}
+              aria-label="Отменить правку"
+            >
+              <X size={iconProps.size.sm} strokeWidth={iconProps.strokeWidth} />
+            </IconBtn>
+          </div>
+        )}
+
+        {pendingImage && (
+          <MediaSendPreview
+            file={pendingImage.file}
+            previewUrl={pendingImage.preview}
+            caption={pendingCaption}
+            onCaption={setPendingCaption}
+            sending={sendingImage}
+            onCancel={() => {
+              URL.revokeObjectURL(pendingImage.preview);
+              setPendingImage(null);
+              setPendingCaption('');
+            }}
+            onSend={async (file, cap) => {
+              await confirmPendingImage(file, cap);
+            }}
+          />
+        )}
+
+        {/* Preview: only Subscribe. Blocked user: unblock banner. Subscribed channel members (non-admin): no footer at all. */}
+        {isPeerBlocked ? (
+          <footer className={styles.blockedComposer}>
+            <span>Вы заблокировали этого пользователя</span>
+            <button
+              type="button"
+              className={styles.unblockBannerBtn}
+              onClick={() => unblockUser(headerPeer!.id)}
+            >
+              <Ban size={15} strokeWidth={iconProps.strokeWidth} />
+              Разблокировать
+            </button>
+          </footer>
+        ) : isPreview ? (
+          <footer className={styles.composer}>
+            <button
+              type="button"
+              className={styles.subscribeBtn}
+              onClick={() => void joinChat(chat.id)}
+            >
+              Подписаться
+            </button>
+          </footer>
+        ) : chat.type === 'channel' && chat.myRole !== 'owner' && chat.myRole !== 'admin' ? null : (
+          <footer className={styles.composer}>
+            <input
+              type="file"
+              ref={imageInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleImageSelect}
+            />
+            {!voiceRecording && (
+              <IconBtn onClick={() => imageInputRef.current?.click()} aria-label="Фото">
+                <ImageIcon size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+              </IconBtn>
+            )}
+
+            {voiceRecording ? (
+              <div className={styles.voiceRecordingBar}>
+                <div className={styles.recMeta}>
+                  <span className={styles.recDot} />
+                  <span className={styles.recTimer}>{formatRecordTime(recordSec)}</span>
+                  <span className={styles.recLabel}>Запись…</span>
+                </div>
+                {isDesktop ? (
+                  <button
+                    type="button"
+                    className={styles.pcVoiceCancelBtn}
+                    onClick={() => void endVoice(false)}
+                    title="Отменить запись"
+                  >
+                    <X size={15} strokeWidth={iconProps.strokeWidth} />
+                    <span>Отмена</span>
+                  </button>
+                ) : (
+                  <div
+                    className={styles.mobileSwipeTrack}
+                    style={{ transform: `translateX(-${swipeX}px)` }}
+                  >
+                    <span
+                      className={`${styles.mobileSwipeHint} ${swipeX >= 110 ? styles.mobileSwipeCancelActive : ''}`}
+                    >
+                      {swipeX >= 110 ? 'Отпустите для отмены' : '← Смахните влево для отмены'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <AutoTextarea
+                className={styles.input}
+                value={text}
+                aria-label="Сообщение"
+                maxLength={10000}
+                onFocus={() => closeChatOverlays()}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  if (e.target.value.trim()) typing.schedule();
+                  else typing.cancel();
+                }}
+                placeholder={editingMsg ? 'Правка…' : replyMsg ? 'Ответ…' : 'Сообщение'}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' &&
+                    !e.shiftKey &&
+                    !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229 &&
+                    isDesktop
+                  ) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+            )}
+
+            <div
+              className={styles.iconSwap}
+              data-state={(isDesktop && voiceRecording) || text.trim() ? 'send' : 'mic'}
+            >
+              <div
+                className={styles.iconSwapItem}
+                data-icon="send"
+                inert={!((isDesktop && voiceRecording) || text.trim())}
+              >
+                <IconBtn
+                  variant="mint"
+                  className={styles.send}
+                  onClick={() => (voiceRecording ? void endVoice(true) : submit())}
+                  aria-label="Отправить"
+                  title="Отправить"
+                >
+                  <SendHorizontal size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                </IconBtn>
+              </div>
+              <div
+                className={styles.iconSwapItem}
+                data-icon="mic"
+                inert={Boolean((isDesktop && voiceRecording) || text.trim())}
+              >
+                <IconBtn
+                  variant="soft"
+                  className={`${styles.mic} ${recordMode === 'circle' ? styles.micCircle : ''} ${voiceRecording ? styles.recordingActive : ''}`}
+                  aria-label={recordMode === 'voice' ? 'Голосовое' : 'Кружок'}
+                  title={
+                    isDesktop
+                      ? 'Нажмите для записи'
+                      : recordMode === 'voice'
+                        ? 'Удерживайте для записи · Смахните влево для отмены'
+                        : 'Кружок'
+                  }
+                  onPointerDown={onRecordPointerDown}
+                  onPointerMove={onRecordPointerMove}
+                  onPointerUp={onRecordPointerUp}
+                  onPointerCancel={onRecordPointerCancel}
+                  onLostPointerCapture={onRecordPointerCancel}
+                  aria-busy={recordPending}
+                  onClick={(e) => {
+                    if (e.detail !== 0) return;
+                    if (recordMode === 'circle') setCircleSheetOpen(true);
+                    else if (voiceRecording || recordPendingRef.current) void endVoice(true);
+                    else void startVoiceRecording();
+                  }}
+                >
+                  {recordMode === 'voice' ? (
+                    <Mic size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                  ) : (
+                    <CircleDot size={iconProps.size.md} strokeWidth={iconProps.strokeWidth} />
+                  )}
+                </IconBtn>
+              </div>
+            </div>
+          </footer>
+        )}
       </div>
       <MediaLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
     </section>

@@ -14,11 +14,9 @@ import { CommentSheet } from './features/wall/CommentSheet';
 import { ForwardSheet } from './features/wall/ForwardSheet';
 import { MainShell } from './features/shell/MainShell';
 import { OfflineBanner } from './features/shell/OfflineBanner';
-import { Toast } from './features/shell/Toast';
+import { CommandMenu } from './features/shell/CommandMenu';
 import { CallOverlay } from './features/call/CallOverlay';
 import { fetchApi, useAppStore } from './store/appStore';
-import { AMBIENT_PATTERN } from './shared/patterns';
-import { PatternBg } from './shared/ui/PatternBg';
 import { useEffect } from 'react';
 import styles from './App.module.css';
 
@@ -113,9 +111,6 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <div className={styles.app}>
-        <div className={styles.ambient} aria-hidden>
-          <PatternBg pattern={AMBIENT_PATTERN} seed="tolk-auth" density="low" />
-        </div>
         <div className={styles.authLayer}>
           <AuthScreen />
         </div>
@@ -125,12 +120,6 @@ export default function App() {
 
   return (
     <div className={styles.app}>
-      {/* Liquid Glass ambient blobs */}
-      <div className="ambientBlobs" aria-hidden="true">
-        <div className="ambientBlob" />
-        <div className="ambientBlob" />
-        <div className="ambientBlob" />
-      </div>
       <OfflineBanner />
       <div className={styles.main}>
         <div className={styles.shell}>
@@ -151,7 +140,7 @@ export default function App() {
       <SettingsOverlay />
       <PeerProfile />
       <CallOverlay />
-      <Toast />
+      <CommandMenu />
     </div>
   );
 }

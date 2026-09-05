@@ -1,154 +1,123 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 55;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.sheet {
-  width: min(100%, 480px);
-  max-height: 70vh;
-  background: var(--bg-sheet);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: 16px;
+.body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  height: min(560px, 65dvh);
+  max-height: 100%;
 }
-
-.sheet h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   flex: 1;
+  min-height: 60px;
+}
+.commentRow {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
-}
-
-.list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 0;
-  background: transparent;
-  border: none;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--font-body);
 }
-
-.list li:last-child {
+.commentRow:last-child {
   border-bottom: none;
 }
-
-.commentRow {
-  flex-direction: row !important;
-  align-items: flex-start;
-  gap: 10px !important;
-}
-
 .commentBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
   flex: 1;
 }
-
-.list strong {
-  font-size: 12px;
+.commentBody strong {
+  font-size: 14px;
   color: var(--text-secondary);
 }
-
-.commentBody span {
-  line-height: 1.4;
-  word-break: break-word;
+.commentBody p {
+  margin: 4px 0;
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
-
 .commentActions {
   display: flex;
-  gap: 10px;
-  margin-top: 4px;
+  gap: 8px;
 }
-
 .commentActions button {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: var(--font-meta);
-  color: var(--text-tertiary);
-  font-weight: 600;
-  padding: 8px 4px;
-  min-height: var(--touch-min);
-}
-
-.commentActions .liked {
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  font-size: 14px;
   color: var(--text-secondary);
+  border-radius: 8px;
 }
-
+.commentActions .liked {
+  color: var(--accent);
+}
 .nested {
   list-style: none;
-  margin: 8px 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 }
-
 .replyHint {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-secondary);
-  padding: 6px 10px;
-  border-left: 3px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0 10px 10px 0;
+  border-radius: 8px;
+  background: var(--bg-input);
+  padding-left: 12px;
+  flex-shrink: 0;
 }
-
+.replyHint button {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
 .empty {
+  padding: 32px 16px;
   text-align: center;
-  color: var(--text-tertiary);
-  border: none !important;
-  background: transparent !important;
+  color: var(--text-secondary);
 }
-
 .form {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
+  flex-shrink: 0;
 }
-
-.form input {
+.form textarea {
   flex: 1;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  font-size: var(--font-body);
-  min-height: var(--touch-min);
+  min-width: 0;
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 44px;
 }
-
 .form button {
-  min-width: var(--touch-min);
-  min-height: var(--touch-min);
-  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
   background: var(--accent);
   color: var(--text-on-accent);
-  font-weight: 700;
-  font-size: var(--font-title);
 }
-
 .form button:disabled {
   opacity: 0.4;
+}
+@media (hover: hover) and (pointer: fine) {
+  .commentActions button:hover {
+    background: var(--bg-hover);
+  }
 }

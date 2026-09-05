@@ -57,9 +57,11 @@
   color: var(--text-secondary);
 }
 
-.iconAction:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .iconAction:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
 }
 
 .searchWrap {
@@ -134,8 +136,10 @@
   border-radius: 0;
 }
 
-.row:hover {
-  background: var(--bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    background: var(--bg-hover);
+  }
 }
 
 .rowActive {
@@ -216,8 +220,12 @@
 
 /* Transitions.dev — Notification badge for chat list unread counts */
 @keyframes tBadgeSlideIn {
-  from { transform: translate(-6px, 8px); }
-  to   { transform: translate(0, 0); }
+  from {
+    transform: translate(-6px, 8px);
+  }
+  to {
+    transform: translate(0, 0);
+  }
 }
 
 .tBadge {
@@ -229,7 +237,7 @@
   flex-shrink: 0;
 }
 
-.tBadge[data-open="true"] {
+.tBadge[data-open='true'] {
   animation: tBadgeSlideIn 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -241,7 +249,7 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--accent, #38bdf8);
+  background: var(--accent, var(--accent));
   color: #080c14;
   font-size: 11px;
   font-weight: 800;
@@ -255,11 +263,11 @@
     filter 500ms cubic-bezier(0.34, 1.36, 0.64, 1);
   will-change: transform, opacity, filter;
   line-height: 1;
-  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 2px 8px var(--accent-dim);
 }
 
-.tBadge[data-open="false"] .tBadgeDot {
-  transform: scale(0);
+.tBadge[data-open='false'] .tBadgeDot {
+  transform: scale(0.96);
   opacity: 0;
   filter: blur(2px);
   transition:
@@ -312,7 +320,9 @@
   cursor: pointer;
   transition: opacity var(--dur-fast) var(--ease-out);
 }
-.emptyPrimary:active { opacity: 0.75; }
+.emptyPrimary:active {
+  opacity: 0.75;
+}
 
 .emptyGhost {
   width: 100%;
@@ -327,13 +337,20 @@
   padding: 10px 18px;
   font-size: 15px;
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
 }
-.emptyGhost:hover:not(:disabled) {
-  color: var(--text-primary);
-  border-color: var(--border-strong, rgba(255,255,255,0.22));
+@media (hover: hover) and (pointer: fine) {
+  .emptyGhost:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-strong, rgba(255, 255, 255, 0.22));
+  }
 }
-.emptyGhost:disabled { opacity: 0.5; cursor: default; }
+.emptyGhost:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* Третье действие — для тех, кто уже знает конкретный @username. Тише двух
    верхних: это не путь для новичка, а короткая дорога для своего. */
@@ -349,8 +366,10 @@
   text-underline-offset: 3px;
 }
 
-.emptyQuiet:hover {
-  color: var(--text-primary);
+@media (hover: hover) and (pointer: fine) {
+  .emptyQuiet:hover {
+    color: var(--text-primary);
+  }
 }
 
 /* Floating Chat Context Menu Popover */
@@ -362,7 +381,9 @@
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 20px;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -372,8 +393,14 @@
 }
 
 @keyframes contextMenuPop {
-  from { opacity: 0; transform: scale(0.9) translateY(-6px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .contextMenuPopover button {
@@ -389,19 +416,27 @@
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
   text-align: left;
 }
 
-.contextMenuPopover button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateX(2px);
+@media (hover: hover) and (pointer: fine) {
+  .contextMenuPopover button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(2px);
+  }
 }
 
 .dangerItem {
   color: #f87171 !important;
 }
 
-.dangerItem:hover {
-  background: rgba(248, 113, 113, 0.18) !important;
+@media (hover: hover) and (pointer: fine) {
+  .dangerItem:hover {
+    background: rgba(248, 113, 113, 0.18) !important;
+  }
+}
+
+.skeletonWrap {
+  padding: 12px;
 }

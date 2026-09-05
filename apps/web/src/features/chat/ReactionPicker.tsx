@@ -1,42 +1,60 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { usePopoverPosition } from '../../shared/lib/usePopoverPosition';
+import { ReactionBar } from './ReactionBar';
 import styles from './ReactionPicker.module.css';
 
+type Picker = { messageId: string; x: number; y: number };
 export function ReactionPicker() {
   const picker = useAppStore((s) => s.reactionPicker);
+  return picker ? (
+    <PickerContent key={`${picker.messageId}:${picker.x}:${picker.y}`} picker={picker} />
+  ) : null;
+}
+function PickerContent({ picker }: { picker: Picker }) {
   const emojis = useAppStore((s) => s.reactionEmojis);
-  const setReactionPicker = useAppStore((s) => s.setReactionPicker);
-  const toggleReaction = useAppStore((s) => s.toggleReaction);
-
+  const close = useAppStore((s) => s.setReactionPicker);
+  const toggle = useAppStore((s) => s.toggleReaction);
+  const ref = useRef<HTMLDivElement>(null);
+  const position = usePopoverPosition(
+    ref,
+    picker.x,
+    picker.y,
+    Math.min(300, emojis.length * 46 + 16),
+    64,
+  );
   useEffect(() => {
-    if (!picker) return;
-    const close = () => setReactionPicker(null);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, [picker, setReactionPicker]);
-
-  if (!picker) return null;
-
-  const x = Math.min(picker.x, window.innerWidth - 260);
-  const y = Math.max(8, picker.y - 56);
-
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    ref.current?.querySelector('button')?.focus({ preventScroll: true });
+    const outside = (e: globalThis.PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) close(null);
+    };
+    document.addEventListener('pointerdown', outside);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      previous?.isConnected && previous.focus({ preventScroll: true });
+    };
+  }, [close]);
   return (
     <div
+      ref={ref}
       className={styles.bar}
-      style={{ left: x, top: y }}
-      onClick={(e) => e.stopPropagation()}
-      role="toolbar"
-      aria-label="Реакции"
+      style={position}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Tab') {
+          e.stopPropagation();
+          if (e.key === 'Escape') e.preventDefault();
+          close(null);
+        }
+      }}
     >
-      {emojis.map((emoji) => (
-        <button
-          key={emoji}
-          type="button"
-          onClick={() => toggleReaction(picker.messageId, emoji)}
-        >
-          {emoji}
-        </button>
-      ))}
+      <ReactionBar
+        emojis={emojis}
+        onSelect={(emoji) => {
+          close(null);
+          void toggle(picker.messageId, emoji);
+        }}
+      />
     </div>
   );
 }

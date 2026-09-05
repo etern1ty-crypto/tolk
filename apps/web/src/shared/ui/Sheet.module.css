@@ -2,84 +2,152 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: fadeIn 0.14s ease-out both;
+  background: rgba(0, 0, 0, 0.6);
+  animation: none !important;
+  transition: none !important;
 }
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes sheetUp {
-  from {
-    transform: translateY(12px);
-    opacity: 0.92;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .overlay,
-  .sheet {
-    animation: none !important;
-  }
-}
-
-@media (min-width: 768px) {
-  .overlay {
-    align-items: center;
-    padding: 24px;
-  }
-}
-
 .sheet {
-  width: min(100%, 440px);
-  max-height: min(82vh, 640px);
-  background: var(--bg-sheet);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-  padding: 10px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  bottom: 0;
+  left: max(0px, calc((100vw - 480px) / 2));
+  right: max(0px, calc((100vw - 480px) / 2));
+  z-index: 61;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: 0;
+  background: var(--bg-sheet);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px 20px 0 0;
   box-shadow: var(--shadow-lg);
-  animation: sheetUp 0.16s ease-out both;
+  padding: 0 16px max(16px, env(safe-area-inset-bottom));
+  outline: none;
+  animation: none !important;
+  transition: none !important;
+  will-change: transform;
 }
-
-@media (min-width: 768px) {
-  .sheet {
-    border-radius: var(--radius-sheet);
-    padding-bottom: 20px;
-  }
-}
-
-.wide {
-  width: min(100%, 480px);
-}
-
 .handle {
+  flex: 0 0 28px;
+  width: 100%;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  cursor: grab;
+}
+.handle span {
   width: 36px;
   height: 4px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.14);
-  margin: 4px auto 14px;
+  background: var(--text-secondary);
 }
-
+.handle:active {
+  cursor: grabbing;
+  transform: scale(0.97);
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding-bottom: 8px;
+  flex-shrink: 0;
+}
 .title {
-  margin: 0 0 12px;
-  font-size: 17px;
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
   font-weight: 650;
   letter-spacing: -0.02em;
+}
+.close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.content {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 1024px) {
+  .sheet {
+    bottom: auto;
+    top: max(24px, calc((100dvh - min(720px, 86dvh)) / 2));
+    left: calc((100vw - 480px) / 2);
+    right: auto;
+    width: 480px;
+    border-radius: 20px;
+    padding: 16px;
+  }
+  .wide {
+    width: 640px;
+    left: calc((100vw - 640px) / 2);
+  }
+  .handle {
+    display: none;
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .close:hover {
+    background: var(--bg-hover);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .overlay {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* The frame centers the actual content height and stays above the visual keyboard. */
+.frame {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 61;
+}
+.sheet {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  width: min(100%, 480px);
+  pointer-events: auto;
+}
+.handle {
+  min-height: 44px;
+  flex-basis: 44px;
+}
+@media (min-width: 1024px) {
+  .frame {
+    align-items: center;
+    padding: 24px;
+  }
+  .sheet {
+    top: auto;
+    left: auto;
+  }
+  .wide {
+    width: min(640px, 100%);
+  }
 }

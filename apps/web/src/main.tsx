@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { Toast } from './features/shell/Toast';
 import { ErrorBoundary } from './shared/ui/ErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
@@ -10,8 +11,9 @@ createRoot(document.getElementById('root')!).render(
         оставить человека перед белой страницей. */}
     <ErrorBoundary>
       <App />
+      <Toast />
     </ErrorBoundary>
-  </StrictMode>
+  </StrictMode>,
 );
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
