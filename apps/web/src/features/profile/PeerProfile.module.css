@@ -195,16 +195,29 @@
 }
 
 .lastSeen {
-  margin: 2px 0 6px;
+  margin: 4px 0 8px;
   font-size: 13px;
   color: var(--text-tertiary);
+  font-weight: 450;
+  letter-spacing: -0.01em;
 }
 
 .online {
-  margin: 2px 0 6px;
+  margin: 4px 0 8px;
   font-size: 13px;
-  color: #10b981;
+  color: #34d399;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.online::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
 }
 
 .bio {
@@ -217,53 +230,71 @@
 .actionRow {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 16px;
   margin-bottom: 24px;
 }
 
-.cta {
+.actionRow > button,
+.actionRow > .cta,
+.actionRow > .friendCta,
+.actionRow > .friendCtaPending {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 12px 28px;
-  border-radius: 999px;
-  background: #f4f4f5;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  white-space: nowrap;
+}
+
+.cta {
+  background: #ffffff;
   color: #0a0a0b;
-  font-weight: 750;
-  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cta:hover {
+    background: #f4f4f5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
+  }
+}
+
+.cta:active {
+  transform: scale(0.97);
 }
 
 .friendCta {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 22px;
-  border-radius: 999px;
-  background: var(--accent-dim);
-  border: 1px solid var(--accent-dim);
-  color: var(--accent);
-  font-weight: 750;
-  cursor: pointer;
-  transition: transform 0.18s ease;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .friendCta:hover {
-    background: var(--accent-dim);
-    border-color: var(--accent-dim);
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.22);
+    transform: translateY(-1px);
   }
 }
 
+.friendCta:active {
+  transform: scale(0.97);
+}
+
 .friendCtaPending {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 22px;
-  border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-tertiary);
-  font-weight: 650;
   cursor: default;
   opacity: 0.7;
 }

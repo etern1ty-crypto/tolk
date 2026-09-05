@@ -319,7 +319,7 @@ export function SettingsOverlay() {
             <div className={styles.stack}>
               <div className={styles.sectionTitle}>Тема сайта</div>
               <p className={styles.note}>
-                Стена, профиль, оболочка. Обоев чата здесь нет — они в «Чаты» и в ⋯ диалога.
+                Стена, профиль, оформление оболочки приложения.
               </p>
               <div className={styles.segRow} role="group" aria-label="Тема">
                 <button
@@ -337,6 +337,18 @@ export function SettingsOverlay() {
                   Светлая
                 </button>
               </div>
+
+              <div className={styles.divider} />
+              <div className={styles.sectionTitle}>Обои и фон чатов</div>
+              <p className={styles.note}>
+                Фон диалогов по умолчанию. Внутри любого чата можно задать индивидуальный через ⋯ → Оформление.
+              </p>
+              <ChatThemePicker
+                value={globalChatThemeId}
+                onSelect={setGlobalChatTheme}
+                allowCustom
+                showLivePreview
+              />
 
               <div className={styles.divider} />
               <div className={styles.sectionTitle}>Шрифт интерфейса</div>

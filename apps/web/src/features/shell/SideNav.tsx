@@ -1,4 +1,4 @@
-import { Command, MessageCircle, Newspaper, Search, ShieldCheck } from 'lucide-react';
+import { Command, MessageCircle, Newspaper, ShieldCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import type { MainTab } from '../../shared/types';
@@ -23,7 +23,6 @@ export function SideNav() {
     const list = [
       { id: 'chats' as MainTab, label: 'Чаты', Icon: MessageCircle },
       { id: 'wall' as MainTab, label: 'Стена', Icon: Newspaper },
-      { id: 'search' as MainTab, label: 'Поиск', Icon: Search },
     ];
     if (isAdmin) {
       list.push({ id: 'admin' as MainTab, label: 'Админка', Icon: ShieldCheck });

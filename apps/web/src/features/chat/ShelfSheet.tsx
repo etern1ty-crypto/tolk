@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { ArrowRight, Bookmark, Trash2, X } from 'lucide-react';
 import { useAppStore } from '../../store/appStore';
 import { useIsDesktop } from '../../shared/lib/useMediaQuery';
 import { iconProps } from '../../shared/ui/icons';
@@ -34,39 +34,53 @@ export function ShelfSheet() {
         </button>
       </header>
       {items.length === 0 ? (
-        <p className={styles.empty}>Пусто. Удержание на сообщении → «На полку»</p>
+        <div className={styles.emptyWrap}>
+          <div className={styles.emptyIcon}>
+            <Bookmark size={26} strokeWidth={1.5} />
+          </div>
+          <p className={styles.emptyTitle}>Полка пуста</p>
+          <p className={styles.emptySub}>
+            ПКМ или удержание на сообщении → «На полку», чтобы сохранить важное здесь
+          </p>
+        </div>
       ) : (
         <ul className={styles.list}>
           {items.map((item) => (
-            <li key={item.id}>
+            <li
+              key={item.id}
+              className={styles.card}
+              onClick={() => {
+                setShelfOpen(false);
+                document
+                  .getElementById(`msg-${item.messageId}`)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                useAppStore.setState({ highlightMessageId: item.messageId });
+                window.setTimeout(
+                  () => useAppStore.setState({ highlightMessageId: null }),
+                  2000
+                );
+              }}
+            >
               {item.mediaUrl && (
                 <img src={item.mediaUrl} alt="" className={styles.thumb} />
               )}
-              <p>{item.text}</p>
-              <div className={styles.actions}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShelfOpen(false);
-                    document
-                      .getElementById(`msg-${item.messageId}`)
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    useAppStore.setState({ highlightMessageId: item.messageId });
-                    window.setTimeout(
-                      () => useAppStore.setState({ highlightMessageId: null }),
-                      2000
-                    );
-                  }}
-                >
-                  В чат
-                </button>
+              {item.text && <p className={styles.text}>{item.text}</p>}
+              <div className={styles.cardFooter}>
+                <span className={styles.jumpHint}>
+                  <span>К сообщению</span>
+                  <ArrowRight size={13} />
+                </span>
                 <button
                   type="button"
                   className={styles.remove}
                   aria-label="Убрать с полки"
-                  onClick={() => removeFromShelf(item.id)}
+                  title="Убрать с полки"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFromShelf(item.id);
+                  }}
                 >
-                  <X size={16} strokeWidth={iconProps.strokeWidth} />
+                  <Trash2 size={15} strokeWidth={iconProps.strokeWidth} />
                 </button>
               </div>
             </li>

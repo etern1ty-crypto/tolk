@@ -37,10 +37,7 @@ export function MainShell() {
 
       if (e.key === '/' && !typing) {
         e.preventDefault();
-        setMainTab('search');
-        window.requestAnimationFrame(() => {
-          document.getElementById('tolk-global-search')?.focus();
-        });
+        window.dispatchEvent(new Event('tolk:command-menu'));
         return;
       }
 

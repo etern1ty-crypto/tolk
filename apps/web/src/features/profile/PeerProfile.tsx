@@ -24,10 +24,32 @@ export function formatLastSeen(ts?: number) {
   if (!ts) return 'был(а) недавно';
   const d = new Date(ts);
   const now = new Date();
-  const isToday = d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  if (isToday) return `был(а) сегодня в ${time}`;
-  return `был(а) ${d.toLocaleDateString()} в ${time}`;
+  const diffMs = now.getTime() - d.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  
+  if (diffMinutes < 2) return 'был(а) только что';
+  if (diffMinutes < 60) return `был(а) ${diffMinutes} мин назад`;
+
+  const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86400000;
+
+  if (d.getTime() >= startOfToday) {
+    return `был(а) сегодня в ${time}`;
+  }
+  if (d.getTime() >= startOfYesterday) {
+    return `был(а) вчера в ${time}`;
+  }
+
+  const isCurrentYear = d.getFullYear() === now.getFullYear();
+  const dateFormatted = d.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    ...(isCurrentYear ? {} : { year: 'numeric' }),
+  });
+
+  return `был(а) ${dateFormatted} в ${time}`;
 }
 
 export function PeerProfile() {

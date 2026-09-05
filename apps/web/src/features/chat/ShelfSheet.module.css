@@ -96,85 +96,129 @@
   color: var(--text-tertiary);
 }
 
-.empty {
+.emptyWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 16px;
+  gap: 8px;
+}
+
+.emptyIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-tertiary);
-  font-size: 14px;
-  margin: 8px 0;
-  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.emptySub {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  max-width: 260px;
+  margin: 0;
 }
 
 .list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 4px 0 12px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 10px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
 }
 
-.list li {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  /* hairline list, not cards */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
 }
 
-.list li p {
-  margin: 0 0 8px;
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.text {
+  margin: 0;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text-primary);
+  word-break: break-word;
 }
 
 .thumb {
   width: 100%;
-  max-height: min(52vh, 420px);
-  object-fit: contain;
-  object-position: center;
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: var(--radius-media);
-  margin-bottom: 8px;
-  display: block;
-  border: 1px solid var(--border-subtle);
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.actions {
+.cardFooter {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.list li button {
-  color: var(--text-primary);
-  font-size: 13px;
+.jumpHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 600;
-  min-height: 36px;
-  padding: 6px 4px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .list li button:hover {
-    color: var(--text-secondary);
-  }
+  color: var(--accent);
 }
 
 .remove {
-  margin-left: auto;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  color: var(--text-tertiary) !important;
+  color: var(--text-tertiary);
   background: transparent;
-  padding: 0 !important;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .remove:hover {
-    background: var(--bg-hover) !important;
-    color: var(--text-primary) !important;
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
   }
 }

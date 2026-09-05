@@ -6,11 +6,12 @@
 
 .livePreview {
   position: relative;
-  height: 120px;
-  border-radius: 16px;
+  height: 140px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0d0f12;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .livePattern,
@@ -25,47 +26,55 @@
 .liveBubbles {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 6px;
-  padding: 12px 14px 28px;
+  gap: 8px;
+  padding: 14px 16px;
   pointer-events: none;
 }
 
 .liveTheirs,
 .liveMine {
-  max-width: 70%;
-  padding: 7px 11px;
-  border-radius: 14px;
-  font-size: 12px;
-  font-weight: 600;
+  max-width: 72%;
+  padding: 8px 13px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .liveTheirs {
   align-self: flex-start;
-  background: rgba(28, 28, 30, 0.92);
-  color: #f5f5f5;
+  background: rgba(36, 39, 46, 0.95);
+  backdrop-filter: blur(12px);
+  color: #f5f5f7;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom-left-radius: 4px;
 }
 
 .liveMine {
   align-self: flex-end;
-  background: rgba(232, 232, 232, 0.95);
-  color: #0a0a0a;
+  background: #ffffff;
+  color: #0b0c0e;
+  border-bottom-right-radius: 4px;
 }
 
 .liveLabel {
   position: absolute;
-  top: 10px;
-  left: 12px;
-  z-index: 2;
+  top: 12px;
+  left: 14px;
+  z-index: 3;
   font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
+  font-weight: 650;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .grid {
