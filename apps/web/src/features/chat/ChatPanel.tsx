@@ -662,6 +662,16 @@ export function ChatPanel() {
     setSwipeX(0);
   };
 
+  if (!activeChatId || !chat) {
+    return (
+      <section className={styles.root} style={{ display: 'grid', placeItems: 'center', minHeight: '100%' }}>
+        <div style={{ color: 'var(--text-tertiary)', fontSize: '15px' }}>
+          Выберите чат для начала общения
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.root} aria-label={`Чат ${chat.title}`}>
       {customWp ? (

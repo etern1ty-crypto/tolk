@@ -2130,8 +2130,13 @@ export const useAppStore = create<AppState>()(
 
           const activeId = get().activeChatId;
           if (activeId) {
-            const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
-            set({ messages: msgs });
+            try {
+              const msgs = await fetchApi(`/chats/${activeId}/messages`, {}, token);
+              set({ messages: msgs });
+            } catch (err) {
+              console.warn('Active chat messages load failed:', err);
+              set({ activeChatId: null, messages: [] });
+            }
           }
         } catch (err: any) {
           console.error('API initialization failed:', err);
